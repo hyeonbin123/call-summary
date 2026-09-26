@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8072:8072"
+    environment:
+      # The model is served by Ollama on the host (GPU); the container only holds the API.
+      OLLAMA_URL: http://host.docker.internal:11434
+      CALL_SUMMARY_MODEL: ${CALL_SUMMARY_MODEL:-qwen2.5:7b-instruct}
+      CALL_SUMMARY_NUM_GPU: ${CALL_SUMMARY_NUM_GPU:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8072/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

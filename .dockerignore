@@ -1,0 +1,14 @@
+.git
+.venv*
+.pytest-tmp*
+.ruff_cache
+__pycache__
+data
+outputs
+work
+reports
+tests
+docs
+*.md
+!README.md
+.env*
