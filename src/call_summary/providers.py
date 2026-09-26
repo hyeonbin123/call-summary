@@ -51,6 +51,7 @@ class OllamaProvider:
     temperature: float = 0.0
     num_ctx: int = 8192
     num_predict: int = 1024
+    num_gpu: int | None = None  # layers on GPU; None lets Ollama decide (it can overfill VRAM on Windows)
     seed: int = 0
     keep_alive: str = "30m"
     timeout_s: float = 600.0
@@ -76,6 +77,8 @@ class OllamaProvider:
                 "seed": self.seed,
             },
         }
+        if self.num_gpu is not None:
+            body["options"]["num_gpu"] = self.num_gpu
         if self.think is not None:
             body["think"] = self.think
         if self.use_schema and json_schema is not None:

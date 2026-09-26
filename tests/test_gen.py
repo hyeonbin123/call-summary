@@ -163,3 +163,16 @@ def test_take_first_keeps_index_order_per_domain():
     assert len(got) == 10
     parcel = next(it for it in items if it.domain == "parcel")
     assert id_values(parcel) and all("-" not in v for v in id_values(parcel))
+
+
+def test_generate_item_survives_request_errors():
+    class Boom:
+        name = "boom"
+
+        def generate(self, messages, json_schema=None):
+            raise TimeoutError("slow")
+
+    s = make_spec("dev", "shop", 5)
+    item, problems, stats = generate_item(s, Boom(), Boom(), max_tries=2)
+    assert item is None and problems == ["request failed: TimeoutError"]
+    assert stats["dialogue_tries"] == 2 and stats["failed_requests"] == 2
