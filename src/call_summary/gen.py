@@ -214,15 +214,22 @@ def _parse_json(text: str, key: str) -> object | None:
     return data.get(key) if isinstance(data, dict) else None
 
 
+def _reseed(provider: Provider, seed: int | None, attempt: int) -> None:
+    """A different sampling seed per try, so a retry is not a replay of the rejected output."""
+    if seed is not None and hasattr(provider, "seed"):
+        provider.seed = seed + attempt  # type: ignore[attr-defined]
+
+
 def generate_item(
-    spec: Spec, writer: Provider, summarizer: Provider, max_tries: int = 3
+    spec: Spec, writer: Provider, summarizer: Provider, max_tries: int = 3, seed: int | None = None
 ) -> tuple[Item | None, list[str], dict]:
     """Returns (item or None, problems of the last try, stats)."""
     stats: dict = {"dialogue_tries": 0, "summary_tries": 0, "seconds": 0.0}
     problems: list[str] = []
     turns: list[dict] | None = None
-    for _ in range(max_tries):
+    for attempt in range(max_tries):
         stats["dialogue_tries"] += 1
+        _reseed(writer, seed, attempt)
         try:
             reply = writer.generate(
                 [{"role": "user", "content": writer_prompt(spec)}], json_schema=TURNS_SCHEMA
@@ -245,12 +252,14 @@ def generate_item(
         if not problems:
             turns = cand
             break
+        stats["last_rejected"] = cand
     if turns is None:
         return None, problems, stats
 
     item = Item(item_id=spec.spec_id, split=spec.split, domain=spec.domain, spec=spec, turns=turns)
-    for _ in range(max_tries):
+    for attempt in range(max_tries):
         stats["summary_tries"] += 1
+        _reseed(summarizer, seed, 100 + attempt)
         try:
             reply = summarizer.generate(
                 [{"role": "user", "content": summarizer_prompt(spec, item.transcript)}],
@@ -269,7 +278,9 @@ def generate_item(
         problems = check_summary(spec, summary)
         if not problems:
             item.summary = summary
+            stats.pop("last_rejected", None)
             return item, [], stats
+        stats["last_rejected"] = summary
     return None, problems, stats
 
 
@@ -309,8 +320,9 @@ def main(argv: list[str] | None = None) -> int:
     ):
         for n, spec in enumerate(todo, 1):
             # A different sampling seed per spec keeps runs reproducible yet varied.
-            writer.seed = summarizer.seed = zlib.crc32(spec.spec_id.encode())
-            item, problems, stats = generate_item(spec, writer, summarizer)
+            item, problems, stats = generate_item(
+                spec, writer, summarizer, seed=zlib.crc32(spec.spec_id.encode())
+            )
             if item is not None:
                 item.source = f"teacher:{args.model}"
                 item.meta = {"writer_version": WRITER_VERSION, **stats}

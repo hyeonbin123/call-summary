@@ -176,3 +176,24 @@ def test_generate_item_survives_request_errors():
     item, problems, stats = generate_item(s, Boom(), Boom(), max_tries=2)
     assert item is None and problems == ["request failed: TimeoutError"]
     assert stats["dialogue_tries"] == 2 and stats["failed_requests"] == 2
+
+
+def test_retries_use_a_different_seed_and_keep_the_rejected_text():
+    from call_summary.providers import OllamaProvider
+
+    class Seeded(OllamaProvider):
+        def __init__(self):
+            super().__init__(model="x")
+            self.seen = []
+
+        def generate(self, messages, json_schema=None):
+            self.seen.append(self.seed)
+            from call_summary.providers import Reply
+
+            return Reply(text='{"turns": [{"speaker": "고객", "text": "짧다"}]}', latency_s=0)
+
+    s = make_spec("dev", "shop", 5)
+    w = Seeded()
+    item, problems, stats = generate_item(s, w, w, max_tries=3, seed=1000)
+    assert item is None and w.seen == [1000, 1001, 1002]
+    assert stats["last_rejected"][0]["text"] == "짧다"
