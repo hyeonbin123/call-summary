@@ -142,29 +142,46 @@ class HFProvider:
         self._model, self._tok = model, tok
 
     def generate(self, messages: list[dict], json_schema: dict | None = None) -> Reply:
+        return self.generate_batch([messages])[0]
+
+    def generate_batch(self, batch: list[list[dict]]) -> list[Reply]:
+        """Greedy decoding of several conversations at once (left padding). Latency is the batch's
+        wall time divided evenly, so per-item latency is only comparable between runs with batch size 1."""
         import torch
 
         self._load()
         tok, model = self._tok, self._model
-        template_kwargs = {"enable_thinking": self.enable_thinking}
-        prompt = tok.apply_chat_template(  # type: ignore[attr-defined]
-            messages, tokenize=False, add_generation_prompt=True, **template_kwargs
-        )
-        enc = tok(prompt, return_tensors="pt").to("cuda")  # type: ignore[operator]
+        prompts = [
+            tok.apply_chat_template(  # type: ignore[attr-defined]
+                m, tokenize=False, add_generation_prompt=True, enable_thinking=self.enable_thinking
+            )
+            for m in batch
+        ]
+        tok.padding_side = "left"  # type: ignore[attr-defined]
+        if tok.pad_token is None:  # type: ignore[attr-defined]
+            tok.pad_token = tok.eos_token  # type: ignore[attr-defined]
+        # Same tokenization as training (train.encode): the chat template already holds special tokens.
+        enc = tok(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to("cuda")  # type: ignore[operator]
         t0 = time.perf_counter()
         with torch.no_grad():
             out = model.generate(  # type: ignore[attr-defined]
                 **enc,
                 max_new_tokens=self.max_new_tokens,
                 do_sample=False,
-                pad_token_id=tok.eos_token_id,  # type: ignore[attr-defined]
+                pad_token_id=tok.pad_token_id,  # type: ignore[attr-defined]
             )
-        latency = time.perf_counter() - t0
-        new = out[0, enc["input_ids"].shape[1] :]
-        text = tok.decode(new, skip_special_tokens=True)  # type: ignore[attr-defined]
-        return Reply(
-            text=text,
-            latency_s=latency,
-            prompt_tokens=int(enc["input_ids"].shape[1]),
-            completion_tokens=int(new.shape[0]),
-        )
+        latency = (time.perf_counter() - t0) / len(batch)
+        width = enc["input_ids"].shape[1]
+        replies = []
+        for i in range(len(batch)):
+            new = out[i, width:]
+            n_new = int((new != tok.pad_token_id).sum())  # type: ignore[attr-defined]
+            replies.append(
+                Reply(
+                    text=tok.decode(new, skip_special_tokens=True),  # type: ignore[attr-defined]
+                    latency_s=latency,
+                    prompt_tokens=int(enc["attention_mask"][i].sum()),
+                    completion_tokens=n_new,
+                )
+            )
+        return replies

@@ -18,7 +18,7 @@ from pathlib import Path
 
 from .dataset import Item, load_items, write_jsonl
 from .prompts import PROMPT_VERSION, build_messages, prompt_hash
-from .providers import HFProvider, OllamaProvider, Provider
+from .providers import HFProvider, OllamaProvider, Provider, Reply
 from .schema import AfterCallRecord, parse_reply, record_json_schema
 from .scoring import METRICS, ItemScore, bootstrap_ci, score_item, summarize
 
@@ -55,14 +55,39 @@ def run_items(
     items: Sequence[Item],
     shots_for: Callable[[str], list[tuple[str, AfterCallRecord]]] | None = None,
     progress: bool = False,
+    batch_size: int = 1,
 ) -> tuple[list[dict], list[ItemScore]]:
+    """Rows and scores in the order of `items`. With batch_size > 1 (providers with generate_batch),
+    items are grouped by transcript length to cut padding."""
     schema = record_json_schema()
+    messages = [
+        build_messages(it.domain, it.transcript, shots_for(it.domain) if shots_for else None) for it in items
+    ]
+    replies: list[Reply | None] = [None] * len(items)
+    batched = batch_size > 1 and hasattr(provider, "generate_batch")
+    order = (
+        sorted(range(len(items)), key=lambda i: len(items[i].transcript))
+        if batched
+        else list(range(len(items)))
+    )
+    step = batch_size if batched else 1
+    done = 0
+    for start in range(0, len(order), step):
+        idx = order[start : start + step]
+        if batched:
+            got = provider.generate_batch([messages[i] for i in idx])  # type: ignore[attr-defined]
+        else:
+            got = [provider.generate(messages[idx[0]], json_schema=schema)]
+        for i, r in zip(idx, got, strict=True):
+            replies[i] = r
+        done += len(idx)
+        if progress and (done % 10 < len(idx) or done == len(items)):
+            print(f"[{done}/{len(items)}] last={got[-1].latency_s:.1f}s/item", file=sys.stderr, flush=True)
+
     rows: list[dict] = []
     scores: list[ItemScore] = []
-    for n, it in enumerate(items, 1):
-        shots = shots_for(it.domain) if shots_for else None
-        messages = build_messages(it.domain, it.transcript, shots)
-        reply = provider.generate(messages, json_schema=schema)
+    for it, reply in zip(items, replies, strict=True):
+        assert reply is not None
         parsed = parse_reply(reply.text)
         score = score_item(it.item_id, it.domain, it.gold(), parsed, it.transcript)
         scores.append(score)
@@ -79,14 +104,6 @@ def run_items(
                 "score": score.to_dict(),
             }
         )
-        if progress and (n % 10 == 0 or n == len(items)):
-            done = scores
-            print(
-                f"[{n}/{len(items)}] schema={sum(s.schema_ok for s in done) / len(done):.3f} "
-                f"exact={sum(s.exact for s in done) / len(done):.3f} last={reply.latency_s:.1f}s",
-                file=sys.stderr,
-                flush=True,
-            )
     return rows, scores
 
 
@@ -127,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--schema", action="store_true", help="constrained JSON decoding (ollama backend)")
     ap.add_argument("--shots", type=int, default=0)
     ap.add_argument("--shot-pool", help="JSONL to draw few-shot examples from (needs summaries)")
+    ap.add_argument("--batch", type=int, default=1, help="batch size (hf backend)")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--label", default="")
     ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
@@ -184,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         "shots": args.shots,
         "shot_pool": args.shot_pool,
         "schema_constrained": args.schema,
+        "batch": args.batch,
         "prompt_version": PROMPT_VERSION,
         "prompt_hash": prompt_hash(),
         "git_commit": _git("rev-parse", "HEAD"),
@@ -194,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    rows, scores = run_items(provider, items, shots_for, progress=True)
+    rows, scores = run_items(provider, items, shots_for, progress=True, batch_size=args.batch)
     write_jsonl(out_dir / "items.jsonl", rows)
     table = summary_table(scores)
     lat = sorted(r["latency_s"] for r in rows)

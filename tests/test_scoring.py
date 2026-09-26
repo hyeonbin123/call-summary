@@ -145,3 +145,25 @@ def test_run_items_with_scripted_provider():
     # 1 system + 2 shots * 2 + 1 user
     assert len(provider.calls[0]) == 6
     assert provider.calls[0] == build_messages("shop", items[0].transcript, pick_shots(pool, "shop", 2))
+
+
+def test_run_items_batched_keeps_order():
+    from call_summary.providers import Reply
+
+    items = [_item(i, category=None) for i in range(7)]
+    by_transcript = {it.transcript: record_to_json(it.gold()) for it in items}
+
+    class Batcher(ScriptedProvider):
+        def generate_batch(self, batch):
+            self.calls.append(batch)
+            out = []
+            for m in batch:
+                body = m[-1]["content"].split("상담 대화:\n", 1)[1].rsplit("\n\n상담 기록 JSON:", 1)[0]
+                out.append(Reply(text=by_transcript[body], latency_s=0.0))
+            return out
+
+    p = Batcher(replies=[])
+    rows, scores = run_items(p, items, batch_size=3)
+    assert [r["item_id"] for r in rows] == [it.item_id for it in items]
+    assert all(s.exact for s in scores)
+    assert [len(b) for b in p.calls] == [3, 3, 1]
