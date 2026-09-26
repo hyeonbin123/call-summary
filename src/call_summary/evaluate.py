@@ -1,0 +1,209 @@
+"""Run a model over a dataset file and score the structured fields.
+
+Output: <out>/<run_id>/manifest.json, items.jsonl (raw reply + parse + per-item score), summary.json.
+Official runs (--official) need a clean git tree and write under reports/ so they can be committed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import random
+import subprocess
+import sys
+import time
+from collections.abc import Callable, Sequence
+from pathlib import Path
+
+from .dataset import Item, load_items, write_jsonl
+from .prompts import PROMPT_VERSION, build_messages, prompt_hash
+from .providers import HFProvider, OllamaProvider, Provider
+from .schema import AfterCallRecord, parse_reply, record_json_schema
+from .scoring import METRICS, ItemScore, bootstrap_ci, score_item, summarize
+
+HEADLINE = (
+    "schema",
+    "exact",
+    "category_acc",
+    "resolution_acc",
+    "entity_f1",
+    "hallucination",
+    "action_f1",
+    "follow_up_acc",
+)
+
+
+def pick_shots(pool: Sequence[Item], domain: str, k: int, seed: int = 0) -> list[tuple[str, AfterCallRecord]]:
+    """k fixed examples of one domain, different categories where possible. Needs reference summaries."""
+    cands = [it for it in pool if it.domain == domain and it.summary]
+    rng = random.Random(f"shots:{domain}:{seed}")
+    rng.shuffle(cands)
+    chosen: list[Item] = []
+    seen_cats: set[str] = set()
+    for it in cands:
+        if it.spec.category not in seen_cats:
+            chosen.append(it)
+            seen_cats.add(it.spec.category)
+        if len(chosen) == k:
+            break
+    return [(it.transcript, it.gold()) for it in chosen]
+
+
+def run_items(
+    provider: Provider,
+    items: Sequence[Item],
+    shots_for: Callable[[str], list[tuple[str, AfterCallRecord]]] | None = None,
+    progress: bool = False,
+) -> tuple[list[dict], list[ItemScore]]:
+    schema = record_json_schema()
+    rows: list[dict] = []
+    scores: list[ItemScore] = []
+    for n, it in enumerate(items, 1):
+        shots = shots_for(it.domain) if shots_for else None
+        messages = build_messages(it.domain, it.transcript, shots)
+        reply = provider.generate(messages, json_schema=schema)
+        parsed = parse_reply(reply.text)
+        score = score_item(it.item_id, it.domain, it.gold(), parsed, it.transcript)
+        scores.append(score)
+        rows.append(
+            {
+                "item_id": it.item_id,
+                "domain": it.domain,
+                "reply": reply.text,
+                "latency_s": round(reply.latency_s, 3),
+                "prompt_tokens": reply.prompt_tokens,
+                "completion_tokens": reply.completion_tokens,
+                "parse_error": parsed.error,
+                "pred": parsed.record.model_dump() if parsed.record else None,
+                "score": score.to_dict(),
+            }
+        )
+        if progress and (n % 10 == 0 or n == len(items)):
+            done = scores
+            print(
+                f"[{n}/{len(items)}] schema={sum(s.schema_ok for s in done) / len(done):.3f} "
+                f"exact={sum(s.exact for s in done) / len(done):.3f} last={reply.latency_s:.1f}s",
+                file=sys.stderr,
+                flush=True,
+            )
+    return rows, scores
+
+
+def _git(*args: str) -> str:
+    try:
+        return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def summary_table(scores: Sequence[ItemScore], n_boot: int = 2000) -> dict:
+    out: dict = {"n": len(scores), "point": summarize(scores), "ci95": {}}
+
+    for name in HEADLINE:
+        _, lo, hi = bootstrap_ci(scores, METRICS[name], n_boot=n_boot)
+        out["ci95"][name] = [lo, hi]
+    schema_only = [s for s in scores if s.schema_ok]
+    out["schema_ok_only"] = {"n": len(schema_only), "point": summarize(schema_only)}
+    by_domain = {}
+    for dom in sorted({s.domain for s in scores}):
+        sub = [s for s in scores if s.domain == dom]
+        by_domain[dom] = {"n": len(sub), "point": summarize(sub)}
+    out["by_domain"] = by_domain
+    return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--data", required=True, help="dataset JSONL")
+    ap.add_argument("--backend", choices=["ollama", "hf"], default="ollama")
+    ap.add_argument("--model", required=True, help="Ollama model name or HF model id/path")
+    ap.add_argument("--adapter", help="PEFT adapter dir (hf backend)")
+    ap.add_argument("--load-4bit", action="store_true")
+    ap.add_argument("--schema", action="store_true", help="constrained JSON decoding (ollama backend)")
+    ap.add_argument("--shots", type=int, default=0)
+    ap.add_argument("--shot-pool", help="JSONL to draw few-shot examples from (needs summaries)")
+    ap.add_argument("--limit", type=int)
+    ap.add_argument("--label", default="")
+    ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
+    ap.add_argument("--allow-test", action="store_true", help="needed for test-* splits")
+    args = ap.parse_args(argv)
+
+    data_path = Path(args.data)
+    items = load_items(data_path)
+    splits = {it.split for it in items}
+    if any(s.startswith("test") for s in splits) and not args.allow_test:
+        ap.error(
+            f"{data_path} holds test items ({sorted(splits)}); "
+            "pass --allow-test once the stage's pick is fixed"
+        )
+    if args.limit:
+        items = items[: args.limit]
+    if args.official:
+        if args.limit:
+            ap.error("--official runs use the whole file")
+        if _git("status", "--porcelain", "--untracked-files=no"):
+            ap.error("--official needs a clean working tree (commit the rules first)")
+
+    provider: Provider
+    if args.backend == "ollama":
+        provider = OllamaProvider(model=args.model, use_schema=args.schema)
+    else:
+        provider = HFProvider(model_id=args.model, adapter=args.adapter, load_4bit=args.load_4bit)
+
+    shots_for: Callable[[str], list[tuple[str, AfterCallRecord]]] | None = None
+    if args.shots:
+        if not args.shot_pool:
+            ap.error("--shots needs --shot-pool")
+        pool = load_items(args.shot_pool)
+        cache: dict[str, list] = {}
+
+        def _shots(domain: str) -> list[tuple[str, AfterCallRecord]]:
+            if domain not in cache:
+                cache[domain] = pick_shots(pool, domain, args.shots)
+            return cache[domain]
+
+        shots_for = _shots
+
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    safe_model = args.model.replace("/", "_").replace(":", "_")
+    run_id = f"{stamp}-{safe_model}" + (f"-{args.label}" if args.label else "")
+    out_dir = Path("reports" if args.official else "outputs/runs") / run_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest = {
+        "run_id": run_id,
+        "provider": provider.name,
+        "data": str(data_path),
+        "data_sha": _file_hash(data_path),
+        "n_items": len(items),
+        "shots": args.shots,
+        "shot_pool": args.shot_pool,
+        "schema_constrained": args.schema,
+        "prompt_version": PROMPT_VERSION,
+        "prompt_hash": prompt_hash(),
+        "git_commit": _git("rev-parse", "HEAD"),
+        "official": args.official,
+        "argv": sys.argv[1:] if argv is None else argv,
+        "started": stamp,
+    }
+    (out_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    rows, scores = run_items(provider, items, shots_for, progress=True)
+    write_jsonl(out_dir / "items.jsonl", rows)
+    table = summary_table(scores)
+    lat = sorted(r["latency_s"] for r in rows)
+    table["latency_s"] = {"p50": lat[len(lat) // 2], "p95": lat[int(0.95 * (len(lat) - 1))]} if lat else {}
+    (out_dir / "summary.json").write_text(json.dumps(table, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps({k: round(v, 4) for k, v in table["point"].items()}, ensure_ascii=False))
+    print(f"-> {out_dir}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

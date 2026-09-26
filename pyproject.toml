@@ -1,0 +1,55 @@
+[project]
+name = "call-summary"
+version = "0.1.0"
+description = "Turn Korean call-center transcripts into structured after-call records with a fine-tuned small LLM, and measure it with pre-registered rules"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.6",
+]
+# Training and transformers inference (GPU). Nothing in the base package imports these at module level,
+# and the tests run without them.
+train = [
+    "torch==2.11.0",
+    "transformers>=5.0,<6",
+    "peft>=0.17",
+    "accelerate>=1.10",
+    "bitsandbytes>=0.47",
+    "safetensors>=0.5",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", group = "train" }]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/call_summary"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--basetemp=.pytest-tmp"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Korean prompt text is data; wrapping it would change the prompt.
+"src/call_summary/prompts.py" = ["E501"]
