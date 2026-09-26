@@ -145,3 +145,8 @@ def test_judge_parse_and_metrics():
     got = judge_summary(judge, s.spec_id, s, "대화", "요약입니다")
     assert got.ok and got.recall == 1.0
     assert judge_summary(judge, s.spec_id, s, "대화", "  ").recall == 0.0
+
+
+def test_foreign_script_is_rejected():
+    s = make_spec("dev", "telecom", 1)
+    assert "non-Korean script (Han/kana)" in check_dialogue(s, _turns(s, "明白了您的需求"))

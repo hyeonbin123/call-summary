@@ -126,6 +126,8 @@ def summarizer_prompt(spec: Spec, transcript: str) -> str:
     return _SUMMARIZER.format(company=d.company, label=d.label, transcript=transcript)
 
 
+# The writer model sometimes switches to Chinese mid-dialogue.
+_FOREIGN_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 _ID_LIKE = re.compile(r"(?<![\dA-Za-z\-])(?:[A-Z]\d{5,}|\d{2,5}(?:-\d{2,5}){1,3})(?![\dA-Za-z\-])")
 
 
@@ -148,6 +150,8 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
         problems.append(f"{same_in_row} consecutive same-speaker turns")
 
     text = "\n".join(t["text"] for t in turns)
+    if _FOREIGN_SCRIPT.search(text):
+        problems.append("non-Korean script (Han/kana)")
     d = DOMAINS[spec.domain]
     for sv in spec.slots:
         if sv.value not in text:
@@ -182,6 +186,8 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
 
 def check_summary(spec: Spec, summary: str) -> list[str]:
     problems = []
+    if _FOREIGN_SCRIPT.search(summary):
+        problems.append("non-Korean script (Han/kana)")
     n = len(re.findall(r"[.!?。]|[다함음됨] ", summary + " "))
     if not 2 <= n <= 8 or not 40 <= len(summary) <= 600:
         problems.append(f"length ({len(summary)} chars)")
