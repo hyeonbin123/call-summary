@@ -37,12 +37,28 @@ uv sync --group train
 uv run python -m call_summary.build_specs --split dev --per-domain 96 --out data/specs/dev.jsonl
 
 # 교사 모델로 대화·참고 요약 만들기 (Ollama, 이어서 하기 가능)
-uv run python -m call_summary.gen --specs data/specs/dev.jsonl --out data/dev.jsonl --model qwen2.5:14b-instruct
+uv run python -m call_summary.gen --specs data/specs/dev.jsonl --out data/raw/dev.jsonl --model qwen2.5:14b-instruct
 
-# 평가 (Ollama 또는 transformers)
+# 분할 확정: 업종마다 통과한 앞의 N건, train과 번호가 겹치는 test 건 제외, 거절 비율 보고
+uv run python -m call_summary.finalize
+
+# 평가 (Ollama 또는 transformers). 결과는 outputs/runs/<run_id>/, --official이면 reports/
 uv run python -m call_summary.evaluate --data data/dev.jsonl --backend ollama --model qwen2.5:7b-instruct
+uv run --no-sync python -m call_summary.evaluate --data data/dev.jsonl --backend hf --model Qwen/Qwen3-1.7B --batch 4
 uv run --no-sync python -m call_summary.evaluate --data data/dev.jsonl --backend hf --model Qwen/Qwen3-1.7B --adapter outputs/train/<run>/final
+
+# 요약 판정 (판정 모델), 사람 채점 양식, 실행 비교 표
+uv run python -m call_summary.judge_run --run outputs/runs/<run_id>
+uv run python -c "from call_summary.judge_run import hand_template_main as m; m()" --run outputs/runs/<run_id> --out work/hand.jsonl
+uv run python -m call_summary.compare outputs/runs/<a> outputs/runs/<b>
+uv run python -m call_summary.compare --paired outputs/runs/<a> outputs/runs/<b>
 
 # 학습 (LoRA, 4B는 --qlora)
 uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outputs/train/qwen3-1.7b
+
+# LoRA 합치기 → GGUF → Ollama 등록 (work/llama.cpp 필요)
+uv run --no-sync python -m call_summary.export --base Qwen/Qwen3-1.7B --adapter outputs/train/qwen3-1.7b/final --name call-summary-qwen3-1.7b --out outputs/export/qwen3-1.7b
+
+# 서비스
+CALL_SUMMARY_MODEL=call-summary-qwen3-1.7b:q8_0 uv run uvicorn call_summary.service:create_app --factory --port 8072
 ```
