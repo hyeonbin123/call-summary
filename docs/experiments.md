@@ -32,13 +32,13 @@
 (측정 후 기록)
 
 ## 2단계: 기준선 (초안. 2단계 시작 전에 확정)
-- 후보: qwen2.5 1.5B·7B·14B instruct (Ollama, 0-shot), Qwen3-1.7B, kanana-1.5-2.1b-instruct, Qwen3-4B (transformers fp16, 0-shot과 2-shot)
+- 후보: qwen2.5 1.5B·7B·14B instruct (Ollama, 0-shot), Qwen3-1.7B, Qwen3-4B (transformers fp16, 0-shot과 2-shot)
 - 7B는 JSON 스키마 강제 디코딩을 켠 것도 따로 잰다 (형식 문제와 내용 문제를 나눠 보기 위해)
 - 요약 판정: 판정 모델(qwen2.5 14B)이 요약과 명세의 사실 목록을 비교해 사실마다 포함/누락/틀림을 매긴다. dev 50건을 Claude가 같은 기준으로 채점하고 판정 모델과의 일치율(사실 단위)을 보고한다. 일치율이 0.8 미만이면 요약 지표는 참고치로만 쓴다
 - test-a는 2단계 끝에 학습 전 학생(가장 좋은 것), 7B, 14B만 한 번 잰다
 
 ## 3단계: 학습 (초안. 3단계 시작 전에 확정)
-- 학생 후보: Qwen3-1.7B, kanana-1.5-2.1b-instruct (LoRA, fp16), Qwen3-4B (QLoRA 4bit)
+- 학생 후보: Qwen3-1.7B (LoRA, fp16), Qwen3-4B (QLoRA 4bit)
 - 손실은 답(JSON) 부분만 계산한다. LoRA r=16, alpha=32, dropout 0.05, 모든 선형층, 학습률 2e-4 코사인, 2 epoch를 기본으로 하고 dev에서 고른다
 - 고르는 기준: dev `exact`, 같으면 `entity_f1`, 그다음 `hallucination`이 낮은 것
 - 판정 문장 (test-a·b·c, 짝지은 부트스트랩 95% 구간):
@@ -46,3 +46,7 @@
   - "7B를 넘음"/"14B를 넘음": 학습한 학생 − 해당 모델의 `exact` 차이 하한 > 0. 상한 < 0이면 "못 미침", 그 사이면 "구분 안 됨"
   - test-b·c에서 "학습 효과 있음"이 아니면 "생성기(또는 업종)에 맞춰진 이득"으로 적는다
 - 데이터 크기 곡선: 고른 학생으로 train 500 / 1,500 / 전체를 같은 설정으로 학습해 dev에서 비교한다
+
+## 계획과 달라진 것
+
+- 2026-09-26 kanana-1.5-2.1b-instruct를 학생 후보에서 뺐다. 이 모델의 설정(hidden 1792, 어텐션 헤드 24, head_dim 128)을 transformers 5.17의 설정 검사가 "hidden size가 헤드 수의 배수가 아니다"로 거부해 불러올 수 없고, llama.cpp 변환 스크립트도 같은 검사로 멈춘다. 우회(검사 끄기, transformers 4.x 별도 환경)는 측정 조건을 흔들어 쓰지 않았다
