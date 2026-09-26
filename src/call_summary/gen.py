@@ -268,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default="qwen2.5:14b-instruct")
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--limit", type=int)
+    ap.add_argument(
+        "--num-ctx", type=int, default=4096, help="small enough to keep the 14B model fully on GPU"
+    )
     args = ap.parse_args(argv)
 
     specs = [Spec.from_dict(d) for d in read_jsonl(args.specs)]
@@ -278,8 +281,16 @@ def main(argv: list[str] | None = None) -> int:
     todo = [s for s in specs if s.spec_id not in done][: args.limit]
     print(f"{len(todo)} to generate ({len(done)} already done)", file=sys.stderr)
 
-    writer = OllamaProvider(model=args.model, temperature=args.temperature, use_schema=True, num_predict=2048)
-    summarizer = OllamaProvider(model=args.model, temperature=0.3, use_schema=True, num_predict=512)
+    writer = OllamaProvider(
+        model=args.model,
+        temperature=args.temperature,
+        use_schema=True,
+        num_predict=2048,
+        num_ctx=args.num_ctx,
+    )
+    summarizer = OllamaProvider(
+        model=args.model, temperature=0.3, use_schema=True, num_predict=512, num_ctx=args.num_ctx
+    )
     counts: Counter = Counter()
     t0 = time.time()
     out.parent.mkdir(parents=True, exist_ok=True)
