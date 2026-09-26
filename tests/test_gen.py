@@ -150,3 +150,16 @@ def test_judge_parse_and_metrics():
 def test_foreign_script_is_rejected():
     s = make_spec("dev", "telecom", 1)
     assert "non-Korean script (Han/kana)" in check_dialogue(s, _turns(s, "明白了您的需求"))
+
+
+def test_take_first_keeps_index_order_per_domain():
+    from call_summary.finalize import id_values, take_first
+
+    specs = make_specs("dev", ("shop", "parcel"), 12)
+    items = [Item(item_id=s.spec_id, split="dev", domain=s.domain, spec=s, turns=[]) for s in specs]
+    items = [it for it in items if not it.item_id.endswith("00003")]  # a rejected spec
+    got = take_first(list(reversed(items)), 5)
+    assert [it.item_id for it in got if it.domain == "shop"] == [f"dev-shop-{i:05d}" for i in (0, 1, 2, 4, 5)]
+    assert len(got) == 10
+    parcel = next(it for it in items if it.domain == "parcel")
+    assert id_values(parcel) and all("-" not in v for v in id_values(parcel))
