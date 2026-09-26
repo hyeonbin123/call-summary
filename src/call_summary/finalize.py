@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .dataset import Item, load_items, read_jsonl, write_jsonl
 from .domains import DOMAINS
+from .gen import check_dialogue
 from .specs import Spec
 from .values import normalize
 
@@ -85,6 +86,10 @@ def main(argv: list[str] | None = None) -> int:
             train_ids |= id_values(it)
     for split in args.splits:
         items = load_items(raw / f"{split}.jsonl")
+        # The checks may have grown since a split was generated; apply the current ones to every split.
+        failed = {it.item_id: check_dialogue(it.spec, it.turns) for it in items}
+        recheck = {k: v for k, v in failed.items() if v}
+        items = [it for it in items if it.item_id not in recheck]
         overlap = []
         if split != "train":
             overlap = [it.item_id for it in items if id_values(it) & train_ids]
@@ -97,7 +102,14 @@ def main(argv: list[str] | None = None) -> int:
         }
         n = write_jsonl(Path(args.out) / f"{split}.jsonl", (it.to_dict() for it in chosen))
         rep = rejection_report(raw, split) if split != "test-b" else {}
-        rep.update({"written": n, "dropped_train_overlap": overlap, "short_by_domain": short})
+        rep.update(
+            {
+                "written": n,
+                "dropped_recheck": recheck,
+                "dropped_train_overlap": overlap,
+                "short_by_domain": short,
+            }
+        )
         report[split] = rep
         print(f"{split}: {n} items" + (f", short {short}" if short else ""))
     Path(args.out, "finalize_report.json").write_text(

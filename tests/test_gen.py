@@ -13,9 +13,13 @@ def _spec_with_correction():
     raise AssertionError("no spec with a correction event")
 
 
-def _turns(spec, extra_text=""):
+def _turns(spec, extra_text="", verify=None):
     values = [sv.value for sv in spec.slots]
     turns = [{"speaker": "상담원", "text": "안녕하세요, 도토리마켓 고객센터입니다."}]
+    if verify if verify is not None else "verify" in spec.events:
+        turns.append({"speaker": "고객", "text": "문의가 있어요."})
+        turns.append({"speaker": "상담원", "text": "성함과 생년월일 여섯 자리 부탁드립니다."})
+        turns.append({"speaker": "고객", "text": "김철수, 900101이요."})
     if spec.distractor is not None:
         turns.append({"speaker": "고객", "text": f"번호가 {spec.distractor.value}예요."})
         turns.append({"speaker": "상담원", "text": "조회가 안 되는데요, 다시 불러 주시겠어요?"})
@@ -52,7 +56,9 @@ def test_check_dialogue_accepts_clean_and_rejects_problems():
 
 
 def test_birth_date_digits_are_not_ids():
-    s = make_spec("dev", "telecom", 1)
+    s = next(
+        make_spec("dev", "telecom", i) for i in range(50) if "verify" in make_spec("dev", "telecom", i).events
+    )
     assert check_dialogue(s, _turns(s, "생년월일은 950302입니다.")) == []
 
 
@@ -197,3 +203,19 @@ def test_retries_use_a_different_seed_and_keep_the_rejected_text():
     item, problems, stats = generate_item(s, w, w, max_tries=3, seed=1000)
     assert item is None and w.seen == [1000, 1001, 1002]
     assert stats["last_rejected"][0]["text"] == "짧다"
+
+
+def test_verification_must_match_spec():
+    with_v = next(
+        make_spec("dev", "shop", i) for i in range(50) if "verify" in make_spec("dev", "shop", i).events
+    )
+    without = next(
+        make_spec("dev", "parcel", i)
+        for i in range(50)
+        if "verify" not in make_spec("dev", "parcel", i).events
+    )
+    assert "spec verification missing" in check_dialogue(with_v, _turns(with_v, verify=False))
+    assert check_dialogue(with_v, _turns(with_v)) == []
+    assert check_dialogue(without, _turns(without)) == []
+    assert "verification not in spec" in check_dialogue(without, _turns(without, verify=True))
+    assert "본인 확인 절차" in writer_prompt(without) and "본인 확인 절차" not in writer_prompt(with_v)

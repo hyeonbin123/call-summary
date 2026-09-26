@@ -29,7 +29,7 @@ from .specs import (
 )
 from .values import normalize, occurs_in_transcript, values_in_transcript
 
-WRITER_VERSION = "w1"
+WRITER_VERSION = "w2"  # w1: same, minus the explicit "no verification" line
 SPEAKERS = ("상담원", "고객")
 
 _EVENT_TEXT = {
@@ -108,6 +108,8 @@ def writer_prompt(spec: Spec) -> str:
         events.append(
             f"상담이 거의 끝날 때 고객이 '{spec.extra_question}'에 대해 짧게 하나 더 묻고, 상담원이 숫자 없이 간단히 답한다."
         )
+    if EV_VERIFY not in spec.events:
+        events.append("본인 확인 절차(이름·생년월일·주민번호 묻기)는 하지 않는다.")
     if not events:
         events.append("특별한 일 없이 차분하게 진행된다.")
     return _WRITER.format(
@@ -126,6 +128,7 @@ def summarizer_prompt(spec: Spec, transcript: str) -> str:
     return _SUMMARIZER.format(company=d.company, label=d.label, transcript=transcript)
 
 
+_VERIFY_WORDS = re.compile(r"생년월일|주민등록|주민번호|본인 ?확인|뒷자리|뒤 ?[네4] ?자리")
 # The writer model sometimes switches to Chinese mid-dialogue.
 _FOREIGN_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 _ID_LIKE = re.compile(r"(?<![\dA-Za-z\-])(?:[A-Z]\d{5,}|\d{2,5}(?:-\d{2,5}){1,3})(?![\dA-Za-z\-])")
@@ -152,6 +155,12 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
     text = "\n".join(t["text"] for t in turns)
     if _FOREIGN_SCRIPT.search(text):
         problems.append("non-Korean script (Han/kana)")
+    # Identity verification happens exactly when the spec says so (it is a gold action).
+    verified = bool(_VERIFY_WORDS.search(text))
+    if verified and EV_VERIFY not in spec.events:
+        problems.append("verification not in spec")
+    if not verified and EV_VERIFY in spec.events:
+        problems.append("spec verification missing")
     d = DOMAINS[spec.domain]
     for sv in spec.slots:
         if sv.value not in text:
