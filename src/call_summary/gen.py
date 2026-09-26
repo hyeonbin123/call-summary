@@ -223,7 +223,14 @@ def generate_item(
     turns: list[dict] | None = None
     for _ in range(max_tries):
         stats["dialogue_tries"] += 1
-        reply = writer.generate([{"role": "user", "content": writer_prompt(spec)}], json_schema=TURNS_SCHEMA)
+        try:
+            reply = writer.generate(
+                [{"role": "user", "content": writer_prompt(spec)}], json_schema=TURNS_SCHEMA
+            )
+        except Exception as exc:  # noqa: BLE001 - a hung or failed request is one failed try
+            problems = [f"request failed: {type(exc).__name__}"]
+            stats["failed_requests"] = stats.get("failed_requests", 0) + 1
+            continue
         stats["seconds"] += reply.latency_s
         got = _parse_json(reply.text, "turns")
         if not isinstance(got, list):
@@ -244,10 +251,15 @@ def generate_item(
     item = Item(item_id=spec.spec_id, split=spec.split, domain=spec.domain, spec=spec, turns=turns)
     for _ in range(max_tries):
         stats["summary_tries"] += 1
-        reply = summarizer.generate(
-            [{"role": "user", "content": summarizer_prompt(spec, item.transcript)}],
-            json_schema=SUMMARY_SCHEMA,
-        )
+        try:
+            reply = summarizer.generate(
+                [{"role": "user", "content": summarizer_prompt(spec, item.transcript)}],
+                json_schema=SUMMARY_SCHEMA,
+            )
+        except Exception as exc:  # noqa: BLE001
+            problems = [f"request failed: {type(exc).__name__}"]
+            stats["failed_requests"] = stats.get("failed_requests", 0) + 1
+            continue
         stats["seconds"] += reply.latency_s
         summary = _parse_json(reply.text, "summary")
         if not isinstance(summary, str):
@@ -268,8 +280,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default="qwen2.5:14b-instruct")
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--num-ctx", type=int, default=4096)
     ap.add_argument(
-        "--num-ctx", type=int, default=4096, help="small enough to keep the 14B model fully on GPU"
+        "--num-gpu", type=int, help="GPU layers; leave VRAM headroom (44 of 49 for the 14B teacher on 11 GB)"
+    )
+    ap.add_argument(
+        "--timeout", type=float, default=300.0, help="seconds per request; a timeout counts as a failed try"
     )
     args = ap.parse_args(argv)
 
@@ -281,16 +297,9 @@ def main(argv: list[str] | None = None) -> int:
     todo = [s for s in specs if s.spec_id not in done][: args.limit]
     print(f"{len(todo)} to generate ({len(done)} already done)", file=sys.stderr)
 
-    writer = OllamaProvider(
-        model=args.model,
-        temperature=args.temperature,
-        use_schema=True,
-        num_predict=2048,
-        num_ctx=args.num_ctx,
-    )
-    summarizer = OllamaProvider(
-        model=args.model, temperature=0.3, use_schema=True, num_predict=512, num_ctx=args.num_ctx
-    )
+    common = {"model": args.model, "use_schema": True, "num_ctx": args.num_ctx, "num_gpu": args.num_gpu}
+    writer = OllamaProvider(temperature=args.temperature, num_predict=2048, timeout_s=args.timeout, **common)
+    summarizer = OllamaProvider(temperature=0.3, num_predict=512, timeout_s=args.timeout, **common)
     counts: Counter = Counter()
     t0 = time.time()
     out.parent.mkdir(parents=True, exist_ok=True)
