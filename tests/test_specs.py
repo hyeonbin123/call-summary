@@ -97,3 +97,17 @@ def test_event_rates_roughly_match():
     rate = sum(EV_CORRECTION in s.events for s in specs) / len(specs)
     # only specs with an id slot keep the correction event
     assert 0.1 < rate < 0.3
+
+
+def test_date_pairs_are_ordered_and_fees_are_plausible():
+    from call_summary.values import normalize as norm
+
+    for key in ("telecom", "parcel"):
+        for s in make_specs("train", (key,), 300):
+            by = {sv.slot: sv.value for sv in s.slots}
+            for first, later in (("date", "new_date"), ("date", "visit_date")):
+                if first in by and later in by:
+                    assert norm("date", by[first]) < norm("date", by[later])
+            for slot, hi in (("fee", 30_000), ("charge", 30_000), ("addon_fee", 15_000)):
+                if slot in by:
+                    assert int(norm("amount", by[slot])) <= hi

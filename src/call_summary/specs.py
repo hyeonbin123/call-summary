@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 
 from .domains import DOMAINS, HELD_OUT_DOMAINS, TRAIN_DOMAINS, VERIFY, Domain, Outcome, Scenario
 from .schema import AfterCallRecord, Entity, FollowUp
+from .values import normalize
 
 SPLITS = ("train", "dev", "test-a", "test-b", "test-c")
 # Which domains each generated split covers. test-b reuses test-b specs over the training domains but its
@@ -113,14 +114,29 @@ class Spec:
 def _draw_slot(
     rng: random.Random, domain: Domain, slot: str, label: str, taken: dict[str, set[str]]
 ) -> SlotValue:
-    et = domain.entity_type(label)
+    make = domain.slot_makers.get(slot, domain.entity_type(label).make)
     used = taken.setdefault(label, set())
     for _ in range(50):
-        value = et.make(rng)
+        value = make(rng)
         if value not in used:
             used.add(value)
             return SlotValue(slot=slot, type=label, value=value)
     raise RuntimeError(f"could not draw a distinct {label}")
+
+
+# Slot pairs whose dates must be in this order: a delay's new date and a visit come after the first date.
+DATE_ORDER = (("date", "new_date"), ("date", "visit_date"))
+
+
+def _order_dates(slots: list[SlotValue]) -> list[SlotValue]:
+    by = {sv.slot: i for i, sv in enumerate(slots)}
+    for first, later in DATE_ORDER:
+        if first in by and later in by:
+            a, b = slots[by[first]], slots[by[later]]
+            if (normalize("date", a.value) or "") > (normalize("date", b.value) or ""):
+                slots[by[first]] = SlotValue(slot=a.slot, type=a.type, value=b.value)
+                slots[by[later]] = SlotValue(slot=b.slot, type=b.type, value=a.value)
+    return slots
 
 
 def _mutate(rng: random.Random, sv: SlotValue, kind: str) -> SlotValue:
@@ -156,6 +172,7 @@ def make_spec(split: str, domain_key: str, index: int, category: str | None = No
     slots = [
         _draw_slot(rng, domain, slot, label, taken) for slot, label in scenario.slots + outcome.extra_slots
     ]
+    slots = _order_dates(slots)
     by_slot = {sv.slot: sv.value for sv in slots}
 
     events: list[str] = []

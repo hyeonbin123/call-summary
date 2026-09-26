@@ -102,6 +102,9 @@ class Domain:
     scenarios: tuple[Scenario, ...]
     held_out: bool = False
     extra_questions: tuple[str, ...] = field(default=())  # small unrelated questions a caller may add
+    # Value makers for particular slot names whose plausible range differs from the entity type's
+    # (a parcel fee is not an item price, a data top-up is not a monthly bill).
+    slot_makers: dict[str, Callable[[random.Random], str]] = field(default_factory=dict)
 
     def entity_type(self, label: str) -> EntityType:
         for et in self.entity_types:
@@ -324,8 +327,8 @@ SHOP = Domain(
         ),
         Scenario(
             "적립금·쿠폰 문의",
-            (("amount", "금액"),),
-            "고객이 적립금 {amount}이 사라졌다고 문의함",
+            (("points", "금액"),),
+            "고객이 적립금 {points}이 사라졌다고 문의함",
             (
                 Outcome(
                     "해결",
@@ -347,6 +350,7 @@ SHOP = Domain(
         ),
     ),
     extra_questions=("앱에서 주문 내역 보는 법", "회원 등급 기준", "앱 알림 끄는 법"),
+    slot_makers={"points": _amount(1_000, 50_000, 100)},
 )
 
 # ---------------------------------------------------------------------------------------------------------
@@ -428,8 +432,8 @@ TELECOM = Domain(
                     "해결",
                     ("데이터 충전",),
                     (),
-                    ("상담원이 {amount}짜리 데이터 충전을 해 줌",),
-                    extra_slots=(("amount", "금액"),),
+                    ("상담원이 {charge}짜리 데이터 충전을 해 줌",),
+                    extra_slots=(("charge", "금액"),),
                 ),
                 Outcome(
                     "해결",
@@ -507,8 +511,8 @@ TELECOM = Domain(
         ),
         Scenario(
             "부가서비스 해지",
-            (("addon", "부가서비스"), ("amount", "금액")),
-            "고객이 가입한 적 없는 {addon}이 월 {amount}씩 청구된다고 문의함",
+            (("addon", "부가서비스"), ("addon_fee", "금액")),
+            "고객이 가입한 적 없는 {addon}이 월 {addon_fee}씩 청구된다고 문의함",
             (
                 Outcome(
                     "해결",
@@ -549,6 +553,7 @@ TELECOM = Domain(
         ),
     ),
     extra_questions=("가까운 대리점 위치", "멤버십 포인트 사용처", "와이파이 비밀번호 바꾸는 법"),
+    slot_makers={"charge": _amount(3_000, 30_000, 100), "addon_fee": _amount(1_000, 15_000, 100)},
 )
 
 # ---------------------------------------------------------------------------------------------------------
@@ -704,8 +709,8 @@ PARCEL = Domain(
                     "해결",
                     ("방문 접수 예약",),
                     ("수거 예정",),
-                    ("상담원이 {date}에 방문 접수를 예약하고 요금이 {amount}이라고 안내함",),
-                    extra_slots=(("date", "날짜"), ("amount", "금액")),
+                    ("상담원이 {date}에 방문 접수를 예약하고 요금이 {fee}이라고 안내함",),
+                    extra_slots=(("date", "날짜"), ("fee", "금액")),
                 ),
             ),
             needs_verification=False,
@@ -726,6 +731,7 @@ PARCEL = Domain(
         ),
     ),
     extra_questions=("편의점 택배 접수 가능 여부", "일요일 배송 여부", "포장 박스 구매 방법"),
+    slot_makers={"fee": _amount(3_000, 30_000, 500)},
 )
 
 # ---------------------------------------------------------------------------------------------------------
@@ -794,8 +800,8 @@ CARD = Domain(
         ),
         Scenario(
             "한도 상향",
-            (("amount", "금액"),),
-            "고객이 카드 한도를 {amount}으로 올리고 싶다고 요청함",
+            (("limit", "금액"),),
+            "고객이 카드 한도를 {limit}으로 올리고 싶다고 요청함",
             (
                 Outcome(
                     "부분 해결",
@@ -841,8 +847,8 @@ CARD = Domain(
         ),
         Scenario(
             "연회비 문의",
-            (("amount", "금액"),),
-            "고객이 연회비 {amount}이 청구된 이유를 문의함",
+            (("annual_fee", "금액"),),
+            "고객이 연회비 {annual_fee}이 청구된 이유를 문의함",
             (
                 Outcome(
                     "해결",
@@ -875,6 +881,10 @@ CARD = Domain(
     ),
     held_out=True,
     extra_questions=("포인트 사용처", "해외 결제 수수료", "카드 앱 비밀번호 변경"),
+    slot_makers={
+        "annual_fee": _amount(10_000, 300_000, 1000),
+        "limit": _amount(2_000_000, 20_000_000, 500_000),
+    },
 )
 
 DOMAINS: dict[str, Domain] = {d.key: d for d in (SHOP, TELECOM, PARCEL, CARD)}
