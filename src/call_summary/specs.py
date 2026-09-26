@@ -10,10 +10,19 @@ from __future__ import annotations
 import random
 from dataclasses import asdict, dataclass
 
-from .domains import DOMAINS, VERIFY, Domain, Outcome, Scenario
+from .domains import DOMAINS, HELD_OUT_DOMAINS, TRAIN_DOMAINS, VERIFY, Domain, Outcome, Scenario
 from .schema import AfterCallRecord, Entity, FollowUp
 
 SPLITS = ("train", "dev", "test-a", "test-b", "test-c")
+# Which domains each generated split covers. test-b reuses test-b specs over the training domains but its
+# dialogues are written by a different model family; test-c is the held-out domain.
+SPLIT_DOMAINS: dict[str, tuple[str, ...]] = {
+    "train": TRAIN_DOMAINS,
+    "dev": TRAIN_DOMAINS,
+    "test-a": TRAIN_DOMAINS,
+    "test-b": TRAIN_DOMAINS,
+    "test-c": HELD_OUT_DOMAINS,
+}
 
 # Conversational events. Each is an instruction to the dialogue writer; some also change the gold.
 EV_VERIFY = "verify"  # agent verifies identity (name + birth date), adds the 본인 확인 action

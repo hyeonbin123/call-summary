@@ -47,7 +47,7 @@ def _time(rng: random.Random) -> str:
 
 
 def _order_id(rng: random.Random) -> str:
-    return f"{rng.choice([9, 10])}{rng.randint(1, 28):02d}-{rng.randint(1000, 9999)}-{rng.randint(10, 99)}"
+    return f"D{rng.randint(1_000_000, 9_999_999)}"
 
 
 def _tracking(rng: random.Random) -> str:
@@ -346,7 +346,7 @@ SHOP = Domain(
             ),
         ),
     ),
-    extra_questions=("고객센터 운영 시간", "회원 등급 기준", "앱 알림 끄는 법"),
+    extra_questions=("앱에서 주문 내역 보는 법", "회원 등급 기준", "앱 알림 끄는 법"),
 )
 
 # ---------------------------------------------------------------------------------------------------------

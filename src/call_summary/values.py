@@ -79,7 +79,7 @@ def _norm_amount(v: str) -> str | None:
 
 _DATE_PATTERNS = [
     re.compile(r"(?:(\d{4})\s*[-./년]\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일"),
-    re.compile(r"(?:(\d{4})[-./])?(\d{1,2})[-./](\d{1,2})(?!\d)"),
+    re.compile(r"(?<![\d\-])(?:(\d{4})[-./])?(\d{1,2})[-./](\d{1,2})(?![\d\-])"),
 ]
 
 
