@@ -145,6 +145,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--shots", type=int, default=0)
     ap.add_argument("--shot-pool", help="JSONL to draw few-shot examples from (needs summaries)")
     ap.add_argument("--batch", type=int, default=1, help="batch size (hf backend)")
+    ap.add_argument(
+        "--num-gpu",
+        type=int,
+        help="GPU layers (ollama backend); 44 keeps the 14B model from overfilling VRAM",
+    )
     ap.add_argument("--limit", type=int)
     ap.add_argument("--label", default="")
     ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
@@ -169,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
 
     provider: Provider
     if args.backend == "ollama":
-        provider = OllamaProvider(model=args.model, use_schema=args.schema)
+        provider = OllamaProvider(
+            model=args.model, use_schema=args.schema, num_ctx=4096, num_gpu=args.num_gpu
+        )
     else:
         provider = HFProvider(model_id=args.model, adapter=args.adapter, load_4bit=args.load_4bit)
 

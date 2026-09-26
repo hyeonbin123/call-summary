@@ -60,6 +60,10 @@ def create_app(provider: Provider | None = None) -> FastAPI:
             model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
             base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
             use_schema=True,
+            num_ctx=4096,
+            num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"])
+            if os.environ.get("CALL_SUMMARY_NUM_GPU")
+            else None,
         )
     }
 

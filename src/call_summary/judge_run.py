@@ -33,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", default="qwen2.5:14b-instruct")
     ap.add_argument("--data", help="dataset JSONL (default: the run manifest's)")
     ap.add_argument("--hand", help="hand-scored JSONL to measure agreement against")
+    ap.add_argument("--num-gpu", type=int, default=44, help="GPU layers for the 14B judge (VRAM headroom)")
     ap.add_argument("--limit", type=int)
     args = ap.parse_args(argv)
 
@@ -40,7 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(args.data or manifest["data"])}
     rows = list(read_jsonl(run / "items.jsonl"))[: args.limit]
-    judge = OllamaProvider(model=args.model, use_schema=True, num_ctx=4096, num_predict=256)
+    judge = OllamaProvider(
+        model=args.model, use_schema=True, num_ctx=4096, num_predict=256, num_gpu=args.num_gpu
+    )
     out_path = run / "judge.jsonl"
     done = {d["item_id"] for d in read_jsonl(out_path)} if out_path.exists() else set()
     scores: list[SummaryScore] = load_scores(out_path) if done else []
