@@ -17,7 +17,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from .dataset import Item, load_items, write_jsonl
-from .prompts import PROMPT_VERSION, build_messages, prompt_hash
+from .prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_messages, prompt_hash
 from .providers import HFProvider, OllamaProvider, Provider, Reply
 from .schema import AfterCallRecord, parse_reply, record_json_schema
 from .scoring import METRICS, ItemScore, bootstrap_ci, score_item, summarize
@@ -56,12 +56,14 @@ def run_items(
     shots_for: Callable[[str], list[tuple[str, AfterCallRecord]]] | None = None,
     progress: bool = False,
     batch_size: int = 1,
+    prompt_version: str = PROMPT_VERSION,
 ) -> tuple[list[dict], list[ItemScore]]:
     """Rows and scores in the order of `items`. With batch_size > 1 (providers with generate_batch),
     items are grouped by transcript length to cut padding."""
     schema = record_json_schema()
     messages = [
-        build_messages(it.domain, it.transcript, shots_for(it.domain) if shots_for else None) for it in items
+        build_messages(it.domain, it.transcript, shots_for(it.domain) if shots_for else None, prompt_version)
+        for it in items
     ]
     replies: list[Reply | None] = [None] * len(items)
     batched = batch_size > 1 and hasattr(provider, "generate_batch")
@@ -145,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--shots", type=int, default=0)
     ap.add_argument("--shot-pool", help="JSONL to draw few-shot examples from (needs summaries)")
     ap.add_argument("--batch", type=int, default=1, help="batch size (hf backend)")
+    ap.add_argument("--prompt", choices=PROMPT_VERSIONS, default=PROMPT_VERSION)
     ap.add_argument(
         "--num-gpu",
         type=int,
@@ -210,8 +213,8 @@ def main(argv: list[str] | None = None) -> int:
         "shot_pool": args.shot_pool,
         "schema_constrained": args.schema,
         "batch": args.batch,
-        "prompt_version": PROMPT_VERSION,
-        "prompt_hash": prompt_hash(),
+        "prompt_version": args.prompt,
+        "prompt_hash": prompt_hash(args.prompt),
         "git_commit": _git("rev-parse", "HEAD"),
         "official": args.official,
         "argv": sys.argv[1:] if argv is None else argv,
@@ -220,7 +223,9 @@ def main(argv: list[str] | None = None) -> int:
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    rows, scores = run_items(provider, items, shots_for, progress=True, batch_size=args.batch)
+    rows, scores = run_items(
+        provider, items, shots_for, progress=True, batch_size=args.batch, prompt_version=args.prompt
+    )
     write_jsonl(out_dir / "items.jsonl", rows)
     table = summary_table(scores)
     lat = sorted(r["latency_s"] for r in rows)

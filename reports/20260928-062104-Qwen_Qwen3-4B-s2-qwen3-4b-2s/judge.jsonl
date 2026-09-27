@@ -1,0 +1,240 @@
+{"item_id": "dev-parcel-00000", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00002", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00003", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00005", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00006", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00007", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00008", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00010", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00011", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00012", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00013", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00014", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00015", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00016", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00017", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00018", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00019", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00020", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00021", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00022", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00023", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00024", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00025", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00026", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00027", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00028", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00029", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00031", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00032", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00034", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00035", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00037", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00038", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00039", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00040", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00042", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00043", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00045", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00046", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00047", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00048", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00049", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00055", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00056", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00057", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00059", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00061", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00062", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00063", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00064", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00066", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00067", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00068", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00069", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00070", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00071", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00072", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00073", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00074", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00075", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00078", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00079", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00080", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00081", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-parcel-00082", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00083", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00084", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00085", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00086", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00087", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00088", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00089", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00090", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00091", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00092", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00093", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-parcel-00094", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00000", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00001", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00002", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00003", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00004", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00005", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00006", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00008", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00010", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00011", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00012", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00013", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00014", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00016", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00017", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00018", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00019", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00021", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00022", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00023", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00024", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00025", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00026", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00027", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00029", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00030", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00031", "verdicts": ["누락", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00032", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00033", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00034", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00035", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00037", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00038", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00039", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00040", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00041", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00042", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00043", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00044", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00045", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00046", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00047", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00048", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00050", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00051", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00053", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00056", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00057", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00058", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00059", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00060", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00061", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00062", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00063", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00064", "verdicts": ["포함", "포함", "틀림"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-shop-00066", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00067", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00068", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00070", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00072", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-shop-00073", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00075", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00076", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-shop-00077", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00078", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00079", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00080", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00081", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00082", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-shop-00083", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00084", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00085", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00086", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00087", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00088", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00089", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-shop-00090", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00000", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00001", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00003", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00004", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00005", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00007", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00008", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00011", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00012", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00013", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00014", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00015", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00016", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00017", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00018", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00019", "verdicts": ["누락", "누락"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00020", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00021", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00023", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00025", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00027", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00029", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00030", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00032", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00033", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00034", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00035", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00037", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00038", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00040", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00041", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00042", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00043", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00045", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00046", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00048", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00049", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00050", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00051", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00052", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00053", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00055", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00056", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00057", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00058", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00059", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00061", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00062", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00063", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00064", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00065", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00066", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00067", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00068", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00070", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00071", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00072", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00073", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00074", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00075", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00076", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00077", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00078", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00079", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00080", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00081", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00082", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00083", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00084", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00085", "verdicts": ["포함", "포함", "틀림"], "wrong_statements": 1, "ok": true}
+{"item_id": "dev-telecom-00086", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00087", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00088", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00089", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00090", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00091", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true}
+{"item_id": "dev-telecom-00092", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true}

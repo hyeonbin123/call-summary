@@ -167,3 +167,14 @@ def test_run_items_batched_keeps_order():
     assert [r["item_id"] for r in rows] == [it.item_id for it in items]
     assert all(s.exact for s in scores)
     assert [len(b) for b in p.calls] == [3, 3, 1]
+
+
+def test_prompt_p2_extends_p1_and_keeps_p1_hash():
+    from call_summary.prompts import prompt_hash
+
+    assert prompt_hash() == "4cead4cf6510"
+    p1, p2 = system_prompt("shop"), system_prompt("shop", "p2")
+    assert p2.startswith(p1) and "[기록 기준]" in p2 and "[기록 기준]" not in p1
+    assert prompt_hash("p2") != prompt_hash()
+    msgs = build_messages("card", "상담원: 안녕하세요", version="p2")
+    assert "[기록 기준]" in msgs[0]["content"]

@@ -1,0 +1,50 @@
+{"item_id": "dev-parcel-00080", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00049", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true, "note": "지점 확인 요청이 없고, 다시 연락하는 쪽이 고객으로 바뀜"}
+{"item_id": "dev-telecom-00065", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00084", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00030", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00002", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00066", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00040", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true, "note": "도착 예정을 출하 예정으로 씀"}
+{"item_id": "dev-parcel-00056", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00013", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00033", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00058", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00071", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00061", "verdicts": ["틀림", "틀림"], "wrong_statements": 1, "ok": true, "note": "고객이 오늘 받기를 원했다고 씀, 배송일 변경이 아니라 원래 예정일처럼 씀"}
+{"item_id": "dev-shop-00039", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00020", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00043", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00003", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00082", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00023", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00008", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00030", "verdicts": ["누락", "포함"], "wrong_statements": 0, "ok": true, "note": "가입한 적 없다는 점과 금액이 빠짐"}
+{"item_id": "dev-shop-00053", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00083", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00088", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true, "note": "명세에 없는 콜백 예약을 했다고 씀"}
+{"item_id": "dev-telecom-00009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00046", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00016", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00061", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00061", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00092", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00015", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00049", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00011", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00034", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00063", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00042", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00019", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00082", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00072", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00038", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-shop-00041", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00032", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-parcel-00036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00062", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"item_id": "dev-telecom-00053", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
