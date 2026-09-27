@@ -1,0 +1,3 @@
+# Data files are hashed into run manifests; keep their bytes identical on every checkout.
+*.jsonl text eol=lf
+*.json text eol=lf
