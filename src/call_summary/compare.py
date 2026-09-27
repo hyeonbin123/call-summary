@@ -23,6 +23,11 @@ def load_run(run: str | Path) -> tuple[dict, list[ItemScore]]:
     return manifest, scores
 
 
+def run_name(manifest: dict) -> str:
+    shots = manifest.get("shots") or 0
+    return manifest["provider"] + (f" {shots}-shot" if shots else "")
+
+
 def fmt(x: float, pct: bool = True) -> str:
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "-"
@@ -42,7 +47,7 @@ def run_table(runs: list[str], metrics: tuple[str, ...] = HEADLINE) -> str:
             cells.append(f"{fmt(p)} [{fmt(lo)}, {fmt(hi)}]")
         lat = summary.get("latency_s", {}).get("p50")
         lines.append(
-            f"| {manifest['provider']} | {summary['n']} | " + " | ".join(cells) + f" | {fmt(lat, False)} |"
+            f"| {run_name(manifest)} | {summary['n']} | " + " | ".join(cells) + f" | {fmt(lat, False)} |"
         )
     return "\n".join(lines)
 
@@ -51,7 +56,7 @@ def paired_table(a: str, b: str, metrics: tuple[str, ...] = HEADLINE, n_boot: in
     ma, sa = load_run(a)
     mb, sb = load_run(b)
     lines = [
-        f"B − A: `{mb['provider']}` − `{ma['provider']}` (n={len(sa)})",
+        f"B − A: `{run_name(mb)}` − `{run_name(ma)}` (n={len(sa)})",
         "",
         "| metric | A | B | diff [95% CI] |",
         "|---|---|---|---|",

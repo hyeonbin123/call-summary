@@ -1,0 +1,27 @@
+{
+  "run_id": "20260928-035046-qwen2.5_1.5b-instruct-s2-q15",
+  "provider": "ollama:qwen2.5:1.5b-instruct",
+  "data": "datasets\\dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "9a846c327f371a765466a212f3d3fca512af5b1b",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev.jsonl",
+    "--official",
+    "--label",
+    "s2-q15",
+    "--backend",
+    "ollama",
+    "--model",
+    "qwen2.5:1.5b-instruct"
+  ],
+  "started": "20260928-035046"
+}
