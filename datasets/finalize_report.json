@@ -1,0 +1,191 @@
+{
+  "train": {
+    "attempted": 1800,
+    "accepted": 1710,
+    "rejected": 90,
+    "reject_rate": 0.05,
+    "rejected_by_category": {
+      "parcel/배송 조회": 11,
+      "telecom/기기 할부 문의": 10,
+      "shop/환불 문의": 8,
+      "parcel/배송 지연": 8,
+      "parcel/배송 일정 변경": 7,
+      "shop/교환 신청": 6,
+      "shop/주문 취소": 5,
+      "shop/배송 문의": 5,
+      "telecom/통신 장애": 4,
+      "parcel/택배 보내기 예약": 4,
+      "shop/적립금·쿠폰 문의": 3,
+      "telecom/데이터 소진": 3,
+      "parcel/파손 신고": 3,
+      "parcel/분실 신고": 3,
+      "telecom/부가서비스 해지": 2,
+      "telecom/요금 문의": 2,
+      "parcel/오배송": 2,
+      "shop/상품 불량": 1,
+      "shop/결제 오류": 1,
+      "telecom/해지 문의": 1,
+      "telecom/요금제 변경": 1
+    },
+    "reasons": {
+      "turn count 7": 15,
+      "summary misses 금액": 14,
+      "extra amount": 12,
+      "summary misses 상품명": 8,
+      "summary repeats the corrected value": 7,
+      "turn count 6": 5,
+      "turn count 5": 5,
+      "summary misses 날짜": 5,
+      "extra id": 3,
+      "3 consecutive same-speaker turns": 3,
+      "length": 3,
+      "summary misses 물품명": 3,
+      "missing 금액": 2,
+      "extra time": 2,
+      "summary misses 요금제": 2,
+      "extra date": 2,
+      "verification not in spec": 1,
+      "summary misses 주문번호": 1,
+      "non-Korean script": 1,
+      "missing 요금제": 1,
+      "summary misses 운송장번호": 1,
+      "bad speaker or empty turn": 1
+    },
+    "written": 1500,
+    "dropped_recheck": {},
+    "dropped_train_overlap": [],
+    "short_by_domain": {}
+  },
+  "dev": {
+    "attempted": 288,
+    "accepted": 251,
+    "rejected": 37,
+    "reject_rate": 0.1285,
+    "rejected_by_category": {
+      "parcel/반품 수거 요청": 5,
+      "parcel/배송 지연": 4,
+      "shop/적립금·쿠폰 문의": 3,
+      "shop/환불 문의": 3,
+      "telecom/데이터 소진": 3,
+      "telecom/통신 장애": 3,
+      "telecom/기기 할부 문의": 3,
+      "shop/주문 취소": 2,
+      "telecom/부가서비스 해지": 2,
+      "parcel/배송 일정 변경": 2,
+      "shop/상품 불량": 1,
+      "shop/반품 신청": 1,
+      "telecom/요금 문의": 1,
+      "telecom/분실·정지": 1,
+      "parcel/택배 보내기 예약": 1,
+      "parcel/파손 신고": 1,
+      "parcel/분실 신고": 1
+    },
+    "reasons": {
+      "extra amount": 8,
+      "3 consecutive same-speaker turns": 4,
+      "turn count 7": 4,
+      "length": 3,
+      "extra time": 3,
+      "missing 금액": 2,
+      "summary misses 금액": 2,
+      "summary misses 상품명": 2,
+      "non-Korean script": 2,
+      "summary misses 요금제": 2,
+      "turn count 5": 2,
+      "extra id": 1,
+      "summary misses 기기명": 1,
+      "summary repeats the corrected value": 1,
+      "summary misses 물품명": 1,
+      "summary misses 운송장번호": 1,
+      "summary misses 날짜": 1
+    },
+    "written": 240,
+    "dropped_recheck": {
+      "dev-shop-00055": [
+        "spec verification missing"
+      ],
+      "dev-parcel-00058": [
+        "verification not in spec"
+      ],
+      "dev-parcel-00095": [
+        "verification not in spec"
+      ]
+    },
+    "dropped_train_overlap": [],
+    "short_by_domain": {}
+  },
+  "test-a": {
+    "attempted": 360,
+    "accepted": 342,
+    "rejected": 18,
+    "reject_rate": 0.05,
+    "rejected_by_category": {
+      "parcel/배송 일정 변경": 4,
+      "parcel/배송 조회": 3,
+      "shop/결제 오류": 2,
+      "shop/교환 신청": 1,
+      "shop/배송 문의": 1,
+      "shop/환불 문의": 1,
+      "telecom/기기 할부 문의": 1,
+      "telecom/해지 문의": 1,
+      "telecom/부가서비스 해지": 1,
+      "parcel/배송 지연": 1,
+      "parcel/오배송": 1,
+      "parcel/분실 신고": 1
+    },
+    "reasons": {
+      "summary misses 금액": 4,
+      "summary misses 날짜": 3,
+      "extra id": 2,
+      "length": 2,
+      "turn count 7": 2,
+      "summary misses 상품명": 1,
+      "extra amount": 1,
+      "turn count 6": 1,
+      "5 consecutive same-speaker turns": 1,
+      "summary misses 물품명": 1
+    },
+    "written": 300,
+    "dropped_recheck": {
+      "test-a-telecom-00069": [
+        "verification not in spec"
+      ],
+      "test-a-parcel-00071": [
+        "verification not in spec"
+      ]
+    },
+    "dropped_train_overlap": [],
+    "short_by_domain": {}
+  },
+  "test-c": {
+    "attempted": 240,
+    "accepted": 230,
+    "rejected": 10,
+    "reject_rate": 0.0417,
+    "rejected_by_category": {
+      "card/결제 취소 확인": 4,
+      "card/결제일 변경": 2,
+      "card/연회비 문의": 1,
+      "card/청구 금액 문의": 1,
+      "card/한도 상향": 1,
+      "card/할부 전환": 1
+    },
+    "reasons": {
+      "extra amount": 4,
+      "summary misses 금액": 3,
+      "turn count 7": 1,
+      "verification not in spec": 1,
+      "summary misses 날짜": 1
+    },
+    "written": 200,
+    "dropped_recheck": {},
+    "dropped_train_overlap": [],
+    "short_by_domain": {}
+  },
+  "test-b": {
+    "written": 60,
+    "dropped_recheck": {},
+    "dropped_train_overlap": [],
+    "short_by_domain": {}
+  }
+}

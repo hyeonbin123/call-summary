@@ -1,0 +1,30 @@
+{"item_id": "train-shop-00357", "flags": [4], "note": "상담원이 추가 질문을 먼저 꺼냄"}
+{"item_id": "train-telecom-00334", "flags": [4], "note": "고객이 '생년월일을 말씀해 주세요'라고 함(역할 혼동), 생년월일 8자리"}
+{"item_id": "train-shop-00398", "flags": [], "note": ""}
+{"item_id": "train-telecom-00360", "flags": [], "note": ""}
+{"item_id": "train-shop-00105", "flags": [], "note": ""}
+{"item_id": "train-parcel-00141", "flags": [], "note": ""}
+{"item_id": "train-parcel-00079", "flags": [], "note": ""}
+{"item_id": "train-shop-00317", "flags": [4], "note": "인사말에 뜻 없는 말('환상이세요')"}
+{"item_id": "train-telecom-00146", "flags": [], "note": ""}
+{"item_id": "train-parcel-00252", "flags": [4], "note": "불만 장면에서 같은 안내를 네 번 되풀이"}
+{"item_id": "train-telecom-00006", "flags": [], "note": ""}
+{"item_id": "train-parcel-00014", "flags": [1], "note": "방문 접수를 고객이 찾아가는 것으로 씀"}
+{"item_id": "train-parcel-00398", "flags": [3], "note": "예약했다는 말 없이 가능 날짜와 요금만 안내"}
+{"item_id": "train-telecom-00062", "flags": [], "note": ""}
+{"item_id": "train-shop-00142", "flags": [1], "note": "명세는 상담원이 다시 연락, 대화는 누가 연락하는지 뒤섞임"}
+{"item_id": "train-shop-00340", "flags": [], "note": ""}
+{"item_id": "train-telecom-00121", "flags": [4], "note": "엉뚱한 잡담('별빛도 많아서 기분이 좋아서')"}
+{"item_id": "train-telecom-00164", "flags": [], "note": ""}
+{"item_id": "train-telecom-00036", "flags": [], "note": ""}
+{"item_id": "train-parcel-00522", "flags": [], "note": ""}
+{"item_id": "train-telecom-00330", "flags": [], "note": ""}
+{"item_id": "train-parcel-00268", "flags": [4], "note": "'확인 부탁드립니다' 반복, 앞뒤 안 맞는 말"}
+{"item_id": "train-telecom-00400", "flags": [], "note": ""}
+{"item_id": "train-telecom-00142", "flags": [], "note": ""}
+{"item_id": "train-shop-00102", "flags": [4], "note": "카드사 이름을 묻고 쓰지 않음, 지어낸 카드사 이름"}
+{"item_id": "train-parcel-00474", "flags": [], "note": ""}
+{"item_id": "train-shop-00309", "flags": [], "note": ""}
+{"item_id": "train-shop-00423", "flags": [], "note": ""}
+{"item_id": "train-shop-00081", "flags": [4], "note": "고객이 '주문하신 상품은'이라고 함(역할 혼동)"}
+{"item_id": "train-parcel-00015", "flags": [], "note": ""}
