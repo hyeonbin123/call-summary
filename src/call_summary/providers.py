@@ -111,6 +111,7 @@ class HFProvider:
     load_4bit: bool = False
     max_new_tokens: int = 1024
     enable_thinking: bool = False
+    max_vram_gb: float | None = 9.5  # see train.cap_vram
     _model: object = field(default=None, init=False, repr=False)
     _tok: object = field(default=None, init=False, repr=False)
 
@@ -128,6 +129,9 @@ class HFProvider:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
+        from .train import cap_vram
+
+        cap_vram(self.max_vram_gb)
         kwargs: dict = {"dtype": torch.float16, "device_map": "cuda"}
         if self.load_4bit:
             from transformers import BitsAndBytesConfig

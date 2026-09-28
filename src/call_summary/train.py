@@ -58,6 +58,41 @@ def encode(tok, item: Item, max_len: int, enable_thinking: bool = False) -> dict
     return {"input_ids": ids, "labels": [IGNORE] * len(p_ids) + t_ids}
 
 
+def tail_len(labels) -> int:
+    """How many final positions need logits: from the position before the first target token to the end."""
+    import torch
+
+    is_target = labels != IGNORE
+    first = int(torch.argmax(is_target.int(), dim=1).min())  # earliest target position in the batch
+    return labels.shape[1] - first + 1
+
+
+def tail_loss(logits, labels):
+    """Mean cross-entropy over target tokens when `logits` cover only the last K positions.
+
+    logits[:, j] belongs to position L-K+j and predicts token L-K+j+1, so logits[:, :-1] line up with
+    labels[:, L-K+1:]. Equal to the full-sequence loss when all target tokens lie in that window.
+    """
+    import torch.nn.functional as F
+
+    k = logits.shape[1]
+    targets = labels[:, labels.shape[1] - k + 1 :]
+    return F.cross_entropy(
+        logits[:, :-1].float().reshape(-1, logits.shape[-1]), targets.reshape(-1), ignore_index=IGNORE
+    )
+
+
+def cap_vram(max_gb: float | None) -> None:
+    """Keep PyTorch's allocator under max_gb of this GPU. On Windows, going past the card's memory does
+    not fail: the driver spills to system RAM and everything runs many times slower."""
+    if not max_gb:
+        return
+    import torch
+
+    total = torch.cuda.get_device_properties(0).total_memory
+    torch.cuda.set_per_process_memory_fraction(min(1.0, max_gb * 1024**3 / total), 0)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", required=True, help="HF model id or local path")
@@ -76,12 +111,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--warmup", type=float, default=0.03)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--log-every", type=int, default=10)
+    ap.add_argument("--max-steps", type=int, help="stop after this many optimizer steps (smoke tests)")
+    ap.add_argument("--max-vram-gb", type=float, default=8.5, help="allocator cap; 0 disables")
     args = ap.parse_args(argv)
 
     import torch
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     from transformers import AutoModelForCausalLM, AutoTokenizer, get_cosine_schedule_with_warmup
 
+    cap_vram(args.max_vram_gb)
     torch.manual_seed(args.seed)
     rng = random.Random(args.seed)
     out = Path(args.out)
@@ -141,6 +179,8 @@ def main(argv: list[str] | None = None) -> int:
     opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=0.0)
     steps_per_epoch = math.ceil(len(examples) / (args.batch * args.grad_accum))
     total_steps = math.ceil(steps_per_epoch * args.epochs)
+    if args.max_steps:
+        total_steps = min(total_steps, args.max_steps)
     sched = get_cosine_schedule_with_warmup(opt, int(args.warmup * total_steps), total_steps)
     scaler = torch.amp.GradScaler("cuda")
 
@@ -183,7 +223,10 @@ def main(argv: list[str] | None = None) -> int:
         epoch += 1
         for ids, labels, mask in batches():
             with torch.autocast("cuda", dtype=torch.float16):
-                loss = model(input_ids=ids, attention_mask=mask, labels=labels).loss / args.grad_accum
+                # Logits only for the answer span: a 150k-token vocabulary over the whole prompt is the
+                # largest tensor in training and pushed the process past the card's memory.
+                logits = model(input_ids=ids, attention_mask=mask, logits_to_keep=tail_len(labels)).logits
+            loss = tail_loss(logits, labels) / args.grad_accum
             if not torch.isfinite(loss):
                 print(f"non-finite loss at step {step}", file=sys.stderr)
                 log.write(json.dumps({"step": step, "event": "nonfinite_loss"}) + "\n")
@@ -210,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
                     "scale": scaler.get_scale(),
                     "elapsed_s": round(time.time() - t0, 1),
                     "max_mem_gb": round(torch.cuda.max_memory_allocated() / 1e9, 2),
+                    "reserved_gb": round(torch.cuda.memory_reserved() / 1e9, 2),
                 }
                 log.write(json.dumps(rec) + "\n")
                 log.flush()
