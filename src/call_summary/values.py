@@ -173,13 +173,29 @@ def values_in_transcript(kind: Kind, transcript: str) -> set[str]:
     return found
 
 
-def occurs_in_transcript(kind: Kind, value: str, transcript: str) -> bool:
-    """Whether a (predicted) value can be found in the transcript. Unreadable values count as not found."""
+# Digit groups with at most 3 other characters between them, read as one number. A speech recogniser may
+# write "5533-8050-3287" as "5,533, 8,050에서 3,287".
+_DIGIT_RUN = re.compile(r"\d+(?:\D{1,3}\d+)*")
+
+
+def digit_runs(transcript: str) -> list[str]:
+    return [re.sub(r"\D", "", m.group(0)) for m in _DIGIT_RUN.finditer(transcript)]
+
+
+def occurs_in_transcript(kind: Kind, value: str, transcript: str, spoken: bool = False) -> bool:
+    """Whether a (predicted) value can be found in the transcript. Unreadable values count as not found.
+
+    spoken=True (recognised speech, stage 4): an identifier also counts as found when its digits (4 or
+    more) lie inside one digit run of the transcript.
+    """
     norm = normalize(kind, value)
     if norm is None:
         return False
     if kind == "id":
-        return norm in _norm_id(transcript)
+        if norm in _norm_id(transcript):
+            return True
+        digits = re.sub(r"\D", "", norm)
+        return spoken and len(digits) >= 4 and any(digits in run for run in digit_runs(transcript))
     if kind == "text":
         return norm in _norm_text(transcript)
     return norm in values_in_transcript(kind, transcript)

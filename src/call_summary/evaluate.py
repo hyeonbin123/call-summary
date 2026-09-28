@@ -91,7 +91,8 @@ def run_items(
     for it, reply in zip(items, replies, strict=True):
         assert reply is not None
         parsed = parse_reply(reply.text)
-        score = score_item(it.item_id, it.domain, it.gold(), parsed, it.transcript)
+        spoken = it.split.endswith("-asr")
+        score = score_item(it.item_id, it.domain, it.gold(), parsed, it.transcript, spoken)
         scores.append(score)
         rows.append(
             {

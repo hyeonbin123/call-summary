@@ -62,8 +62,14 @@ def _entity_keys(domain_key: str, record: AfterCallRecord) -> tuple[Counter, int
 
 
 def score_item(
-    item_id: str, domain_key: str, gold: AfterCallRecord, parsed: ParseResult, transcript: str
+    item_id: str,
+    domain_key: str,
+    gold: AfterCallRecord,
+    parsed: ParseResult,
+    transcript: str,
+    spoken: bool = False,
 ) -> ItemScore:
+    """spoken=True for recognised-speech transcripts (stage 4): see values.occurs_in_transcript."""
     d = DOMAINS[domain_key]
     gold_keys, _ = _entity_keys(domain_key, gold)
     gold_actions = set(gold.actions_taken)
@@ -100,7 +106,7 @@ def score_item(
 
     kinds: dict[str, Kind] = {et.label: et.kind for et in d.entity_types}
     hallucinated = sum(
-        0 if occurs_in_transcript(kinds.get(e.type, "text"), e.value, transcript) else 1
+        0 if occurs_in_transcript(kinds.get(e.type, "text"), e.value, transcript, spoken) else 1
         for e in pred.entities
     )
 
@@ -314,3 +320,14 @@ def paired_bootstrap_diff(
         return point, NAN, NAN
     stats.sort()
     return point, stats[int(alpha / 2 * (len(stats) - 1))], stats[int((1 - alpha / 2) * (len(stats) - 1))]
+
+
+def value_survival(
+    domain_key: str, gold: AfterCallRecord, transcript: str, spoken: bool = True
+) -> dict[str, list[bool]]:
+    """Per entity type, whether each gold value can still be found in the transcript."""
+    kinds: dict[str, Kind] = {et.label: et.kind for et in DOMAINS[domain_key].entity_types}
+    out: dict[str, list[bool]] = {}
+    for e in gold.entities:
+        out.setdefault(e.type, []).append(occurs_in_transcript(kinds[e.type], e.value, transcript, spoken))
+    return out

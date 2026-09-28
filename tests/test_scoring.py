@@ -178,3 +178,27 @@ def test_prompt_p2_extends_p1_and_keeps_p1_hash():
     assert prompt_hash("p2") != prompt_hash()
     msgs = build_messages("card", "상담원: 안녕하세요", version="p2")
     assert "[기록 기준]" in msgs[0]["content"]
+
+
+def test_spoken_ids_match_digit_runs():
+    from call_summary.values import digit_runs, occurs_in_transcript
+
+    heard = "운송장 번호는 5,816, 9,659에서 8,958입니다. 10월 19일 오후 4시요."
+    assert "581696598958" in digit_runs(heard)
+    assert occurs_in_transcript("id", "5816-9659-8958", heard, spoken=True)
+    assert not occurs_in_transcript("id", "5816-9659-8958", heard)  # written transcripts stay strict
+    assert not occurs_in_transcript("id", "5816-9659-8959", heard, spoken=True)
+    assert not occurs_in_transcript("id", "123", "번호 1,2,3", spoken=True)  # too short to count
+    assert occurs_in_transcript("id", "D3928174", "주문번호 디 3,928,174요", spoken=True)
+
+
+def test_value_survival():
+    from call_summary.scoring import value_survival
+
+    it = _item(0)
+    gold = it.gold()
+    got = value_survival(it.domain, gold, it.transcript)
+    assert all(all(v) for v in got.values())
+    assert value_survival(it.domain, gold, "아무 값도 없는 대화") == {
+        k: [False] * len(v) for k, v in got.items()
+    }
