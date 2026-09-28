@@ -1,0 +1,8 @@
+{
+  "judge_model": "ollama:qwen2.5:14b-instruct:schema",
+  "judge_version": "j1",
+  "n": 300,
+  "n_judge_failed": 0,
+  "fact_recall": 0.9235474006116208,
+  "wrong_rate": 0.10333333333333333
+}

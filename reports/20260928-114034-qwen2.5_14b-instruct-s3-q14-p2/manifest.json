@@ -1,0 +1,31 @@
+{
+  "run_id": "20260928-114034-qwen2.5_14b-instruct-s3-q14-p2",
+  "provider": "ollama:qwen2.5:14b-instruct",
+  "data": "datasets\\dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p2",
+  "prompt_hash": "f19ad688eb25",
+  "git_commit": "7ef72c6b92e870a060a743cd88abb06e7a9a8e0d",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev.jsonl",
+    "--official",
+    "--label",
+    "s3-q14-p2",
+    "--backend",
+    "ollama",
+    "--model",
+    "qwen2.5:14b-instruct",
+    "--num-gpu",
+    "44",
+    "--prompt",
+    "p2"
+  ],
+  "started": "20260928-114034"
+}
