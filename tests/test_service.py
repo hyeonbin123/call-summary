@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from call_summary.prompts import record_to_json
 from call_summary.providers import ScriptedProvider
-from call_summary.service import create_app
+from call_summary.service import create_app, create_offline_app
 from call_summary.specs import make_spec
 
 TURNS = [
@@ -51,3 +51,42 @@ def test_input_validation():
     assert c.post("/summarize", json={"domain": "shop", "turns": bad}).status_code == 422
     assert c.get("/health").json()["status"] == "ok"
     assert "card" in c.get("/domains").json()
+
+
+def test_model_server_down_is_503_and_counted():
+    class Down:
+        name = "down"
+
+        def generate(self, messages, json_schema=None):
+            raise ConnectionError("refused")
+
+    c = TestClient(create_app(Down()))
+    r = c.post("/summarize", json={"domain": "shop", "turns": TURNS})
+    assert r.status_code == 503 and "refused" not in r.text
+    assert c.get("/stats").json()["requests"]["model_unavailable"] == 1
+
+
+def test_security_headers_and_hidden_docs():
+    c = TestClient(create_app(ScriptedProvider([_good()])))
+    r = c.get("/health")
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert r.headers["Cache-Control"] == "no-store"
+    assert c.get("/docs").status_code == 404 and c.get("/openapi.json").status_code == 404
+
+
+def test_stats_after_requests():
+    c = TestClient(create_app(ScriptedProvider(["{", _good(), _good()])))
+    for _ in range(2):
+        assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 200
+    st = c.get("/stats").json()
+    assert st["requests"]["retried_ok"] == 1 and st["requests"]["ok"] == 1
+    assert st["latency_s"]["n"] == 2
+
+
+def test_offline_app_answers_every_domain():
+    c = TestClient(create_offline_app())
+    for domain in ("shop", "telecom", "parcel", "card"):
+        r = c.post("/summarize", json={"domain": domain, "turns": TURNS})
+        assert r.status_code == 200, r.text
+        assert r.json()["model"] == "offline:canned"
+    assert c.get("/openapi.json").status_code == 200
