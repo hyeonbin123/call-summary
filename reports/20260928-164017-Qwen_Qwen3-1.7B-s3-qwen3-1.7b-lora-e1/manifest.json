@@ -1,0 +1,31 @@
+{
+  "run_id": "20260928-164017-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e1",
+  "provider": "hf:Qwen/Qwen3-1.7B+outputs/train/qwen3-1.7b-r16/epoch1",
+  "data": "datasets\\dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 4,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "44025fe317f23d1ceed22f11a74b14b46e41a74d",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev.jsonl",
+    "--official",
+    "--label",
+    "s3-qwen3-1.7b-lora-e1",
+    "--backend",
+    "hf",
+    "--model",
+    "Qwen/Qwen3-1.7B",
+    "--adapter",
+    "outputs/train/qwen3-1.7b-r16/epoch1",
+    "--batch",
+    "4"
+  ],
+  "started": "20260928-164017"
+}

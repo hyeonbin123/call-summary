@@ -1,0 +1,130 @@
+{
+  "n": 240,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.9333333333333333,
+    "category_acc": 0.9958333333333333,
+    "category_macro_f1": 0.9962042788129745,
+    "resolution_acc": 0.9791666666666666,
+    "entity_p": 0.9925650557620818,
+    "entity_r": 0.9925650557620818,
+    "entity_f1": 0.9925650557620818,
+    "hallucination": 0.0018587360594795538,
+    "action_f1": 0.9957894736842106,
+    "follow_up_acc": 0.9833333333333333,
+    "off_list": 0.0
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.9,
+      0.9625
+    ],
+    "category_acc": [
+      0.9875,
+      1.0
+    ],
+    "resolution_acc": [
+      0.9583333333333334,
+      0.9958333333333333
+    ],
+    "entity_f1": [
+      0.9853747714808044,
+      0.998165137614679
+    ],
+    "hallucination": [
+      0.0,
+      0.005681818181818182
+    ],
+    "action_f1": [
+      0.9914712153518124,
+      0.9989806320081549
+    ],
+    "follow_up_acc": [
+      0.9666666666666667,
+      0.9958333333333333
+    ]
+  },
+  "schema_ok_only": {
+    "n": 240,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.9333333333333333,
+      "category_acc": 0.9958333333333333,
+      "category_macro_f1": 0.9962042788129745,
+      "resolution_acc": 0.9791666666666666,
+      "entity_p": 0.9925650557620818,
+      "entity_r": 0.9925650557620818,
+      "entity_f1": 0.9925650557620818,
+      "hallucination": 0.0018587360594795538,
+      "action_f1": 0.9957894736842106,
+      "follow_up_acc": 0.9833333333333333,
+      "off_list": 0.0
+    }
+  },
+  "by_domain": {
+    "parcel": {
+      "n": 80,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.9375,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 0.95,
+        "entity_p": 1.0,
+        "entity_r": 1.0,
+        "entity_f1": 1.0,
+        "hallucination": 0.0,
+        "action_f1": 1.0,
+        "follow_up_acc": 0.975,
+        "off_list": 0.0
+      }
+    },
+    "shop": {
+      "n": 80,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.925,
+        "category_acc": 0.9875,
+        "category_macro_f1": 0.9886128364389234,
+        "resolution_acc": 1.0,
+        "entity_p": 0.9847715736040609,
+        "entity_r": 0.9897959183673469,
+        "entity_f1": 0.9872773536895675,
+        "hallucination": 0.005076142131979695,
+        "action_f1": 0.9946524064171123,
+        "follow_up_acc": 0.9875,
+        "off_list": 0.0
+      }
+    },
+    "telecom": {
+      "n": 80,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.9375,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 0.9875,
+        "entity_p": 0.9935483870967742,
+        "entity_r": 0.9871794871794872,
+        "entity_f1": 0.9903536977491961,
+        "hallucination": 0.0,
+        "action_f1": 0.9938650306748467,
+        "follow_up_acc": 0.9875,
+        "off_list": 0.0
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 8.821,
+    "p95": 10.196
+  }
+}
