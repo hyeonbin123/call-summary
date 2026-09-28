@@ -1,0 +1,130 @@
+{
+  "n": 60,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.9,
+    "category_acc": 1.0,
+    "category_macro_f1": 1.0,
+    "resolution_acc": 0.9833333333333333,
+    "entity_p": 0.9849624060150376,
+    "entity_r": 0.9703703703703703,
+    "entity_f1": 0.9776119402985075,
+    "hallucination": 0.0,
+    "action_f1": 1.0,
+    "follow_up_acc": 0.9833333333333333,
+    "off_list": 0.0
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.8166666666666667,
+      0.9666666666666667
+    ],
+    "category_acc": [
+      1.0,
+      1.0
+    ],
+    "resolution_acc": [
+      0.95,
+      1.0
+    ],
+    "entity_f1": [
+      0.952,
+      0.996309963099631
+    ],
+    "hallucination": [
+      0.0,
+      0.0
+    ],
+    "action_f1": [
+      1.0,
+      1.0
+    ],
+    "follow_up_acc": [
+      0.95,
+      1.0
+    ]
+  },
+  "schema_ok_only": {
+    "n": 60,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.9,
+      "category_acc": 1.0,
+      "category_macro_f1": 1.0,
+      "resolution_acc": 0.9833333333333333,
+      "entity_p": 0.9849624060150376,
+      "entity_r": 0.9703703703703703,
+      "entity_f1": 0.9776119402985075,
+      "hallucination": 0.0,
+      "action_f1": 1.0,
+      "follow_up_acc": 0.9833333333333333,
+      "off_list": 0.0
+    }
+  },
+  "by_domain": {
+    "parcel": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.85,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 1.0,
+        "entity_p": 0.9777777777777777,
+        "entity_r": 0.9565217391304348,
+        "entity_f1": 0.967032967032967,
+        "hallucination": 0.0,
+        "action_f1": 1.0,
+        "follow_up_acc": 0.95,
+        "off_list": 0.0
+      }
+    },
+    "shop": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.9,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 1.0,
+        "entity_p": 0.9787234042553191,
+        "entity_r": 0.9583333333333334,
+        "entity_f1": 0.968421052631579,
+        "hallucination": 0.0,
+        "action_f1": 1.0,
+        "follow_up_acc": 1.0,
+        "off_list": 0.0
+      }
+    },
+    "telecom": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.95,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 0.95,
+        "entity_p": 1.0,
+        "entity_r": 1.0,
+        "entity_f1": 1.0,
+        "hallucination": 0.0,
+        "action_f1": 1.0,
+        "follow_up_acc": 1.0,
+        "off_list": 0.0
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 8.458,
+    "p95": 9.215
+  }
+}

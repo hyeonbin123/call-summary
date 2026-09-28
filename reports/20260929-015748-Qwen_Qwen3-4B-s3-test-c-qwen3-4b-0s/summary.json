@@ -1,0 +1,94 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.055,
+    "category_acc": 0.985,
+    "category_macro_f1": 0.9847323097396383,
+    "resolution_acc": 0.725,
+    "entity_p": 0.596,
+    "entity_r": 0.8490028490028491,
+    "entity_f1": 0.700352526439483,
+    "hallucination": 0.164,
+    "action_f1": 0.6848249027237354,
+    "follow_up_acc": 0.655,
+    "off_list": 0.15
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.025,
+      0.09
+    ],
+    "category_acc": [
+      0.965,
+      1.0
+    ],
+    "resolution_acc": [
+      0.66,
+      0.785
+    ],
+    "entity_f1": [
+      0.6674528301886793,
+      0.7322929171668667
+    ],
+    "hallucination": [
+      0.13414634146341464,
+      0.19427402862985685
+    ],
+    "action_f1": [
+      0.6444444444444445,
+      0.7255936675461742
+    ],
+    "follow_up_acc": [
+      0.59,
+      0.72
+    ]
+  },
+  "schema_ok_only": {
+    "n": 200,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.055,
+      "category_acc": 0.985,
+      "category_macro_f1": 0.9847323097396383,
+      "resolution_acc": 0.725,
+      "entity_p": 0.596,
+      "entity_r": 0.8490028490028491,
+      "entity_f1": 0.700352526439483,
+      "hallucination": 0.164,
+      "action_f1": 0.6848249027237354,
+      "follow_up_acc": 0.655,
+      "off_list": 0.15
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.055,
+        "category_acc": 0.985,
+        "category_macro_f1": 0.9847323097396383,
+        "resolution_acc": 0.725,
+        "entity_p": 0.596,
+        "entity_r": 0.8490028490028491,
+        "entity_f1": 0.700352526439483,
+        "hallucination": 0.164,
+        "action_f1": 0.6848249027237354,
+        "follow_up_acc": 0.655,
+        "off_list": 0.15
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 4.859,
+    "p95": 5.87
+  }
+}

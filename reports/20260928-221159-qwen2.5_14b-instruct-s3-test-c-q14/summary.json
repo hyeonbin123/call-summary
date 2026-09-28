@@ -1,0 +1,94 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.14,
+    "category_acc": 1.0,
+    "category_macro_f1": 1.0,
+    "resolution_acc": 0.855,
+    "entity_p": 0.684931506849315,
+    "entity_r": 0.8547008547008547,
+    "entity_f1": 0.7604562737642585,
+    "hallucination": 0.2808219178082192,
+    "action_f1": 0.83,
+    "follow_up_acc": 0.85,
+    "off_list": 0.015
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.095,
+      0.19
+    ],
+    "category_acc": [
+      1.0,
+      1.0
+    ],
+    "resolution_acc": [
+      0.805,
+      0.905
+    ],
+    "entity_f1": [
+      0.7338501291989664,
+      0.7891156462585034
+    ],
+    "hallucination": [
+      0.23857868020304568,
+      0.32142857142857145
+    ],
+    "action_f1": [
+      0.8060453400503779,
+      0.8525402726146221
+    ],
+    "follow_up_acc": [
+      0.795,
+      0.9
+    ]
+  },
+  "schema_ok_only": {
+    "n": 200,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.14,
+      "category_acc": 1.0,
+      "category_macro_f1": 1.0,
+      "resolution_acc": 0.855,
+      "entity_p": 0.684931506849315,
+      "entity_r": 0.8547008547008547,
+      "entity_f1": 0.7604562737642585,
+      "hallucination": 0.2808219178082192,
+      "action_f1": 0.83,
+      "follow_up_acc": 0.85,
+      "off_list": 0.015
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.14,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 0.855,
+        "entity_p": 0.684931506849315,
+        "entity_r": 0.8547008547008547,
+        "entity_f1": 0.7604562737642585,
+        "hallucination": 0.2808219178082192,
+        "action_f1": 0.83,
+        "follow_up_acc": 0.85,
+        "off_list": 0.015
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 10.214,
+    "p95": 13.579
+  }
+}

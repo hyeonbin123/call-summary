@@ -1,0 +1,130 @@
+{
+  "n": 60,
+  "point": {
+    "json": 1.0,
+    "schema": 0.9833333333333333,
+    "exact": 0.3333333333333333,
+    "category_acc": 0.9,
+    "category_macro_f1": 0.8968253968253969,
+    "resolution_acc": 0.8333333333333334,
+    "entity_p": 1.0,
+    "entity_r": 0.7777777777777778,
+    "entity_f1": 0.875,
+    "hallucination": 0.0,
+    "action_f1": 0.936,
+    "follow_up_acc": 0.7333333333333333,
+    "off_list": 0.05
+  },
+  "ci95": {
+    "schema": [
+      0.95,
+      1.0
+    ],
+    "exact": [
+      0.21666666666666667,
+      0.45
+    ],
+    "category_acc": [
+      0.8166666666666667,
+      0.9666666666666667
+    ],
+    "resolution_acc": [
+      0.7333333333333333,
+      0.9166666666666666
+    ],
+    "entity_f1": [
+      0.8319327731092437,
+      0.9135802469135802
+    ],
+    "hallucination": [
+      0.0,
+      0.0
+    ],
+    "action_f1": [
+      0.8906882591093117,
+      0.9731800766283525
+    ],
+    "follow_up_acc": [
+      0.6166666666666667,
+      0.8333333333333334
+    ]
+  },
+  "schema_ok_only": {
+    "n": 59,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.3389830508474576,
+      "category_acc": 0.9152542372881356,
+      "category_macro_f1": 0.9037698412698413,
+      "resolution_acc": 0.847457627118644,
+      "entity_p": 1.0,
+      "entity_r": 0.7894736842105263,
+      "entity_f1": 0.8823529411764706,
+      "hallucination": 0.0,
+      "action_f1": 0.9435483870967742,
+      "follow_up_acc": 0.7457627118644068,
+      "off_list": 0.05084745762711865
+    }
+  },
+  "by_domain": {
+    "parcel": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.3,
+        "category_acc": 0.9,
+        "category_macro_f1": 0.8958333333333333,
+        "resolution_acc": 0.85,
+        "entity_p": 1.0,
+        "entity_r": 0.782608695652174,
+        "entity_f1": 0.8780487804878049,
+        "hallucination": 0.0,
+        "action_f1": 0.9393939393939394,
+        "follow_up_acc": 0.5,
+        "off_list": 0.05
+      }
+    },
+    "shop": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.35,
+        "category_acc": 1.0,
+        "category_macro_f1": 1.0,
+        "resolution_acc": 0.85,
+        "entity_p": 1.0,
+        "entity_r": 0.75,
+        "entity_f1": 0.8571428571428571,
+        "hallucination": 0.0,
+        "action_f1": 0.9183673469387755,
+        "follow_up_acc": 0.8,
+        "off_list": 0.0
+      }
+    },
+    "telecom": {
+      "n": 20,
+      "point": {
+        "json": 1.0,
+        "schema": 0.95,
+        "exact": 0.35,
+        "category_acc": 0.8,
+        "category_macro_f1": 0.7946428571428571,
+        "resolution_acc": 0.8,
+        "entity_p": 1.0,
+        "entity_r": 0.8048780487804879,
+        "entity_f1": 0.8918918918918919,
+        "hallucination": 0.0,
+        "action_f1": 0.9534883720930233,
+        "follow_up_acc": 0.9,
+        "off_list": 0.1
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 10.218,
+    "p95": 12.296
+  }
+}

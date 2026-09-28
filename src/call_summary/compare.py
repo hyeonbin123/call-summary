@@ -25,7 +25,10 @@ def load_run(run: str | Path) -> tuple[dict, list[ItemScore]]:
 
 def run_name(manifest: dict) -> str:
     shots = manifest.get("shots") or 0
-    return manifest["provider"] + (f" {shots}-shot" if shots else "")
+    prompt = manifest.get("prompt_version", "p1")
+    return (
+        manifest["provider"] + (f" {shots}-shot" if shots else "") + (f" {prompt}" if prompt != "p1" else "")
+    )
 
 
 def fmt(x: float, pct: bool = True) -> str:

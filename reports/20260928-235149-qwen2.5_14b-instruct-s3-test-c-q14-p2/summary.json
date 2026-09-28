@@ -1,0 +1,94 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 0.995,
+    "exact": 0.23,
+    "category_acc": 0.995,
+    "category_macro_f1": 0.9974489795918368,
+    "resolution_acc": 0.9,
+    "entity_p": 0.7288557213930348,
+    "entity_r": 0.8347578347578347,
+    "entity_f1": 0.7782204515272244,
+    "hallucination": 0.22388059701492538,
+    "action_f1": 0.9086595492289442,
+    "follow_up_acc": 0.82,
+    "off_list": 0.015
+  },
+  "ci95": {
+    "schema": [
+      0.985,
+      1.0
+    ],
+    "exact": [
+      0.175,
+      0.29
+    ],
+    "category_acc": [
+      0.985,
+      1.0
+    ],
+    "resolution_acc": [
+      0.86,
+      0.94
+    ],
+    "entity_f1": [
+      0.7517146776406035,
+      0.8042049934296978
+    ],
+    "hallucination": [
+      0.18586387434554974,
+      0.26108374384236455
+    ],
+    "action_f1": [
+      0.8888888888888888,
+      0.9263657957244655
+    ],
+    "follow_up_acc": [
+      0.76,
+      0.87
+    ]
+  },
+  "schema_ok_only": {
+    "n": 199,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.23115577889447236,
+      "category_acc": 1.0,
+      "category_macro_f1": 1.0,
+      "resolution_acc": 0.9045226130653267,
+      "entity_p": 0.7288557213930348,
+      "entity_r": 0.839541547277937,
+      "entity_f1": 0.7802929427430093,
+      "hallucination": 0.22388059701492538,
+      "action_f1": 0.9119047619047619,
+      "follow_up_acc": 0.8241206030150754,
+      "off_list": 0.01507537688442211
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 0.995,
+        "exact": 0.23,
+        "category_acc": 0.995,
+        "category_macro_f1": 0.9974489795918368,
+        "resolution_acc": 0.9,
+        "entity_p": 0.7288557213930348,
+        "entity_r": 0.8347578347578347,
+        "entity_f1": 0.7782204515272244,
+        "hallucination": 0.22388059701492538,
+        "action_f1": 0.9086595492289442,
+        "follow_up_acc": 0.82,
+        "off_list": 0.015
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 10.387,
+    "p95": 13.842
+  }
+}

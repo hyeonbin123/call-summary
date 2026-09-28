@@ -1,0 +1,94 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.55,
+    "category_acc": 0.975,
+    "category_macro_f1": 0.9742816888396157,
+    "resolution_acc": 0.99,
+    "entity_p": 0.9759036144578314,
+    "entity_r": 0.9230769230769231,
+    "entity_f1": 0.9487554904831625,
+    "hallucination": 0.015060240963855422,
+    "action_f1": 0.9074889867841409,
+    "follow_up_acc": 0.92,
+    "off_list": 0.015
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.48,
+      0.62
+    ],
+    "category_acc": [
+      0.95,
+      0.995
+    ],
+    "resolution_acc": [
+      0.975,
+      1.0
+    ],
+    "entity_f1": [
+      0.9327354260089686,
+      0.9632892804698973
+    ],
+    "hallucination": [
+      0.003076923076923077,
+      0.029585798816568046
+    ],
+    "action_f1": [
+      0.8857142857142857,
+      0.9293361884368309
+    ],
+    "follow_up_acc": [
+      0.88,
+      0.955
+    ]
+  },
+  "schema_ok_only": {
+    "n": 200,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.55,
+      "category_acc": 0.975,
+      "category_macro_f1": 0.9742816888396157,
+      "resolution_acc": 0.99,
+      "entity_p": 0.9759036144578314,
+      "entity_r": 0.9230769230769231,
+      "entity_f1": 0.9487554904831625,
+      "hallucination": 0.015060240963855422,
+      "action_f1": 0.9074889867841409,
+      "follow_up_acc": 0.92,
+      "off_list": 0.015
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.55,
+        "category_acc": 0.975,
+        "category_macro_f1": 0.9742816888396157,
+        "resolution_acc": 0.99,
+        "entity_p": 0.9759036144578314,
+        "entity_r": 0.9230769230769231,
+        "entity_f1": 0.9487554904831625,
+        "hallucination": 0.015060240963855422,
+        "action_f1": 0.9074889867841409,
+        "follow_up_acc": 0.92,
+        "off_list": 0.015
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 8.154,
+    "p95": 9.693
+  }
+}
