@@ -1,10 +1,12 @@
 import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from call_summary.dataset import load_items
 from call_summary.prompts import record_to_json
 from call_summary.providers import ScriptedProvider
-from call_summary.service import create_app, create_offline_app
+from call_summary.service import MAX_CHARS, create_app, create_offline_app
 from call_summary.specs import make_spec
 
 TURNS = [
@@ -51,6 +53,22 @@ def test_input_validation():
     assert c.post("/summarize", json={"domain": "shop", "turns": bad}).status_code == 422
     assert c.get("/health").json()["status"] == "ok"
     assert "card" in c.get("/domains").json()
+
+
+def test_transcript_beyond_model_context_is_413():
+    # ~4,500 chars is ~3,300 prompt tokens: with the reply budget it no longer fits the 4,096 context.
+    p = ScriptedProvider([_good()])
+    long_turns = [{"speaker": "상담원" if i % 2 == 0 else "고객", "text": "가" * 1500} for i in range(3)]
+    r = TestClient(create_app(p)).post("/summarize", json={"domain": "shop", "turns": long_turns})
+    assert r.status_code == 413 and p.calls == []
+    assert str(MAX_CHARS) in r.json()["detail"]
+
+
+def test_dataset_transcripts_fit_service_limit():
+    files = sorted((Path(__file__).resolve().parents[1] / "datasets").glob("*.jsonl"))
+    assert files
+    for f in files:
+        assert max(len(it.transcript) for it in load_items(f)) <= MAX_CHARS, f.name
 
 
 def test_model_server_down_is_503_and_counted():

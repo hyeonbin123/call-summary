@@ -25,7 +25,11 @@ from .providers import OllamaProvider, Provider, Reply
 from .schema import AfterCallRecord, FollowUp, parse_reply, record_json_schema
 
 MAX_TURNS = 200
-MAX_CHARS = 20_000
+NUM_CTX = 4096  # Ollama context the service asks for
+# Prompt tokens ~= 571 + 0.605 * transcript chars (dev runs, Qwen3 and qwen2.5 tokenizers). 4,000 chars is
+# ~3,000 prompt tokens, leaving ~1,000 for the reply; longer input would be truncated by the model server.
+# Dataset transcripts are at most 1,485 chars.
+MAX_CHARS = 4_000
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
@@ -112,7 +116,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
             base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
             use_schema=True,
-            num_ctx=4096,
+            num_ctx=NUM_CTX,
             num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"])
             if os.environ.get("CALL_SUMMARY_NUM_GPU")
             else None,
@@ -154,7 +158,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             raise HTTPException(422, "unknown domain")
         transcript = format_transcript([t.model_dump() for t in req.turns])
         if len(transcript) > MAX_CHARS:
-            raise HTTPException(413, "transcript too long")
+            raise HTTPException(413, f"transcript too long (max {MAX_CHARS} characters)")
         messages = build_messages(req.domain, transcript)
         t0 = time.perf_counter()
         problems: list[str] = []
