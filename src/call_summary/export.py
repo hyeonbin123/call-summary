@@ -59,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
         not stamp.exists() or json.loads(stamp.read_text(encoding="utf-8")) != source
     ):
         ap.error(f"{out} holds weights from another source; use a new --out or delete merged/ and {f16.name}")
+    if not f16.exists() or (args.adapter and not (merged / "config.json").exists()):
+        # A build is about to start: drop an older stamp so an interrupted merge or convert is never
+        # taken for that older source's weights on the next run.
+        stamp.unlink(missing_ok=True)
     if args.adapter:
         if not (merged / "config.json").exists():
             print("merging adapter ...", file=sys.stderr)

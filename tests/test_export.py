@@ -46,6 +46,28 @@ def test_export_reuses_its_own_merge(tmp_path, fake_tools):
     assert json.loads((out / "export.json").read_text(encoding="utf-8"))["adapter_sha"] == adapter_hash(a)
 
 
+def test_an_interrupted_build_is_not_taken_for_the_older_stamp(tmp_path, fake_tools, monkeypatch):
+    a = _adapter(tmp_path, "a", b"A")
+    out = tmp_path / "export"
+    _export(a, out)
+    # As the refusal message says: delete merged/ and the F16 GGUF (source.json stays behind) ...
+    for f in (out / "merged").iterdir():
+        f.unlink()
+    (out / "merged").rmdir()
+    (out / "model-f16.gguf").unlink()
+
+    def crashing_merge(base, adapter, target):  # ... then adapter b's merge dies half-way
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "config.json").write_text("{}", encoding="utf-8")
+        raise RuntimeError("out of memory")
+
+    monkeypatch.setattr(export, "merge", crashing_merge)
+    with pytest.raises(RuntimeError):
+        _export(_adapter(tmp_path, "b", b"B"), out)
+    with pytest.raises(SystemExit):  # b's half-merged weights must not pass for a's
+        _export(a, out)
+
+
 def test_export_refuses_weights_merged_from_another_adapter(tmp_path, fake_tools):
     out = tmp_path / "export"
     _export(_adapter(tmp_path, "a", b"A"), out)
