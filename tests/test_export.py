@@ -10,7 +10,12 @@ from call_summary.evaluate import adapter_hash
 @pytest.fixture
 def fake_tools(monkeypatch):
     """merge writes merged/config.json, the GGUF converter writes --outfile, ollama and git succeed."""
-    merges = []
+
+    class Merges(list):
+        pass
+
+    merges = Merges()
+    calls = []
 
     def fake_merge(base, adapter, out):
         merges.append(adapter)
@@ -18,12 +23,16 @@ def fake_tools(monkeypatch):
         (out / "config.json").write_text("{}", encoding="utf-8")
 
     def fake_run(cmd, **kw):
+        calls.append([str(c) for c in cmd])
         if any(str(c).endswith("convert_hf_to_gguf.py") for c in cmd):
             open(cmd[cmd.index("--outfile") + 1], "wb").close()
+        if str(cmd[0]).endswith("llama-quantize.exe"):
+            open(cmd[2], "wb").close()
         return subprocess.CompletedProcess(cmd, 0, stdout="x")
 
     monkeypatch.setattr(export, "merge", fake_merge)
     monkeypatch.setattr(export.subprocess, "run", fake_run)
+    merges.calls = calls  # type: ignore[attr-defined]
     return merges
 
 
@@ -74,3 +83,16 @@ def test_export_refuses_weights_merged_from_another_adapter(tmp_path, fake_tools
     with pytest.raises(SystemExit):
         _export(_adapter(tmp_path, "b", b"B"), out)
     assert len(fake_tools) == 1
+
+
+def test_quantized_models_come_from_llama_quantize_not_ollama(tmp_path, fake_tools):
+    out = tmp_path / "export"
+    _export(_adapter(tmp_path, "a", b"A"), out)
+    creates = [c for c in fake_tools.calls if c[:2] == ["ollama", "create"]]
+    assert [c[2] for c in creates] == ["cs:f16", "cs:q8_0", "cs:q4_k_m"]
+    assert all("--quantize" not in c for c in creates)
+    quantize = [c for c in fake_tools.calls if c[0].endswith("llama-quantize.exe")]
+    assert [c[3] for c in quantize] == ["Q8_0", "Q4_K_M"]
+    assert "model-q4_k_m.gguf" in (out / "Modelfile.q4_K_M").read_text(encoding="utf-8")
+    info = json.loads((out / "export.json").read_text(encoding="utf-8"))
+    assert set(info["gguf"]) == {"f16", "q8_0", "q4_K_M"}

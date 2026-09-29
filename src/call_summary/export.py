@@ -1,6 +1,8 @@
 """Merge a LoRA adapter into its base model and register it with Ollama as GGUF (F16 and quantized).
 
-Steps: merge (CPU, fp16) -> llama.cpp convert_hf_to_gguf.py (F16) -> `ollama create --quantize`.
+Steps: merge (CPU, fp16) -> llama.cpp convert_hf_to_gguf.py (F16) -> llama-quantize (Q8_0, Q4_K_M, ...)
+-> `ollama create` from each GGUF. Ollama 0.34 no longer quantizes GGUF imports, so the quantized files are
+made with llama.cpp's own tool (official release binaries in work/llama-bin, not committed).
 The llama.cpp checkout lives in work/llama.cpp (not committed); its commit is recorded in export.json.
 Merged weights and the F16 GGUF in --out are reused only for the same base and adapter weights
 (out/source.json); export.json carries the adapter hash that evaluate manifests record.
@@ -18,6 +20,7 @@ from pathlib import Path
 from .evaluate import adapter_hash
 
 LLAMA_CPP = Path("work/llama.cpp")
+LLAMA_QUANTIZE = Path("work/llama-bin/llama-quantize.exe")
 
 
 def merge(base: str, adapter: str, out: Path) -> None:
@@ -44,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True, help="work dir for merged weights and GGUF files")
     ap.add_argument("--quant", nargs="+", default=["q8_0", "q4_K_M"])
     ap.add_argument("--num-ctx", type=int, default=8192)
+    ap.add_argument("--llama-quantize", default=str(LLAMA_QUANTIZE), help="llama.cpp quantize tool")
     args = ap.parse_args(argv)
 
     out = Path(args.out)
@@ -63,6 +67,9 @@ def main(argv: list[str] | None = None) -> int:
         # A build is about to start: drop an older stamp so an interrupted merge or convert is never
         # taken for that older source's weights on the next run.
         stamp.unlink(missing_ok=True)
+        for old in out.glob("model-*.gguf"):  # quantized files belong to the F16 they came from
+            if old != f16:
+                old.unlink()
     if args.adapter:
         if not (merged / "config.json").exists():
             print("merging adapter ...", file=sys.stderr)
@@ -90,15 +97,17 @@ def main(argv: list[str] | None = None) -> int:
         )
     stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # only once merge and convert finished
     created = {}
+    ggufs = {}
     for q in ["f16", *args.quant]:
+        gguf = f16 if q == "f16" else out / f"model-{q.lower()}.gguf"
+        if not gguf.exists():
+            subprocess.run([args.llama_quantize, str(f16), str(gguf), q.upper()], check=True)
         name = f"{args.name}:{q.lower()}"
         mf = out / f"Modelfile.{q}"
-        mf.write_text(modelfile(f16, args.num_ctx), encoding="utf-8")
-        cmd = ["ollama", "create", name, "-f", str(mf)]
-        if q != "f16":
-            cmd += ["--quantize", q]
-        subprocess.run(cmd, check=True)
+        mf.write_text(modelfile(gguf, args.num_ctx), encoding="utf-8")
+        subprocess.run(["ollama", "create", name, "-f", str(mf)], check=True)
         created[q] = name
+        ggufs[q] = {"file": gguf.name, "bytes": gguf.stat().st_size}
     llama_rev = subprocess.run(
         ["git", "-C", str(LLAMA_CPP), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
@@ -107,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         "adapter": args.adapter,
         "adapter_sha": source["adapter_sha"],
         "models": created,
+        "gguf": ggufs,
         "llama_cpp": llama_rev,
     }
     (out / "export.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
