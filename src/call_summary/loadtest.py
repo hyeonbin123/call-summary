@@ -2,7 +2,8 @@
 
     uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4
 
-Latency is measured by the client (the whole HTTP round trip). Results go to --out as JSON.
+Latency is measured by the client (the whole HTTP round trip). A request that fails in transport (timeout,
+dropped connection) counts as status "error:<exception>". Results go to --out as JSON after every stage.
 """
 
 from __future__ import annotations
@@ -27,21 +28,24 @@ def run_load(client, items: Sequence[Item], concurrency: int) -> dict:
     """`client` is anything with .post(path, json=...) returning an object with .status_code (httpx.Client,
     FastAPI TestClient)."""
 
-    def one(item: Item) -> tuple[int, float]:
+    def one(item: Item) -> tuple[str, float]:
         t0 = time.perf_counter()
-        r = client.post("/summarize", json=request_body(item))
-        return r.status_code, time.perf_counter() - t0
+        try:
+            status = str(client.post("/summarize", json=request_body(item)).status_code)
+        except Exception as exc:  # noqa: BLE001 - a timeout or dropped connection is a counted error, not a crash
+            status = f"error:{type(exc).__name__}"
+        return status, time.perf_counter() - t0
 
     t0 = time.perf_counter()
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         results = list(pool.map(one, items))
     wall = time.perf_counter() - t0
-    lat = sorted(sec for status, sec in results if status == 200)
+    lat = sorted(sec for status, sec in results if status == "200")
     codes = Counter(status for status, _ in results)
     out = {
         "concurrency": concurrency,
         "n": len(results),
-        "status": {str(k): v for k, v in sorted(codes.items())},
+        "status": dict(sorted(codes.items())),
         "wall_s": round(wall, 2),
         "throughput_rps": round(len(results) / wall, 3) if wall else None,
         "latency_s": None,
@@ -68,18 +72,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--timeout", type=float, default=300.0)
     args = ap.parse_args(argv)
     items = load_items(args.data)[: args.limit]
-    runs = []
+    report: dict = {"url": args.url, "data": args.data, "health": None, "runs": [], "service_stats": None}
+
+    def save() -> None:
+        if args.out:
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
     with httpx.Client(base_url=args.url, timeout=args.timeout) as client:
-        health = client.get("/health").json()
+        report["health"] = client.get("/health").json()
         for c in args.concurrency:
             res = run_load(client, items, c)
             print(json.dumps(res, ensure_ascii=False), flush=True)
-            runs.append(res)
-        stats = client.get("/stats").json()
-    report = {"url": args.url, "data": args.data, "health": health, "runs": runs, "service_stats": stats}
-    if args.out:
-        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            report["runs"].append(res)
+            save()  # finished stages survive a later failure
+        report["service_stats"] = client.get("/stats").json()
+    save()
     return 0
 
 
