@@ -2,6 +2,8 @@
 
 Steps: merge (CPU, fp16) -> llama.cpp convert_hf_to_gguf.py (F16) -> `ollama create --quantize`.
 The llama.cpp checkout lives in work/llama.cpp (not committed); its commit is recorded in export.json.
+Merged weights and the F16 GGUF in --out are reused only for the same base and adapter weights
+(out/source.json); export.json carries the adapter hash that evaluate manifests record.
 """
 
 from __future__ import annotations
@@ -12,6 +14,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+from .evaluate import adapter_hash
 
 LLAMA_CPP = Path("work/llama.cpp")
 
@@ -44,8 +48,18 @@ def main(argv: list[str] | None = None) -> int:
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    # merged/ and the F16 GGUF are reused only when they were built from the same weights.
+    source = {"base": args.base, "adapter_sha": adapter_hash(args.adapter) if args.adapter else None}
+    if args.adapter and source["adapter_sha"] is None:
+        ap.error(f"no adapter weights in {args.adapter}")
+    stamp = out / "source.json"
+    merged = out / "merged"
+    f16 = out / "model-f16.gguf"
+    if (merged.exists() or f16.exists()) and (
+        not stamp.exists() or json.loads(stamp.read_text(encoding="utf-8")) != source
+    ):
+        ap.error(f"{out} holds weights from another source; use a new --out or delete merged/ and {f16.name}")
     if args.adapter:
-        merged = out / "merged"
         if not (merged / "config.json").exists():
             print("merging adapter ...", file=sys.stderr)
             merge(args.base, args.adapter, merged)
@@ -55,7 +69,6 @@ def main(argv: list[str] | None = None) -> int:
 
         src = snapshot_download(args.base, local_files_only=True)
 
-    f16 = out / "model-f16.gguf"
     if not f16.exists():
         env = {**os.environ, "PYTHONPATH": str(LLAMA_CPP / "gguf-py")}
         subprocess.run(
@@ -71,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             check=True,
             env=env,
         )
+    stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # only once merge and convert finished
     created = {}
     for q in ["f16", *args.quant]:
         name = f"{args.name}:{q.lower()}"
@@ -84,7 +98,13 @@ def main(argv: list[str] | None = None) -> int:
     llama_rev = subprocess.run(
         ["git", "-C", str(LLAMA_CPP), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
-    info = {"base": args.base, "adapter": args.adapter, "models": created, "llama_cpp": llama_rev}
+    info = {
+        "base": args.base,
+        "adapter": args.adapter,
+        "adapter_sha": source["adapter_sha"],
+        "models": created,
+        "llama_cpp": llama_rev,
+    }
     (out / "export.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     print(json.dumps(info, indent=2))
     return 0
