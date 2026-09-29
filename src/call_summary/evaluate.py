@@ -121,6 +121,45 @@ def _file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
 
+def adapter_hash(adapter: str | Path) -> str | None:
+    """Hash of a PEFT adapter's weights (export.json records the same value); None without a weights file."""
+    for name in ("adapter_model.safetensors", "adapter_model.bin"):
+        if (Path(adapter) / name).exists():
+            return _file_hash(Path(adapter) / name)
+    return None
+
+
+def model_fingerprint(provider: Provider) -> dict:
+    """What identifies the measured weights beyond a path or tag, which retraining or re-export reuses.
+    Missing pieces are None; a run never stops for them."""
+    fp: dict = {}
+    if isinstance(provider, HFProvider):
+        if provider.adapter:
+            cfg = Path(provider.adapter).parent / "train_config.json"
+            fp["adapter_sha"] = adapter_hash(provider.adapter)
+            fp["train_config_sha"] = _file_hash(cfg) if cfg.exists() else None
+        try:
+            from huggingface_hub import try_to_load_from_cache
+
+            # The snapshot commit the cached config resolves to (snapshot_download refuses partial snapshots).
+            cfg_path = try_to_load_from_cache(provider.model_id, "config.json")
+            fp["base_revision"] = Path(cfg_path).parent.name if isinstance(cfg_path, str) else None
+        except Exception:  # noqa: BLE001 - a local path or no hub install
+            fp["base_revision"] = None
+    elif isinstance(provider, OllamaProvider):
+        import httpx
+
+        names = {provider.model, f"{provider.model}:latest"}
+        try:
+            tags = httpx.get(f"{provider.base_url}/api/tags", timeout=10).json().get("models", [])
+            fp["ollama_digest"] = next(
+                (m.get("digest") for m in tags if m.get("name") in names or m.get("model") in names), None
+            )
+        except Exception:  # noqa: BLE001 - no model server: the run fails later with the real error
+            fp["ollama_digest"] = None
+    return fp
+
+
 def summary_table(scores: Sequence[ItemScore], n_boot: int = 2000) -> dict:
     out: dict = {"n": len(scores), "point": summarize(scores), "ci95": {}}
 
@@ -207,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     manifest = {
         "run_id": run_id,
         "provider": provider.name,
+        "model_fingerprint": model_fingerprint(provider),
         "data": str(data_path),
         "data_sha": _file_hash(data_path),
         "n_items": len(items),
