@@ -44,7 +44,8 @@ SECURITY_HEADERS = {
 
 class Turn(BaseModel):
     speaker: str = Field(pattern="^(상담원|고객)$")
-    text: str = Field(min_length=1, max_length=2000)
+    # Empty text is allowed: a speech recogniser returns nothing for some turns (test-d has such turns).
+    text: str = Field(max_length=2000)
 
 
 class SummarizeRequest(BaseModel):
@@ -121,7 +122,9 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     base: Provider = provider or OllamaProvider(
         model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
         base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-        use_schema=True,
+        # Off by default. Ollama's schema grammar writes required keys first in alphabetical order, and the
+        # fine-tuned model, trained on one key order, then drops `actions_taken` (stage 5 in experiments.md).
+        use_schema=os.environ.get("CALL_SUMMARY_SCHEMA") == "1",
         num_ctx=NUM_CTX,
         num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"]) if os.environ.get("CALL_SUMMARY_NUM_GPU") else None,
     )

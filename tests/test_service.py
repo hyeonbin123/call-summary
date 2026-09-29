@@ -137,3 +137,17 @@ def test_offline_app_answers_every_domain():
         assert r.status_code == 200, r.text
         assert r.json()["model"] == "offline:canned"
     assert c.get("/openapi.json").status_code == 200
+
+
+def test_empty_recognised_turns_are_accepted():
+    c = TestClient(create_app(ScriptedProvider([_good()])))
+    turns = TURNS + [{"speaker": "고객", "text": ""}]
+    assert c.post("/summarize", json={"domain": "shop", "turns": turns}).status_code == 200
+
+
+def test_schema_decoding_is_opt_in(monkeypatch):
+    # /health reports the provider name, which ends in ":schema" when constrained decoding is on.
+    monkeypatch.delenv("CALL_SUMMARY_SCHEMA", raising=False)
+    assert not TestClient(create_app()).get("/health").json()["model"].endswith(":schema")
+    monkeypatch.setenv("CALL_SUMMARY_SCHEMA", "1")
+    assert TestClient(create_app()).get("/health").json()["model"].endswith(":schema")
