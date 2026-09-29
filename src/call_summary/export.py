@@ -31,6 +31,36 @@ def trained_on_4bit(adapter: str | None) -> bool:
     return cfg.exists() and bool(json.loads(cfg.read_text(encoding="utf-8")).get("qlora"))
 
 
+def load_dequantized_4bit_into(model, base: str) -> int:
+    """Load the base as QLoRA training did (nf4, double quant, fp16 compute) and write every quantized linear
+    layer's weight, expanded back to fp16, into `model` (fp16, on the CPU) as it goes. Returns the count."""
+    import bitsandbytes as bnb
+    import torch
+    from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+    quant = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_use_double_quant=True,
+    )
+    q = AutoModelForCausalLM.from_pretrained(
+        base, dtype=torch.float16, quantization_config=quant, device_map={"": 0}
+    )
+    n = 0
+    for name, module in q.named_modules():
+        if isinstance(module, bnb.nn.Linear4bit):
+            w = bnb.functional.dequantize_4bit(module.weight.data, module.weight.quant_state)
+            target = model.get_submodule(name).weight
+            if tuple(w.shape) != tuple(target.shape):
+                raise ValueError(f"{name}: {tuple(w.shape)} vs {tuple(target.shape)}")
+            target.data = w.to(torch.float16).cpu()
+            n += 1
+    del q
+    torch.cuda.empty_cache()
+    return n
+
+
 def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
     """from_4bit: load the base exactly as QLoRA training did (nf4, double quant, fp16 compute), expand those
     4-bit weights back to fp16, then merge. A QLoRA adapter merged into the original fp16 base gives a
@@ -39,24 +69,11 @@ def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
     if from_4bit:
-        from transformers import BitsAndBytesConfig
-
-        from .train import cap_vram
-
-        cap_vram(9.5)
-        quant = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_use_double_quant=True,
-        )
-        model = AutoModelForCausalLM.from_pretrained(
-            base, dtype=torch.float16, quantization_config=quant, device_map={"": 0}
-        )
-        model = model.dequantize().to(torch.float16)
-    else:
-        model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
+        # One layer at a time: the whole model expanded on the GPU does not fit next to its 4-bit copy.
+        n = load_dequantized_4bit_into(model, base)
+        print(f"{n} linear layers taken from the dequantized 4-bit base", file=sys.stderr)
     model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
     model.save_pretrained(out, safe_serialization=True)
     AutoTokenizer.from_pretrained(base).save_pretrained(out)
