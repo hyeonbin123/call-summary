@@ -1,0 +1,30 @@
+{
+  "run_id": "20260929-134440-qwen2.5_14b-instruct-s4-dev-asr-q14",
+  "provider": "ollama:qwen2.5:14b-instruct",
+  "data": "datasets\\dev-asr.jsonl",
+  "data_sha": "21d6574d0427",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "792921898de33fc4e2ed767e7ec6f37315098d6e",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev-asr.jsonl",
+    "--official",
+    "--allow-test",
+    "--label",
+    "s4-dev-asr-q14",
+    "--backend",
+    "ollama",
+    "--model",
+    "qwen2.5:14b-instruct",
+    "--num-gpu",
+    "44"
+  ],
+  "started": "20260929-134440"
+}

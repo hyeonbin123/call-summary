@@ -1,0 +1,33 @@
+{
+  "run_id": "20260929-195451-Qwen_Qwen3-4B-s4-test-a-mixed",
+  "provider": "hf:Qwen/Qwen3-4B+outputs/train/qwen3-4b-qlora-r16-mixed/final:4bit",
+  "data": "datasets\\test-a.jsonl",
+  "data_sha": "9c32fada5f5f",
+  "n_items": 300,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 4,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "792921898de33fc4e2ed767e7ec6f37315098d6e",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/test-a.jsonl",
+    "--official",
+    "--allow-test",
+    "--label",
+    "s4-test-a-mixed",
+    "--backend",
+    "hf",
+    "--model",
+    "Qwen/Qwen3-4B",
+    "--load-4bit",
+    "--batch",
+    "4",
+    "--adapter",
+    "outputs/train/qwen3-4b-qlora-r16-mixed/final"
+  ],
+  "started": "20260929-195451"
+}
