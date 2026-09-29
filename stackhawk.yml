@@ -1,0 +1,16 @@
+# HawkScan (StackHawk) configuration. No secrets in this file. The scan target is the service without a model
+# (canned replies), which serves its OpenAPI description:
+#
+#   uv run uvicorn call_summary.service:create_offline_app --factory --port 8072
+#   APP_ID=<application id> hawk scan
+app:
+  applicationId: ${APP_ID}
+  env: ${APP_ENV:Development}
+  host: ${APP_HOST:http://127.0.0.1:8072}
+  openApiConf:
+    path: /openapi.json
+tags:
+  - name: _STACKHAWK_GIT_COMMIT_SHA
+    value: ${COMMIT_SHA:none}
+  - name: git_origin
+    value: hyeonbin123/call-summary

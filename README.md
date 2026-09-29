@@ -78,6 +78,13 @@ uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outp
 # LoRA 합치기 → GGUF → Ollama 등록 (work/llama.cpp 필요)
 uv run --no-sync python -m call_summary.export --base Qwen/Qwen3-1.7B --adapter outputs/train/qwen3-1.7b/final --name call-summary-qwen3-1.7b --out outputs/export/qwen3-1.7b
 
-# 서비스
-CALL_SUMMARY_MODEL=call-summary-qwen3-1.7b:q8_0 uv run uvicorn call_summary.service:create_app --factory --port 8072
+# 서비스 (Ollama 모델), 모델 없는 오프라인 모드, 부하 시험, 보안 스캔
+CALL_SUMMARY_MODEL=<ollama 모델 이름> uv run uvicorn call_summary.service:create_app --factory --port 8072
+uv run uvicorn call_summary.service:create_offline_app --factory --port 8072
+uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4
+APP_ID=<StackHawk application id> hawk scan
 ```
+
+`POST /summarize` 요청 예: `{"domain": "shop", "turns": [{"speaker": "상담원", "text": "..."}, {"speaker": "고객", "text": "..."}]}`. 모델 답이 스키마를 통과하지 못하거나 업종 목록 밖의 라벨을 쓰면 한 번 다시 묻고, 그래도 안 되면 502를 돌려준다. `GET /stats`는 요청 수와 지연 분포, `GET /domains`는 업종별 라벨 목록.
+
+음성 조건(4단계) 데이터는 `scripts/asr_condition.py`로 만들었다. MeloTTS가 transformers 4.27을 요구해 이 프로젝트 환경이 아니라 support-agent 저장소의 음성 환경에서 돌린다 (스크립트 머리말 참고).

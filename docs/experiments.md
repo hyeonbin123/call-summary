@@ -286,3 +286,6 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - 고른 양자화로 서비스(`/summarize`: 스키마 강제 디코딩 + 목록 밖 라벨이면 한 번 재시도)를 띄우고, test-a 300건을 한 번 보내 exact 등과 재시도·거절 비율을 잰다 (서비스 경로의 품질)
 - 부하: dev 240건을 동시 요청 1, 2, 4로 보내 처리량(요청/초), 지연 p50/p95, 오류 수를 잰다 (`call_summary.loadtest`). Ollama의 동시 처리 설정(`OLLAMA_NUM_PARALLEL`)을 함께 적는다
 - 보안 스캔: 모델 없는 오프라인 모드(`create_offline_app`)를 HawkScan으로 스캔한다
+
+### 보안 스캔 기록
+- 2026-09-29 09:53 HawkScan 6.4.0, DEFAULT_API 정책, 오프라인 모드(`create_offline_app`, OpenAPI 공개)를 `stackhawk.yml`로 스캔 (서비스 코드 `82b8713` 기준, 커밋 `234e43b`): 찾은 경로 6개(`/domains`, `/health`, `/stats`, `/summarize`, robots.txt, sitemap.xml), **High 0 / Medium 0 / Low 0**. 모델이 없는 층만 본 것이라 모델 서버(Ollama) 쪽은 범위 밖이다
