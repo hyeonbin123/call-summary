@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 
+import httpx
 from fastapi.testclient import TestClient
 
 from call_summary.dataset import load_items
 from call_summary.prompts import record_to_json
-from call_summary.providers import ScriptedProvider
+from call_summary.providers import OllamaProvider, ScriptedProvider
 from call_summary.service import MAX_CHARS, create_app, create_offline_app
 from call_summary.specs import make_spec
 
@@ -43,6 +44,34 @@ def test_retry_recovers():
     p = ScriptedProvider(["{", _good()])
     r = TestClient(create_app(p)).post("/summarize", json={"domain": "shop", "turns": TURNS})
     assert r.status_code == 200 and r.json()["attempts"] == 2
+
+
+def test_retry_is_not_a_replay(monkeypatch):
+    # A greedy model answers the same request the same way, so the second try must sample.
+    off_list = json.loads(_good())
+    off_list["category"] = "기타"
+    bodies = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": json.dumps(off_list, ensure_ascii=False)}}
+
+    def fake_post(url, **kw):
+        bodies.append(kw["json"])
+        return Resp()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    c = TestClient(create_app(OllamaProvider(model="m", use_schema=True, num_ctx=4096)))
+    r = c.post("/summarize", json={"domain": "shop", "turns": TURNS})
+    assert r.status_code == 502 and len(bodies) == 2
+    first, second = (b["options"] for b in bodies)
+    assert first["temperature"] == 0 and second["temperature"] > 0
+    assert second["seed"] != first["seed"]
+    assert second["num_ctx"] == first["num_ctx"]  # a different context would reload the model
+    assert bodies[0]["messages"] == bodies[1]["messages"]
 
 
 def test_input_validation():

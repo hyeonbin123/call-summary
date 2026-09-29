@@ -1,8 +1,8 @@
 """HTTP service: POST /summarize turns a call transcript into an after-call record.
 
 The model reply must validate as an AfterCallRecord and use the domain's label lists; otherwise the
-service retries once and then answers 502 with the reason, never a half-valid record. An unreachable model
-server gives 503.
+service retries once, sampled (a greedy retry would replay the rejected reply), and then answers 502 with
+the reason, never a half-valid record. An unreachable model server gives 503.
 
 Run with a model:   CALL_SUMMARY_MODEL=<ollama model> uvicorn call_summary.service:create_app --factory
 Run without one:    uvicorn call_summary.service:create_offline_app --factory   (canned replies, for scans)
@@ -10,6 +10,7 @@ Run without one:    uvicorn call_summary.service:create_offline_app --factory   
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import statistics
 import threading
@@ -71,6 +72,13 @@ def off_list_labels(domain_key: str, record: AfterCallRecord) -> list[str]:
     return bad
 
 
+def _retry_provider(p: Provider) -> Provider:
+    """The second try must not replay the rejected greedy decode: same model and context, sampled."""
+    if isinstance(p, OllamaProvider):
+        return dataclasses.replace(p, temperature=0.3, seed=p.seed + 1)  # keep num_ctx/num_gpu: no reload
+    return p
+
+
 class Stats:
     """Counts and latencies of this process's /summarize calls (reset on restart)."""
 
@@ -110,18 +118,15 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         openapi_url="/openapi.json" if expose_openapi else None,
     )
     stats = Stats()
-    state: dict = {
-        "provider": provider
-        or OllamaProvider(
-            model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
-            base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-            use_schema=True,
-            num_ctx=NUM_CTX,
-            num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"])
-            if os.environ.get("CALL_SUMMARY_NUM_GPU")
-            else None,
-        )
-    }
+    base: Provider = provider or OllamaProvider(
+        model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
+        base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
+        use_schema=True,
+        num_ctx=NUM_CTX,
+        num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"]) if os.environ.get("CALL_SUMMARY_NUM_GPU") else None,
+    )
+    # Built once: requests run concurrently in a threadpool, so the shared provider is never mutated.
+    state: dict = {"provider": base, "retry_provider": _retry_provider(base)}
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -163,8 +168,9 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         t0 = time.perf_counter()
         problems: list[str] = []
         for attempt in (1, 2):
+            gen: Provider = p if attempt == 1 else state["retry_provider"]
             try:
-                reply = p.generate(messages, json_schema=record_json_schema())
+                reply = gen.generate(messages, json_schema=record_json_schema())
             except Exception as exc:  # noqa: BLE001 - any model-server failure is a 503, not a traceback
                 stats.add("model_unavailable")
                 raise HTTPException(503, "model server unavailable") from exc

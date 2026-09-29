@@ -85,6 +85,6 @@ uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1
 APP_ID=<StackHawk application id> hawk scan
 ```
 
-`POST /summarize` 요청 예: `{"domain": "shop", "turns": [{"speaker": "상담원", "text": "..."}, {"speaker": "고객", "text": "..."}]}`. 전사가 4,000자를 넘으면 모델 컨텍스트(4,096 토큰)에 답까지 들어가지 않으므로 413을 돌려준다 (데이터셋 전사는 가장 긴 것이 1,485자). 모델 답이 스키마를 통과하지 못하거나 업종 목록 밖의 라벨을 쓰면 한 번 다시 묻고, 그래도 안 되면 502를 돌려준다. `GET /stats`는 요청 수와 지연 분포, `GET /domains`는 업종별 라벨 목록.
+`POST /summarize` 요청 예: `{"domain": "shop", "turns": [{"speaker": "상담원", "text": "..."}, {"speaker": "고객", "text": "..."}]}`. 전사가 4,000자를 넘으면 모델 컨텍스트(4,096 토큰)에 답까지 들어가지 않으므로 413을 돌려준다 (데이터셋 전사는 가장 긴 것이 1,485자). 모델 답이 스키마를 통과하지 못하거나 업종 목록 밖의 라벨을 쓰면 한 번 다시 묻고, 그래도 안 되면 502를 돌려준다. 첫 답은 탐욕 디코딩이라 같은 요청을 되풀이하면 같은 답이 나오므로, 다시 물을 때는 temperature 0.3과 다른 seed로 샘플링한다. `GET /stats`는 요청 수와 지연 분포, `GET /domains`는 업종별 라벨 목록.
 
 음성 조건(4단계) 데이터는 `scripts/asr_condition.py`로 만들었다. MeloTTS가 transformers 4.27을 요구해 이 프로젝트 환경이 아니라 support-agent 저장소의 음성 환경에서 돌린다 (스크립트 머리말 참고).

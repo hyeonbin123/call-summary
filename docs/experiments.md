@@ -283,7 +283,7 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - 함께 적는 것: 모델 파일 크기, Ollama가 보고하는 VRAM, 순차 요청 지연 p50/p95
 
 ### 서비스 측정
-- 고른 양자화로 서비스(`/summarize`: 스키마 강제 디코딩 + 목록 밖 라벨이면 한 번 재시도)를 띄우고, test-a 300건을 한 번 보내 exact 등과 재시도·거절 비율을 잰다 (서비스 경로의 품질)
+- 고른 양자화로 서비스(`/summarize`: 스키마 강제 디코딩 + 목록 밖 라벨이면 한 번 재시도. 재시도는 첫 답을 되풀이하지 않도록 temperature 0.3, seed+1로 샘플링한다)를 띄우고, test-a 300건을 한 번 보내 exact 등과 재시도·거절 비율을 잰다 (서비스 경로의 품질)
 - 부하: dev 240건을 동시 요청 1, 2, 4로 보내 처리량(요청/초), 지연 p50/p95, 오류 수를 잰다 (`call_summary.loadtest`). Ollama의 동시 처리 설정(`OLLAMA_NUM_PARALLEL`)을 함께 적는다
 - 보안 스캔: 모델 없는 오프라인 모드(`create_offline_app`)를 HawkScan으로 스캔한다
 
