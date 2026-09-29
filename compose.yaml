@@ -2,7 +2,8 @@ services:
   app:
     build: .
     ports:
-      - "8072:8072"
+      # Loopback only: the API has no authentication and drives the shared GPU.
+      - "127.0.0.1:8072:8072"
     environment:
       # The model is served by Ollama on the host (GPU); the container only holds the API.
       OLLAMA_URL: http://host.docker.internal:11434
