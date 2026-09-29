@@ -1,0 +1,18 @@
+{
+  "run_id": "20260929-231632-service-s5-svc-test-d-f16",
+  "provider": "service:ollama:call-summary-4b:f16:schema",
+  "service_health": {
+    "status": "ok",
+    "model": "ollama:call-summary-4b:f16:schema",
+    "prompt_hash": "4cead4cf6510"
+  },
+  "url": "http://127.0.0.1:8072",
+  "data": "datasets\\test-d.jsonl",
+  "data_sha": "1b6397b424db",
+  "n_items": 300,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "bd33a2a160bd418bfee1cb0a434df071e6c99e61",
+  "official": true,
+  "started": "20260929-231632"
+}

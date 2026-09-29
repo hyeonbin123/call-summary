@@ -17,8 +17,9 @@ def fake_tools(monkeypatch):
     merges = Merges()
     calls = []
 
-    def fake_merge(base, adapter, out):
+    def fake_merge(base, adapter, out, from_4bit=False):
         merges.append(adapter)
+        merges.from_4bit = from_4bit  # type: ignore[attr-defined]
         out.mkdir(parents=True, exist_ok=True)
         (out / "config.json").write_text("{}", encoding="utf-8")
 
@@ -65,7 +66,7 @@ def test_an_interrupted_build_is_not_taken_for_the_older_stamp(tmp_path, fake_to
     (out / "merged").rmdir()
     (out / "model-f16.gguf").unlink()
 
-    def crashing_merge(base, adapter, target):  # ... then adapter b's merge dies half-way
+    def crashing_merge(base, adapter, target, from_4bit=False):  # ... then adapter b's merge dies half-way
         target.mkdir(parents=True, exist_ok=True)
         (target / "config.json").write_text("{}", encoding="utf-8")
         raise RuntimeError("out of memory")
@@ -96,3 +97,16 @@ def test_quantized_models_come_from_llama_quantize_not_ollama(tmp_path, fake_too
     assert "model-q4_k_m.gguf" in (out / "Modelfile.q4_K_M").read_text(encoding="utf-8")
     info = json.loads((out / "export.json").read_text(encoding="utf-8"))
     assert set(info["gguf"]) == {"f16", "q8_0", "q4_K_M"}
+
+
+def test_a_qlora_adapter_is_merged_into_the_dequantized_4bit_base(tmp_path, fake_tools):
+    a = _adapter(tmp_path, "a", b"A")
+    (tmp_path / "train_config.json").write_text('{"qlora": true}', encoding="utf-8")
+    out = tmp_path / "export"
+    _export(a, out)
+    assert fake_tools.from_4bit is True
+    assert json.loads((out / "export.json").read_text(encoding="utf-8"))["base_from_4bit"] is True
+    # a LoRA adapter trained on the fp16 base keeps the plain merge
+    (tmp_path / "train_config.json").write_text('{"qlora": false}', encoding="utf-8")
+    _export(_adapter(tmp_path, "b", b"B"), tmp_path / "export-b")
+    assert fake_tools.from_4bit is False

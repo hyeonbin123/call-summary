@@ -23,12 +23,40 @@ LLAMA_CPP = Path("work/llama.cpp")
 LLAMA_QUANTIZE = Path("work/llama-bin/llama-quantize.exe")
 
 
-def merge(base: str, adapter: str, out: Path) -> None:
+def trained_on_4bit(adapter: str | None) -> bool:
+    """Whether the adapter was trained on a 4-bit base (QLoRA), read from train.py's train_config.json."""
+    if not adapter:
+        return False
+    cfg = Path(adapter).parent / "train_config.json"
+    return cfg.exists() and bool(json.loads(cfg.read_text(encoding="utf-8")).get("qlora"))
+
+
+def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
+    """from_4bit: load the base exactly as QLoRA training did (nf4, double quant, fp16 compute), expand those
+    4-bit weights back to fp16, then merge. A QLoRA adapter merged into the original fp16 base gives a
+    different model (stage 5: dev exact 93 -> 86)."""
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
+    if from_4bit:
+        from transformers import BitsAndBytesConfig
+
+        from .train import cap_vram
+
+        cap_vram(9.5)
+        quant = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            base, dtype=torch.float16, quantization_config=quant, device_map={"": 0}
+        )
+        model = model.dequantize().to(torch.float16)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
     model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
     model.save_pretrained(out, safe_serialization=True)
     AutoTokenizer.from_pretrained(base).save_pretrained(out)
@@ -48,12 +76,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quant", nargs="+", default=["q8_0", "q4_K_M"])
     ap.add_argument("--num-ctx", type=int, default=8192)
     ap.add_argument("--llama-quantize", default=str(LLAMA_QUANTIZE), help="llama.cpp quantize tool")
+    ap.add_argument(
+        "--fp16-base",
+        action="store_true",
+        help="merge a QLoRA adapter into the fp16 base anyway (old behaviour)",
+    )
     args = ap.parse_args(argv)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     # merged/ and the F16 GGUF are reused only when they were built from the same weights.
-    source = {"base": args.base, "adapter_sha": adapter_hash(args.adapter) if args.adapter else None}
+    from_4bit = trained_on_4bit(args.adapter) and not args.fp16_base
+    source = {
+        "base": args.base,
+        "adapter_sha": adapter_hash(args.adapter) if args.adapter else None,
+        "base_from_4bit": from_4bit,
+    }
     if args.adapter and source["adapter_sha"] is None:
         ap.error(f"no adapter weights in {args.adapter}")
     stamp = out / "source.json"
@@ -73,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.adapter:
         if not (merged / "config.json").exists():
             print("merging adapter ...", file=sys.stderr)
-            merge(args.base, args.adapter, merged)
+            merge(args.base, args.adapter, merged, from_4bit=from_4bit)
         src = str(merged)
     else:
         from huggingface_hub import snapshot_download
@@ -115,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         "base": args.base,
         "adapter": args.adapter,
         "adapter_sha": source["adapter_sha"],
+        "base_from_4bit": from_4bit,
         "models": created,
         "gguf": ggufs,
         "llama_cpp": llama_rev,

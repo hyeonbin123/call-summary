@@ -1,0 +1,70 @@
+{
+  "url": "http://127.0.0.1:8072",
+  "data": "datasets/dev.jsonl",
+  "health": {
+    "status": "ok",
+    "model": "ollama:call-summary-4b:f16:schema",
+    "prompt_hash": "4cead4cf6510"
+  },
+  "runs": [
+    {
+      "concurrency": 1,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 934.56,
+      "throughput_rps": 0.257,
+      "latency_s": {
+        "p50": 3.88,
+        "p95": 4.627,
+        "mean": 3.894,
+        "max": 9.145
+      }
+    },
+    {
+      "concurrency": 2,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 876.48,
+      "throughput_rps": 0.274,
+      "latency_s": {
+        "p50": 7.294,
+        "p95": 8.397,
+        "mean": 7.288,
+        "max": 16.367
+      }
+    },
+    {
+      "concurrency": 4,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 876.64,
+      "throughput_rps": 0.274,
+      "latency_s": {
+        "p50": 14.657,
+        "p95": 16.258,
+        "mean": 14.52,
+        "max": 32.064
+      }
+    }
+  ],
+  "service_stats": {
+    "requests": {
+      "ok": 1314,
+      "retried_ok": 4,
+      "rejected": 1,
+      "model_unavailable": 0
+    },
+    "latency_s": {
+      "n": 1318,
+      "p50": 4.325,
+      "p95": 15.29,
+      "max": 32.061
+    }
+  }
+}
