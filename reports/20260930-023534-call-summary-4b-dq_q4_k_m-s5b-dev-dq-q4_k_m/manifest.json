@@ -1,0 +1,30 @@
+{
+  "run_id": "20260930-023534-call-summary-4b-dq_q4_k_m-s5b-dev-dq-q4_k_m",
+  "provider": "ollama:call-summary-4b-dq:q4_k_m",
+  "model_fingerprint": {
+    "ollama_digest": "62ea681543629427a72ad64b7d1e374977f77e91fde54c78054969f9b9f96feb"
+  },
+  "data": "datasets\\dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "26cd56c928e90890848de66a91c47f1b0322d48b",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev.jsonl",
+    "--official",
+    "--label",
+    "s5b-dev-dq-q4_k_m",
+    "--backend",
+    "ollama",
+    "--model",
+    "call-summary-4b-dq:q4_k_m"
+  ],
+  "started": "20260930-023534"
+}

@@ -4,7 +4,7 @@
 
 - 계획: [docs/plan.md](docs/plan.md)
 - 측정 규칙과 결과: [docs/experiments.md](docs/experiments.md)
-- 상태: 0~4단계 끝 (데이터, 기준선, 학습, 음성 인식 오류 조건). 5단계(서빙) 진행 중
+- 상태: 0~5단계 끝 (데이터, 기준선, 학습, 음성 인식 오류 조건, 서빙)
 
 ## 결과 요약 (3단계)
 
@@ -36,6 +36,21 @@ test-a의 발화를 합성 음성(MeloTTS) → 전화 음질(8 kHz μ-law) → W
 - 음성 인식을 거치면 정답 값이 전사에 온전히 남는 통화가 84%뿐이다 (상품·기기 이름과 주문번호가 잘 깨진다). 글 전사로만 학습한 모델은 들린 대로 옮겨 적어 44%p 떨어진다
 - 같은 계산량에서 학습 데이터 절반을 음성 인식 전사로 바꾸면 음성 조건이 29%p 오르고 글 전사 성능은 그대로다
 - 이 모델은 학습 때 본 이름으로 인식 오류를 바로잡지만("은하택구" → "은하 탭 9"), 빠진 번호의 숫자를 짐작해 채우기도 한다. 번호는 서비스에서 따로 검증해야 한다
+
+## 결과 요약 (5단계: 서빙)
+
+음성 조건까지 학습한 4B 모델을 GGUF로 바꿔 Ollama에 올리고 FastAPI 서비스로 감쌌다 (dev 240건).
+
+| 형태 | exact | 파일 | 요청당 지연 p50 |
+|---|---|---|---|
+| 학습한 모델 그대로 (transformers, 4bit + LoRA) | 94.6 | - | - |
+| **GGUF q8_0, 서비스 경유** | **94.6** | 4.3 GB | 2.7초 |
+| GGUF q4_K_M | 66.2 | 2.5 GB | 2.0초 |
+
+- 서비스를 거쳐도 품질이 그대로다 (dev 0.0%p, 음성 조건 dev −0.4%p). 1,200건 동안 재시도·거절 0
+- 처음 서빙에서는 두 가지로 크게 떨어졌다: (1) JSON 스키마 강제 디코딩이 키 순서를 바꿔 학습한 모델이 필드를 빠뜨림 → 강제를 끄고 파싱·검증·재시도로 대신, (2) QLoRA 어댑터를 원래 fp16 바탕에 합쳐 약 7%p 손실 → 학습 때의 4bit 바탕을 fp16으로 풀어낸 뒤 합침. 원인을 dev에서 진단한 과정은 docs/experiments.md 5단계
+- 한 대의 GPU에서 Ollama가 요청을 하나씩 처리해 처리량은 약 0.4요청/초 (동시 요청을 늘리면 지연만 늘어남)
+- 보안 스캔(HawkScan, 모델 없는 오프라인 모드): High·Medium·Low 모두 0
 
 자세한 규칙, 모든 수치, 한계는 [docs/experiments.md](docs/experiments.md).
 
@@ -89,11 +104,11 @@ uv run python -m call_summary.compare --paired outputs/runs/<a> outputs/runs/<b>
 # 학습 (LoRA, 4B는 --qlora)
 uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outputs/train/qwen3-1.7b
 
-# LoRA 합치기 → GGUF → Ollama 등록 (work/llama.cpp 필요)
-uv run --no-sync python -m call_summary.export --base Qwen/Qwen3-1.7B --adapter outputs/train/qwen3-1.7b/final --name call-summary-qwen3-1.7b --out outputs/export/qwen3-1.7b
+# LoRA 합치기 → GGUF → llama-quantize → Ollama 등록 (work/llama.cpp, work/llama-bin 필요. QLoRA 어댑터는 4bit 바탕을 풀어 합침)
+uv run --no-sync python -m call_summary.export --base Qwen/Qwen3-4B --adapter outputs/train/qwen3-4b-qlora-r16-mixed/final --name call-summary-4b-dq --out outputs/export/qwen3-4b-mixed-dq --num-ctx 4096
 
 # 서비스 (Ollama 모델), 모델 없는 오프라인 모드, 부하 시험, 보안 스캔
-CALL_SUMMARY_MODEL=<ollama 모델 이름> uv run uvicorn call_summary.service:create_app --factory --port 8072
+CALL_SUMMARY_MODEL=call-summary-4b-dq:q8_0 uv run uvicorn call_summary.service:create_app --factory --port 8072
 uv run uvicorn call_summary.service:create_offline_app --factory --port 8072
 uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4
 APP_ID=<StackHawk application id> hawk scan

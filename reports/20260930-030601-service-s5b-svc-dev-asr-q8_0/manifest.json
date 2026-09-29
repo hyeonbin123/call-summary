@@ -1,0 +1,18 @@
+{
+  "run_id": "20260930-030601-service-s5b-svc-dev-asr-q8_0",
+  "provider": "service:ollama:call-summary-4b-dq:q8_0",
+  "service_health": {
+    "status": "ok",
+    "model": "ollama:call-summary-4b-dq:q8_0",
+    "prompt_hash": "4cead4cf6510"
+  },
+  "url": "http://127.0.0.1:8072",
+  "data": "datasets\\dev-asr.jsonl",
+  "data_sha": "21d6574d0427",
+  "n_items": 240,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "26cd56c928e90890848de66a91c47f1b0322d48b",
+  "official": true,
+  "started": "20260930-030601"
+}
