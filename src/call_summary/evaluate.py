@@ -110,9 +110,13 @@ def run_items(
     return rows, scores
 
 
+def _git_strict(*args: str) -> str:
+    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
+
+
 def _git(*args: str) -> str:
     try:
-        return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
+        return _git_strict(*args)
     except (OSError, subprocess.CalledProcessError):
         return ""
 
@@ -212,7 +216,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.official:
         if args.limit:
             ap.error("--official runs use the whole file")
-        if _git("status", "--porcelain", "--untracked-files=no"):
+        try:  # fail closed: an unreadable tree is not a clean one
+            dirty = _git_strict("status", "--porcelain", "--untracked-files=no")
+            _git_strict("rev-parse", "HEAD")
+        except (OSError, subprocess.CalledProcessError) as exc:
+            ap.error(f"--official needs git to verify a clean tree: {exc}")
+        if dirty:
             ap.error("--official needs a clean working tree (commit the rules first)")
 
     provider: Provider

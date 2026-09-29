@@ -1,10 +1,34 @@
 import hashlib
+import subprocess
 
 import httpx
 import pytest
 
+from call_summary import evaluate
+from call_summary.dataset import write_jsonl
 from call_summary.evaluate import model_fingerprint
 from call_summary.providers import HFProvider, OllamaProvider
+from tests.test_scoring import _item
+
+
+@pytest.mark.parametrize("failure", [FileNotFoundError("git"), subprocess.CalledProcessError(128, ["git"])])
+def test_official_run_stops_when_git_cannot_check_the_tree(tmp_path, monkeypatch, failure):
+    # No git, not a repository or "dubious ownership": the clean-tree guard must not pass silently.
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [_item(0).to_dict()])
+
+    def git_fails(*a, **kw):
+        raise failure
+
+    def no_model(*a, **kw):
+        raise AssertionError("the run got past the clean-tree check")
+
+    monkeypatch.setattr(evaluate.subprocess, "run", git_fails)
+    monkeypatch.setattr(evaluate, "OllamaProvider", no_model)
+    with pytest.raises(SystemExit) as stop:
+        evaluate.main(["--data", str(data), "--model", "m", "--official"])
+    assert stop.value.code == 2
 
 
 def test_fingerprint_of_an_adapter_follows_its_bytes(tmp_path):
