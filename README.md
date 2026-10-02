@@ -50,7 +50,8 @@ test-a의 발화를 합성 음성(MeloTTS) → 전화 음질(8 kHz μ-law) → W
 - 서비스를 거쳐도 품질이 그대로다 (dev 0.0%p, 음성 조건 dev −0.4%p). 1,200건 동안 재시도·거절 0
 - 처음 서빙에서는 두 가지로 크게 떨어졌다: (1) JSON 스키마 강제 디코딩이 키 순서를 바꿔 학습한 모델이 필드를 빠뜨림 → 강제를 끄고 파싱·검증·재시도로 대신, (2) QLoRA 어댑터를 원래 fp16 바탕에 합쳐 약 7%p 손실 → 학습 때의 4bit 바탕을 fp16으로 풀어낸 뒤 합침. 원인을 dev에서 진단한 과정은 docs/experiments.md 5단계
 - 한 대의 GPU에서 Ollama가 요청을 하나씩 처리해 처리량은 약 0.4요청/초 (동시 요청을 늘리면 지연만 늘어남)
-- 보안 스캔(HawkScan, 모델 없는 오프라인 모드): High·Medium·Low 모두 0
+- 메모리와 속도 (2026-10-03, dev를 한 건씩): Ollama가 보고하는 VRAM은 q8_0 4,731 MiB, f16 8,328 MiB, q4_K_M 3,031 MiB (4,096 컨텍스트의 KV 캐시 576 MiB 포함), 생성 속도는 58, 37, 81토큰/초. 이 측정은 배경화면 프로그램이 GPU를 함께 쓰는 중이라 지연이 표의 값(2026-09-30)보다 약 1.45배 길었다 (답은 글자까지 같음)
+- 보안 스캔(HawkScan, 모델 없는 오프라인 모드): High·Medium·Low 모두 0. 다만 스캔이 `/summarize`에 보낸 요청은 모두 입력 검사(422)에서 걸려, 검사를 통과한 뒤의 처리 경로는 스캔되지 않았다
 
 자세한 규칙, 모든 수치, 한계는 [docs/experiments.md](docs/experiments.md).
 
@@ -107,10 +108,11 @@ uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outp
 # LoRA 합치기 → GGUF → llama-quantize → Ollama 등록 (work/llama.cpp, work/llama-bin 필요. QLoRA 어댑터는 4bit 바탕을 풀어 합침)
 uv run --no-sync python -m call_summary.export --base Qwen/Qwen3-4B --adapter outputs/train/qwen3-4b-qlora-r16-mixed/final --name call-summary-4b-dq --out outputs/export/qwen3-4b-mixed-dq --num-ctx 4096
 
-# 서비스 (Ollama 모델), 모델 없는 오프라인 모드, 부하 시험, 보안 스캔
+# 서비스 (Ollama 모델), 모델 없는 오프라인 모드, 부하 시험, 메모리·속도 측정(한 건씩), 보안 스캔
 CALL_SUMMARY_MODEL=call-summary-4b-dq:q8_0 uv run uvicorn call_summary.service:create_app --factory --port 8072
 uv run uvicorn call_summary.service:create_offline_app --factory --port 8072
 uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4
+uv run --no-sync python -m call_summary.bench --data datasets/dev.jsonl --model call-summary-4b-dq:q8_0 --out reports/s5c-bench-q8_0.json
 APP_ID=<StackHawk application id> hawk scan
 ```
 
