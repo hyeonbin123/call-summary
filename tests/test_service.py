@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import httpx
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from call_summary.dataset import load_items
 from call_summary.prompts import record_to_json
-from call_summary.providers import OllamaProvider, ScriptedProvider
+from call_summary.providers import OllamaProvider, Reply, ScriptedProvider
 from call_summary.service import MAX_CHARS, create_app, create_offline_app
 from call_summary.specs import make_spec
 
@@ -143,6 +144,78 @@ def test_empty_recognised_turns_are_accepted():
     c = TestClient(create_app(ScriptedProvider([_good()])))
     turns = TURNS + [{"speaker": "고객", "text": ""}]
     assert c.post("/summarize", json={"domain": "shop", "turns": turns}).status_code == 200
+
+
+class TokenProvider:
+    """Replies in order, with token counts as Ollama reports them."""
+
+    name = "tokens"
+
+    def __init__(self, replies):
+        self.replies = list(replies)
+
+    def generate(self, messages, json_schema=None):
+        return Reply(text=self.replies.pop(0), latency_s=0.0, prompt_tokens=900, completion_tokens=200)
+
+
+def _log_lines(caplog):
+    return [json.loads(r.getMessage()) for r in caplog.records if r.name == "call_summary.service"]
+
+
+def test_summarize_logs_one_line_with_tokens(caplog):
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    c = TestClient(create_app(TokenProvider([_good()])))
+    r = c.post("/summarize", json={"domain": "shop", "turns": TURNS})
+    assert r.status_code == 200
+    (line,) = _log_lines(caplog)
+    assert line["event"] == "summarize" and line["outcome"] == "ok" and line["status"] == 200
+    assert line["request_id"] == r.json()["request_id"]
+    assert (line["attempts"], line["prompt_tokens"], line["completion_tokens"]) == (1, 900, 200)
+    assert line["domain"] == "shop" and line["turns"] == 2 and line["latency_s"] >= 0
+    # No call content in the log: transcripts and records hold personal data.
+    raw = " ".join(rec.getMessage() for rec in caplog.records)
+    assert "주문 취소하려고요" not in raw and "고객이 취소를 요청함" not in raw
+
+
+def test_log_sums_tokens_over_attempts_and_records_rejection(caplog):
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    c = TestClient(create_app(TokenProvider(["not json", "{"])))
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 502
+    (line,) = _log_lines(caplog)
+    assert (line["outcome"], line["status"], line["attempts"]) == ("rejected", 502, 2)
+    assert (line["prompt_tokens"], line["completion_tokens"]) == (1800, 400)
+
+
+def test_log_without_model_counts(caplog):
+    # Providers that report no token counts log null, not zero.
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    c = TestClient(create_app(ScriptedProvider(["{", _good()])))
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 200
+    (line,) = _log_lines(caplog)
+    assert (line["outcome"], line["attempts"]) == ("retried_ok", 2)
+    assert line["prompt_tokens"] is None and line["completion_tokens"] is None
+
+
+def test_log_lines_for_requests_that_never_reach_the_model(caplog):
+    class Down:
+        name = "down"
+
+        def generate(self, messages, json_schema=None):
+            raise ConnectionError("refused")
+
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    c = TestClient(create_app(Down()))
+    long_turns = [{"speaker": "고객", "text": "가" * 1500} for _ in range(3)]
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 503
+    assert c.post("/summarize", json={"domain": "bank", "turns": TURNS}).status_code == 422
+    assert c.post("/summarize", json={"domain": "shop", "turns": long_turns}).status_code == 413
+    lines = _log_lines(caplog)
+    assert [(x["outcome"], x["status"], x["attempts"]) for x in lines] == [
+        ("model_unavailable", 503, 1),
+        ("unknown_domain", 422, 0),
+        ("too_long", 413, 0),
+    ]
+    assert "refused" not in json.dumps(lines)
 
 
 def test_schema_decoding_is_opt_in(monkeypatch):

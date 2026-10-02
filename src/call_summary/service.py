@@ -4,6 +4,11 @@ The model reply must validate as an AfterCallRecord and use the domain's label l
 service retries once, sampled (a greedy retry would replay the rejected reply), and then answers 502 with
 the reason, never a half-valid record. An unreachable model server gives 503.
 
+Each /summarize call that reaches the handler logs one JSON line (logger `call_summary.service`, INFO):
+request id, domain, turn and character counts, outcome, HTTP status, attempts, latency and the prompt and
+completion tokens summed over attempts (null when the model server reports none). Never the transcript or
+the record: both hold personal data.
+
 Run with a model:   CALL_SUMMARY_MODEL=<ollama model> uvicorn call_summary.service:create_app --factory
 Run without one:    uvicorn call_summary.service:create_offline_app --factory   (canned replies, for scans)
 """
@@ -11,8 +16,11 @@ Run without one:    uvicorn call_summary.service:create_offline_app --factory   
 from __future__ import annotations
 
 import dataclasses
+import json
+import logging
 import os
 import statistics
+import sys
 import threading
 import time
 import uuid
@@ -40,6 +48,23 @@ SECURITY_HEADERS = {
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Cache-Control": "no-store",
 }
+log = logging.getLogger("call_summary.service")
+
+
+def _ensure_log_handler() -> None:
+    """uvicorn configures only its own loggers, so without a handler these INFO lines would be dropped.
+    Left alone when the application (or pytest) already handles logging at the root."""
+    if log.handlers or logging.getLogger().handlers:
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
+
+
+def _token_sum(values: list[int | None]) -> int | None:
+    known = [v for v in values if v is not None]
+    return sum(known) if known else None
 
 
 class Turn(BaseModel):
@@ -119,6 +144,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         openapi_url="/openapi.json" if expose_openapi else None,
     )
     stats = Stats()
+    _ensure_log_handler()
     base: Provider = provider or OllamaProvider(
         model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
         base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
@@ -162,21 +188,56 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     @app.post("/summarize", response_model=SummarizeResponse)
     def summarize(req: SummarizeRequest) -> SummarizeResponse:
         p: Provider = state["provider"]
+        request_id = uuid.uuid4().hex
+        t0 = time.perf_counter()
+        line: dict = {
+            "event": "summarize",
+            "request_id": request_id,
+            "domain": req.domain if req.domain in DOMAINS else None,
+            "turns": len(req.turns),
+            "chars": None,
+            "outcome": None,
+            "status": None,
+            "attempts": 0,
+            "latency_s": None,
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "model": p.name,
+        }
+        prompt_tokens: list[int | None] = []
+        completion_tokens: list[int | None] = []
+
+        def finish(outcome: str, status: int, latency: float | None = None) -> None:
+            line.update(
+                outcome=outcome,
+                status=status,
+                latency_s=latency if latency is not None else round(time.perf_counter() - t0, 3),
+                prompt_tokens=_token_sum(prompt_tokens),
+                completion_tokens=_token_sum(completion_tokens),
+            )
+            log.info(json.dumps(line, ensure_ascii=False))
+
         if req.domain not in DOMAINS:
+            finish("unknown_domain", 422)
             raise HTTPException(422, "unknown domain")
         transcript = format_transcript([t.model_dump() for t in req.turns])
+        line["chars"] = len(transcript)
         if len(transcript) > MAX_CHARS:
+            finish("too_long", 413)
             raise HTTPException(413, f"transcript too long (max {MAX_CHARS} characters)")
         messages = build_messages(req.domain, transcript)
-        t0 = time.perf_counter()
         problems: list[str] = []
         for attempt in (1, 2):
             gen: Provider = p if attempt == 1 else state["retry_provider"]
+            line["attempts"] = attempt
             try:
                 reply = gen.generate(messages, json_schema=record_json_schema())
             except Exception as exc:  # noqa: BLE001 - any model-server failure is a 503, not a traceback
                 stats.add("model_unavailable")
+                finish("model_unavailable", 503)
                 raise HTTPException(503, "model server unavailable") from exc
+            prompt_tokens.append(reply.prompt_tokens)
+            completion_tokens.append(reply.completion_tokens)
             parsed = parse_reply(reply.text)
             if parsed.record is None:
                 problems = [parsed.error or "invalid"]
@@ -184,15 +245,18 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             problems = off_list_labels(req.domain, parsed.record)
             if not problems:
                 latency = round(time.perf_counter() - t0, 3)
-                stats.add("ok" if attempt == 1 else "retried_ok", latency)
+                outcome = "ok" if attempt == 1 else "retried_ok"
+                stats.add(outcome, latency)
+                finish(outcome, 200, latency)
                 return SummarizeResponse(
-                    request_id=uuid.uuid4().hex,
+                    request_id=request_id,
                     record=parsed.record,
                     model=p.name,
                     attempts=attempt,
                     latency_s=latency,
                 )
         stats.add("rejected")
+        finish("rejected", 502)
         raise HTTPException(502, {"error": "model output rejected", "problems": problems})
 
     return app
