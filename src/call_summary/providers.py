@@ -12,6 +12,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 
+OLLAMA_TIMINGS = ("total_duration", "load_duration", "prompt_eval_duration", "eval_duration")
+
 
 @dataclass
 class Reply:
@@ -19,6 +21,8 @@ class Reply:
     latency_s: float
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+    # Ollama's own counters in nanoseconds (total, load, prompt_eval, eval durations); None elsewhere.
+    timings: dict | None = None
 
 
 class Provider(Protocol):
@@ -92,6 +96,7 @@ class OllamaProvider:
             latency_s=time.perf_counter() - t0,
             prompt_tokens=data.get("prompt_eval_count"),
             completion_tokens=data.get("eval_count"),
+            timings={k: data.get(k) for k in OLLAMA_TIMINGS},
         )
 
     def loaded_models(self) -> list[dict]:
