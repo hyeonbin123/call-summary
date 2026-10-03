@@ -9,7 +9,7 @@ from call_summary.dataset import load_items
 from call_summary.domains import DOMAINS
 from call_summary.prompts import record_to_json
 from call_summary.providers import OllamaProvider, Reply, ScriptedProvider
-from call_summary.service import MAX_CHARS, create_app, create_offline_app
+from call_summary.service import EXAMPLE_REQUEST, MAX_CHARS, create_app, create_offline_app
 from call_summary.specs import make_spec
 
 TURNS = [
@@ -134,6 +134,35 @@ def test_request_built_from_openapi_reaches_the_handler(caplog):
     body = _from_schema(op["requestBody"]["content"]["application/json"]["schema"], spec)
     caplog.set_level(logging.INFO, logger="call_summary.service")
     r = TestClient(create_offline_app()).post("/summarize", json=body)
+    assert r.status_code == 200, r.text
+    assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]
+
+
+def test_korean_body_sent_as_iso_8859_1_stops_at_validation():
+    # The 2026-10-03 18:38 scan: a valid body, sent in ISO-8859-1, reached the service with speaker "???".
+    body = json.dumps(EXAMPLE_REQUEST, ensure_ascii=False).encode("iso-8859-1", errors="replace")
+    r = TestClient(create_offline_app()).post(
+        "/summarize", content=body, headers={"Content-Type": "application/json"}
+    )
+    assert r.status_code == 422 and r.json()["detail"][0]["loc"][-1] == "speaker"
+
+
+def test_hawkscan_seed_request_is_ascii_and_reaches_the_handler(caplog):
+    # HawkScan sends the bodies it builds from OpenAPI in ISO-8859-1, so 상담원 arrives as "???" (422 on
+    # 2026-10-03). The HAR seed in stackhawk.yml keeps its body ASCII with JSON \u escapes.
+    root = Path(__file__).resolve().parents[1]
+    assert "hawk/summarize.har" in (root / "stackhawk.yml").read_text(encoding="utf-8")
+    har = json.loads((root / "hawk" / "summarize.har").read_text(encoding="utf-8"))
+    (entry,) = har["log"]["entries"]
+    req = entry["request"]
+    assert (req["method"], req["url"]) == ("POST", "http://127.0.0.1:8072/summarize")
+    body = req["postData"]["text"]
+    assert body.isascii() and json.loads(body) == EXAMPLE_REQUEST
+    headers = {h["name"].lower(): h["value"] for h in req["headers"]}
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    r = TestClient(create_offline_app()).post(
+        "/summarize", content=body.encode("iso-8859-1"), headers={"Content-Type": headers["content-type"]}
+    )
     assert r.status_code == 200, r.text
     assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]
 

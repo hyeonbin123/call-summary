@@ -9,6 +9,15 @@ app:
   host: ${APP_HOST:http://127.0.0.1:8072}
   openApiConf:
     path: /openapi.json
+hawk:
+  spider:
+    # The engine sends the /summarize bodies it builds from the OpenAPI description in ISO-8859-1, so the
+    # Korean speaker values arrive as "???" and every request stops at validation (422, scan of 2026-10-03).
+    # This recorded request keeps its body ASCII (JSON \u escapes), so the request encoding cannot change it.
+    har:
+      file:
+        paths:
+          - hawk/summarize.har
 tags:
   - name: _STACKHAWK_GIT_COMMIT_SHA
     value: ${COMMIT_SHA:none}
