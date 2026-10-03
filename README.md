@@ -50,7 +50,7 @@ test-a의 발화를 합성 음성(MeloTTS) → 전화 음질(8 kHz μ-law) → W
 - 서비스를 거쳐도 품질이 그대로다 (dev 0.0%p, 음성 조건 dev −0.4%p). 1,200건 동안 재시도·거절 0
 - 처음 서빙에서는 두 가지로 크게 떨어졌다: (1) JSON 스키마 강제 디코딩이 키 순서를 바꿔 학습한 모델이 필드를 빠뜨림 → 강제를 끄고 파싱·검증·재시도로 대신, (2) QLoRA 어댑터를 원래 fp16 바탕에 합쳐 약 7%p 손실 → 학습 때의 4bit 바탕을 fp16으로 풀어낸 뒤 합침. 원인을 dev에서 진단한 과정은 docs/experiments.md 5단계
 - 한 대의 GPU에서 Ollama가 요청을 하나씩 처리해 처리량은 약 0.4요청/초 (동시 요청을 늘리면 지연만 늘어남)
-- 메모리와 속도 (2026-10-03, dev를 한 건씩): Ollama가 보고하는 VRAM은 q8_0 4,731 MiB, f16 8,328 MiB, q4_K_M 3,031 MiB (4,096 컨텍스트의 KV 캐시 576 MiB 포함), 생성 속도는 58, 37, 81토큰/초. 이 측정은 배경화면 프로그램이 GPU를 함께 쓰는 중이라 지연이 표의 값(2026-09-30)보다 약 1.45배 길었다 (답은 글자까지 같음)
+- 메모리와 속도 (2026-10-03, dev를 한 건씩): Ollama가 보고하는 VRAM은 q8_0 4,731 MiB, f16 8,328 MiB, q4_K_M 3,031 MiB (4,096 컨텍스트의 KV 캐시 576 MiB 포함), 생성 속도는 58, 37, 81토큰/초. 지연은 표의 값(2026-09-30)보다 약 1.45배 길었다 (답은 글자까지 같음). 이 측정 때는 배경화면 프로그램이 GPU를 함께 쓰고 있었고 Ollama도 0.34.2에서 0.35.0으로 바뀌어 있었는데, 둘 중 무엇 때문에 느려졌는지는 가르지 못했다
 - 보안 스캔(HawkScan, 모델 없는 오프라인 모드): High·Medium·Low 모두 0. 다만 스캔이 `/summarize`에 보낸 요청은 모두 입력 검사(422)에서 걸려, 검사를 통과한 뒤의 처리 경로는 스캔되지 않았다
 
 자세한 규칙, 모든 수치, 한계는 [docs/experiments.md](docs/experiments.md).
@@ -116,6 +116,6 @@ uv run --no-sync python -m call_summary.bench --data datasets/dev.jsonl --model 
 APP_ID=<StackHawk application id> hawk scan
 ```
 
-`POST /summarize` 요청 예: `{"domain": "shop", "turns": [{"speaker": "상담원", "text": "..."}, {"speaker": "고객", "text": "..."}]}`. 전사가 4,000자를 넘으면 모델 컨텍스트(4,096 토큰)에 답까지 들어가지 않으므로 413을 돌려준다 (데이터셋 전사는 가장 긴 것이 1,485자). 모델 답이 스키마를 통과하지 못하거나 업종 목록 밖의 라벨을 쓰면 한 번 다시 묻고, 그래도 안 되면 502를 돌려준다. 첫 답은 탐욕 디코딩이라 같은 요청을 되풀이하면 같은 답이 나오므로, 다시 물을 때는 temperature 0.3과 다른 seed로 샘플링한다. `GET /stats`는 요청 수와 지연 분포, `GET /domains`는 업종별 라벨 목록. `/summarize` 요청마다 로거 `call_summary.service`가 JSON 한 줄을 남긴다 (요청 id, 업종, 발화 수·글자 수, 결과(`ok`, `retried_ok`, `rejected`, `model_unavailable`, `unknown_domain`, `too_long`), HTTP 상태, 시도 횟수, 지연, 시도를 합친 프롬프트·생성 토큰 수). 전사와 기록 내용은 개인정보가 들어 있어 남기지 않는다.
+`POST /summarize` 요청 예: `{"domain": "shop", "turns": [{"speaker": "상담원", "text": "..."}, {"speaker": "고객", "text": "..."}]}`. 전사가 4,000자를 넘으면 모델 컨텍스트(4,096 토큰)에 답까지 들어가지 않으므로 413을 돌려준다 (데이터셋 전사는 가장 긴 것이 1,485자). 모델 답이 스키마를 통과하지 못하거나 업종 목록 밖의 라벨을 쓰면 한 번 다시 묻고, 그래도 안 되면 502를 돌려준다. 첫 답은 탐욕 디코딩이라 같은 요청을 되풀이하면 같은 답이 나오므로, 다시 물을 때는 temperature 0.3과 다른 seed로 샘플링한다. `GET /stats`는 요청 수와 지연 분포, `GET /domains`는 업종별 라벨 목록. 처리기에 닿은 `/summarize` 요청마다 로거 `call_summary.service`가 JSON 한 줄을 남긴다 (요청 id, 업종, 발화 수·글자 수, 결과(`ok`, `retried_ok`, `rejected`, `model_unavailable`, `unknown_domain`, `too_long`), HTTP 상태, 시도 횟수, 지연, 시도를 합친 프롬프트·생성 토큰 수). 요청 본문이 형식 검사(빠진 필드, 허용되지 않은 발화자, 빈 `turns` 등)에서 걸려 FastAPI가 422를 돌려준 요청은 처리기에 닿지 않으므로 줄이 남지 않는다 (목록에 없는 업종의 422는 처리기가 돌려주므로 남는다). 전사와 기록 내용은 개인정보가 들어 있어 남기지 않는다.
 
 음성 조건(4단계) 데이터는 `scripts/asr_condition.py`로 만들었다. MeloTTS가 transformers 4.27을 요구해 이 프로젝트 환경이 아니라 support-agent 저장소의 음성 환경에서 돌린다 (스크립트 머리말 참고).
