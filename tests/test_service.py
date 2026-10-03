@@ -6,6 +6,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from call_summary.dataset import load_items
+from call_summary.domains import DOMAINS
 from call_summary.prompts import record_to_json
 from call_summary.providers import OllamaProvider, Reply, ScriptedProvider
 from call_summary.service import MAX_CHARS, create_app, create_offline_app
@@ -83,6 +84,66 @@ def test_input_validation():
     assert c.post("/summarize", json={"domain": "shop", "turns": bad}).status_code == 422
     assert c.get("/health").json()["status"] == "ok"
     assert "card" in c.get("/domains").json()
+
+
+def test_input_validation_is_exact():
+    # The OpenAPI enums must not loosen what the service accepts.
+    c = TestClient(create_offline_app())
+    for speaker in ("상담원 ", "고객\n", "상담", "agent", 1, None):
+        body = {"domain": "shop", "turns": [{"speaker": speaker, "text": "안녕하세요"}]}
+        assert c.post("/summarize", json=body).status_code == 422, speaker
+    for domain in ("SHOP", "shop ", "x" * 33, "", 1):
+        assert c.post("/summarize", json={"domain": domain, "turns": TURNS}).status_code == 422, domain
+    too_long_turn = [{"speaker": "고객", "text": "가" * 2001}]
+    assert c.post("/summarize", json={"domain": "shop", "turns": too_long_turn}).status_code == 422
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS * 101}).status_code == 422
+    assert c.post("/summarize", json={"domain": "shop"}).status_code == 422
+
+
+def _openapi() -> dict:
+    return TestClient(create_offline_app()).get("/openapi.json").json()
+
+
+def _from_schema(schema: dict, spec: dict):
+    """A request built from the schema alone, as an API scanner builds one: the first enum value, else a
+    placeholder; as many array items as the minimum asks for (at least one)."""
+    if "$ref" in schema:
+        return _from_schema(spec["components"]["schemas"][schema["$ref"].rsplit("/", 1)[-1]], spec)
+    if "enum" in schema:
+        return schema["enum"][0]
+    kind = schema.get("type")
+    if kind == "object":
+        return {k: _from_schema(v, spec) for k, v in schema["properties"].items() if k in schema["required"]}
+    if kind == "array":
+        return [_from_schema(schema["items"], spec) for _ in range(max(1, schema.get("minItems", 1)))]
+    assert kind == "string", schema
+    return "John Doe"
+
+
+def test_openapi_lists_the_accepted_speakers_and_domains():
+    schemas = _openapi()["components"]["schemas"]
+    assert schemas["Turn"]["properties"]["speaker"]["enum"] == ["상담원", "고객"]
+    assert schemas["SummarizeRequest"]["properties"]["domain"]["enum"] == list(DOMAINS)
+
+
+def test_request_built_from_openapi_reaches_the_handler(caplog):
+    # HawkScan builds /summarize bodies from the OpenAPI description; with a free-form speaker and
+    # domain every one of them stopped at validation (422), so the handler was never scanned.
+    spec = _openapi()
+    op = spec["paths"]["/summarize"]["post"]
+    body = _from_schema(op["requestBody"]["content"]["application/json"]["schema"], spec)
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    r = TestClient(create_offline_app()).post("/summarize", json=body)
+    assert r.status_code == 200, r.text
+    assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]
+
+
+def test_openapi_request_examples_are_valid():
+    examples = _openapi()["components"]["schemas"]["SummarizeRequest"]["examples"]
+    assert examples
+    c = TestClient(create_offline_app())
+    for ex in examples:
+        assert c.post("/summarize", json=ex).status_code == 200, ex
 
 
 def test_transcript_beyond_model_context_is_413():

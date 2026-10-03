@@ -24,9 +24,10 @@ import sys
 import threading
 import time
 import uuid
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .domains import DOMAINS
 from .prompts import build_messages, format_transcript, prompt_hash, record_to_json
@@ -67,14 +68,28 @@ def _token_sum(values: list[int | None]) -> int | None:
     return sum(known) if known else None
 
 
+EXAMPLE_REQUEST = {
+    "domain": "shop",
+    "turns": [
+        {"speaker": "상담원", "text": "도토리마켓입니다. 무엇을 도와드릴까요?"},
+        {"speaker": "고객", "text": "어제 한 주문을 취소하려고요."},
+    ],
+}
+
+
 class Turn(BaseModel):
-    speaker: str = Field(pattern="^(상담원|고객)$")
+    # A Literal, not a regex: the OpenAPI enum tells clients and scanners which values pass.
+    speaker: Literal["상담원", "고객"]
     # Empty text is allowed: a speech recogniser returns nothing for some turns (test-d has such turns).
     text: str = Field(max_length=2000)
 
 
 class SummarizeRequest(BaseModel):
-    domain: str = Field(max_length=32)
+    model_config = ConfigDict(json_schema_extra={"examples": [EXAMPLE_REQUEST]})
+
+    # The enum is only documented here; the handler checks it, so an unknown domain keeps its own 422
+    # ("unknown domain") and its log line.
+    domain: str = Field(max_length=32, json_schema_extra={"enum": list(DOMAINS)})
     turns: list[Turn] = Field(min_length=1, max_length=MAX_TURNS)
 
 
