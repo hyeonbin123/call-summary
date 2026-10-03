@@ -50,17 +50,26 @@ def test_fingerprint_names_the_cached_base_snapshot(monkeypatch):
     assert model_fingerprint(HFProvider(model_id="Qwen/Qwen3-4B")) == {"base_revision": "abc123"}
 
 
-def test_fingerprint_of_an_ollama_model_is_its_digest(monkeypatch):
+def test_fingerprint_of_an_ollama_model_is_its_digest_and_server_version(monkeypatch):
     class Resp:
+        def __init__(self, url):
+            self.url = url
+
         def json(self):
+            if self.url.endswith("/api/version"):
+                return {"version": "0.35.1"}
             return {"models": [{"name": "m:q8_0", "model": "m:q8_0", "digest": "abc"}]}
 
-    monkeypatch.setattr(httpx, "get", lambda url, **kw: Resp())
-    assert model_fingerprint(OllamaProvider(model="m:q8_0")) == {"ollama_digest": "abc"}
-    assert model_fingerprint(OllamaProvider(model="other")) == {"ollama_digest": None}
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: Resp(url))
+    assert model_fingerprint(OllamaProvider(model="m:q8_0")) == {
+        "ollama_digest": "abc",
+        "ollama_version": "0.35.1",
+    }
+    assert model_fingerprint(OllamaProvider(model="other"))["ollama_digest"] is None
 
     def refused(url, **kw):
         raise httpx.ConnectError("refused")
 
     monkeypatch.setattr(httpx, "get", refused)
-    assert model_fingerprint(OllamaProvider(model="m:q8_0")) == {"ollama_digest": None}
+    down = model_fingerprint(OllamaProvider(model="m:q8_0"))
+    assert down == {"ollama_digest": None, "ollama_version": None}

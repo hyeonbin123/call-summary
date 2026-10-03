@@ -161,6 +161,11 @@ def model_fingerprint(provider: Provider) -> dict:
             )
         except Exception:  # noqa: BLE001 - no model server: the run fails later with the real error
             fp["ollama_digest"] = None
+        try:  # the server version is part of the condition (same weights, different runtime)
+            got = httpx.get(f"{provider.base_url}/api/version", timeout=10).json()
+            fp["ollama_version"] = got.get("version")
+        except Exception:  # noqa: BLE001
+            fp["ollama_version"] = None
     return fp
 
 

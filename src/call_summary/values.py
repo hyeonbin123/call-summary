@@ -173,8 +173,10 @@ def values_in_transcript(kind: Kind, transcript: str) -> set[str]:
     return found
 
 
-# Digit groups with at most 3 other characters between them, read as one number. A speech recogniser may
-# write "5533-8050-3287" as "5,533, 8,050에서 3,287".
+# Digit groups with at most 3 other characters between them, read as one number. A recognised number may
+# come back split, e.g. "5533 8050 3287". (In speech condition v1 "5533-8050-3287" came back as
+# "5,533, 8,050에서 3,287" because the TTS was given cardinals joined by a range "에서" - a verbalizer
+# artifact, not a recogniser habit; v2 reads tracking numbers digit by digit. docs/experiments.md)
 _DIGIT_RUN = re.compile(r"\d+(?:\D{1,3}\d+)*")
 
 

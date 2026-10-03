@@ -331,3 +331,20 @@ def value_survival(
     for e in gold.entities:
         out.setdefault(e.type, []).append(occurs_in_transcript(kinds[e.type], e.value, transcript, spoken))
     return out
+
+
+def unfound_split(
+    domain_key: str, gold: AfterCallRecord, pred: AfterCallRecord, transcript: str, spoken: bool = True
+) -> tuple[Counter, Counter]:
+    """Predicted values not found in the transcript (what `entity_hallucinated` counts), per type: restored
+    (equal to a gold value after normalization, e.g. a misheard product name put right) or invented."""
+    kinds: dict[str, Kind] = {et.label: et.kind for et in DOMAINS[domain_key].entity_types}
+    gold_keys, _ = _entity_keys(domain_key, gold)
+    restored: Counter = Counter()
+    invented: Counter = Counter()
+    for e in pred.entities:
+        if occurs_in_transcript(kinds.get(e.type, "text"), e.value, transcript, spoken):
+            continue
+        norm = normalize(kinds[e.type], e.value) if e.type in kinds else None
+        (restored if norm is not None and (e.type, norm) in gold_keys else invented)[e.type] += 1
+    return restored, invented
