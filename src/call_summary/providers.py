@@ -23,6 +23,8 @@ class Reply:
     completion_tokens: int | None = None
     # Ollama's own counters in nanoseconds (total, load, prompt_eval, eval durations); None elsewhere.
     timings: dict | None = None
+    thinking: str | None = None  # Ollama's message.thinking (reasoning split off by the model's parser)
+    done_reason: str | None = None  # Ollama's stop reason: "stop", or "length" when num_predict cut the reply
 
 
 class Provider(Protocol):
@@ -61,6 +63,15 @@ class OllamaProvider:
     timeout_s: float = 600.0
     use_schema: bool = False  # pass the JSON schema as Ollama's `format` (constrained decoding)
     think: bool | None = False  # Qwen3-style thinking models: off by default for a fair, fast baseline
+    # Further Ollama options (e.g. presence_penalty); the fixed decoding settings above have their own fields.
+    extra_options: dict | None = None
+
+    _FIXED = ("temperature", "num_ctx", "num_predict", "num_gpu", "seed")
+
+    def __post_init__(self) -> None:
+        clash = sorted(set(self.extra_options or {}) & set(self._FIXED))
+        if clash:
+            raise ValueError(f"extra_options cannot set {clash}; use the provider fields")
 
     @property
     def name(self) -> str:
@@ -83,6 +94,7 @@ class OllamaProvider:
         }
         if self.num_gpu is not None:
             body["options"]["num_gpu"] = self.num_gpu
+        body["options"].update(self.extra_options or {})
         if self.think is not None:
             body["think"] = self.think
         if self.use_schema and json_schema is not None:
@@ -97,6 +109,8 @@ class OllamaProvider:
             prompt_tokens=data.get("prompt_eval_count"),
             completion_tokens=data.get("eval_count"),
             timings={k: data.get(k) for k in OLLAMA_TIMINGS},
+            thinking=data["message"].get("thinking") or None,
+            done_reason=data.get("done_reason"),
         )
 
     def loaded_models(self) -> list[dict]:

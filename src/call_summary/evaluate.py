@@ -34,6 +34,47 @@ HEADLINE = (
 )
 
 
+THINK = {"off": False, "on": True, "default": None}  # --think -> the request's `think` (None: not sent)
+
+
+def parse_option(text: str) -> tuple[str, object]:
+    """KEY=VALUE for an extra Ollama option; the value becomes an int, float or bool when it reads as one."""
+    key, sep, raw = text.partition("=")
+    if not sep or not key.strip() or not raw.strip():
+        raise argparse.ArgumentTypeError(f"expected KEY=VALUE, got {text!r}")
+    raw = raw.strip()
+    value: object = raw
+    if raw.lower() in ("true", "false"):
+        value = raw.lower() == "true"
+    else:
+        for cast in (int, float):
+            try:
+                value = cast(raw)
+                break
+            except ValueError:
+                pass
+    return key.strip(), value
+
+
+def run_checks(rows: Sequence[dict], num_ctx: int | None) -> dict:
+    """Counts that show a run whose settings did not hold: replies cut at num_predict, replies that came
+    with thinking text, and (Ollama) replies whose prompt plus answer filled the context window."""
+    full = None
+    if num_ctx is not None:
+        full = sum(
+            1
+            for r in rows
+            if r.get("prompt_tokens") is not None
+            and r.get("completion_tokens") is not None
+            and r["prompt_tokens"] + r["completion_tokens"] >= num_ctx
+        )
+    return {
+        "length_stops": sum(1 for r in rows if r.get("done_reason") == "length"),
+        "thinking_items": sum(1 for r in rows if r.get("thinking_chars")),
+        "context_full": full,
+    }
+
+
 def pick_shots(pool: Sequence[Item], domain: str, k: int, seed: int = 0) -> list[tuple[str, AfterCallRecord]]:
     """k fixed examples of one domain, different categories where possible. Needs reference summaries."""
     cands = [it for it in pool if it.domain == domain and it.summary]
@@ -102,6 +143,8 @@ def run_items(
                 "latency_s": round(reply.latency_s, 3),
                 "prompt_tokens": reply.prompt_tokens,
                 "completion_tokens": reply.completion_tokens,
+                "done_reason": reply.done_reason,
+                "thinking_chars": len(reply.thinking or ""),
                 "parse_error": parsed.error,
                 "pred": parsed.record.model_dump() if parsed.record else None,
                 "score": score.to_dict(),
@@ -202,6 +245,21 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         help="GPU layers (ollama backend); 44 keeps the 14B model from overfilling VRAM",
     )
+    ap.add_argument("--num-ctx", type=int, default=4096, help="context window (ollama backend)")
+    ap.add_argument(
+        "--option",
+        type=parse_option,
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="extra Ollama option, repeatable (e.g. presence_penalty=0)",
+    )
+    ap.add_argument(
+        "--think",
+        choices=sorted(THINK),
+        default="off",
+        help="thinking switch sent to the model (default off; 'default' leaves it to the model)",
+    )
     ap.add_argument("--limit", type=int)
     ap.add_argument("--label", default="")
     ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
@@ -229,27 +287,37 @@ def main(argv: list[str] | None = None) -> int:
         if dirty:
             ap.error("--official needs a clean working tree (commit the rules first)")
 
-    provider: Provider
-    if args.backend == "ollama":
-        provider = OllamaProvider(
-            model=args.model, use_schema=args.schema, num_ctx=4096, num_gpu=args.num_gpu
-        )
-    else:
-        provider = HFProvider(model_id=args.model, adapter=args.adapter, load_4bit=args.load_4bit)
-
     shots_for: Callable[[str], list[tuple[str, AfterCallRecord]]] | None = None
     if args.shots:
         if not args.shot_pool:
             ap.error("--shots needs --shot-pool")
         pool = load_items(args.shot_pool)
-        cache: dict[str, list] = {}
+        shots = {dom: pick_shots(pool, dom, args.shots) for dom in sorted({it.domain for it in items})}
+        short = {dom: len(got) for dom, got in shots.items() if len(got) < args.shots}
+        if short:  # e.g. test-c (card): train has no card calls, so the run would silently be 0-shot
+            ap.error(f"{args.shot_pool} has fewer than {args.shots} examples for {short}")
+        shots_for = shots.__getitem__
 
-        def _shots(domain: str) -> list[tuple[str, AfterCallRecord]]:
-            if domain not in cache:
-                cache[domain] = pick_shots(pool, domain, args.shots)
-            return cache[domain]
-
-        shots_for = _shots
+    ollama_options = dict(args.option)
+    provider: Provider
+    if args.backend == "ollama":
+        provider = OllamaProvider(
+            model=args.model,
+            use_schema=args.schema,
+            num_ctx=args.num_ctx,
+            num_gpu=args.num_gpu,
+            think=THINK[args.think],
+            extra_options=ollama_options,
+        )
+    else:
+        if ollama_options:
+            ap.error("--option is for the ollama backend")
+        provider = HFProvider(
+            model_id=args.model,
+            adapter=args.adapter,
+            load_4bit=args.load_4bit,
+            enable_thinking=args.think == "on",
+        )
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
     safe_model = args.model.replace("/", "_").replace(":", "_")
@@ -270,6 +338,9 @@ def main(argv: list[str] | None = None) -> int:
         "batch": args.batch,
         "prompt_version": args.prompt,
         "prompt_hash": prompt_hash(args.prompt),
+        "num_ctx": args.num_ctx if args.backend == "ollama" else None,
+        "think": args.think,
+        "ollama_options": ollama_options,
         "git_commit": _git("rev-parse", "HEAD"),
         "official": args.official,
         "argv": sys.argv[1:] if argv is None else argv,
@@ -285,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
     table = summary_table(scores)
     lat = sorted(r["latency_s"] for r in rows)
     table["latency_s"] = {"p50": lat[len(lat) // 2], "p95": lat[int(0.95 * (len(lat) - 1))]} if lat else {}
+    table["run_checks"] = run_checks(rows, args.num_ctx if args.backend == "ollama" else None)
     (out_dir / "summary.json").write_text(json.dumps(table, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({k: round(v, 4) for k, v in table["point"].items()}, ensure_ascii=False))
     print(f"-> {out_dir}")

@@ -1,6 +1,6 @@
 import json
 
-from call_summary.compare import paired_table, run_table
+from call_summary.compare import paired_table, pick_order, pick_table, run_table, think_rows
 from call_summary.dataset import write_jsonl
 from call_summary.evaluate import run_items, summary_table
 from call_summary.judge_run import load_scores
@@ -42,3 +42,51 @@ def test_load_scores_roundtrip(tmp_path):
     write_jsonl(p, [{"item_id": "x", "verdicts": ["포함", "누락"], "wrong_statements": 1, "ok": True}])
     s = load_scores(p)[0]
     assert s.verdicts == ("포함", "누락") and s.wrong_statements == 1 and s.recall == 0.5
+
+
+def test_pick_orders_by_exact_then_entity_f1_then_lower_hallucination(tmp_path):
+    def run(name, exact, f1, hall):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "manifest.json").write_text(json.dumps({"provider": name}), encoding="utf-8")
+        point = {"exact": exact, "entity_f1": f1, "hallucination": hall}
+        (d / "summary.json").write_text(json.dumps({"n": 240, "point": point}), encoding="utf-8")
+        return str(d)
+
+    a = run("a", 0.20, 0.90, 0.01)
+    b = run("b", 0.25, 0.70, 0.10)
+    c = run("c", 0.25, 0.75, 0.10)
+    d = run("d", 0.25, 0.75, 0.04)
+    e = run("e", 0.25, 0.75, float("nan"))  # no values predicted: hallucination undefined, ranks last
+    f = run("f", 0.25, 0.75, 0.04)  # full tie with d: the earlier one in the given order stays first
+    assert pick_order([a, b, c, d, e, f]) == [d, f, c, e, b, a]
+    table = pick_table([a, d])
+    assert table.splitlines()[2].startswith("| 1 | d (`d`) | 25.0 | 75.0 | 4.0 |")
+
+
+def test_think_rows_count_thinking_tags_cut_replies_and_reply_length(tmp_path):
+    d = tmp_path / "run"
+    d.mkdir()
+    manifest = {"provider": "ollama:m", "think": "off", "ollama_options": {"presence_penalty": 0}}
+    (d / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    def row(reply, tokens, thinking=0, done="stop", schema=True):
+        return {
+            "reply": reply,
+            "completion_tokens": tokens,
+            "thinking_chars": thinking,
+            "done_reason": done,
+            "score": {"schema_ok": schema},
+        }
+
+    rows = [
+        row("{}", 300),
+        row("<think>음</think>{}", 500, schema=False),
+        row("{}", 400, thinking=120),
+        row("{", 1024, done="length", schema=False),
+    ]
+    write_jsonl(d / "items.jsonl", rows)
+    got = think_rows([str(d)])[0]
+    assert got["n"] == 4 and got["think"] == "off" and got["thinking_items"] == 1 and got["think_tags"] == 1
+    assert got["length_stops"] == 1 and got["schema_ok"] == 2
+    assert got["completion_p50"] == 500 and got["completion_max"] == 1024
