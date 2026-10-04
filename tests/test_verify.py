@@ -121,8 +121,9 @@ def test_guard_report_counts(tmp_path):
     assert (got["predicted"], got["correct"], got["wrong"]) == (4, 1, 3)
     assert (got["flagged_correct"], got["flagged_wrong"]) == (0, 2)
     assert got["flagged_wrong_reasons"] == {"format": 1, "format+not_in_transcript": 1}
-    assert got["silent_wrong"] == [[shop.item_id, "주문번호", "D2031906", ["D2031905"], "one_char"]]
+    assert got["silent_wrong"] == [[shop.item_id, "주문번호", "D2031906", ["D2031905"], "one_char", "5>6"]]
     assert got["silent_wrong_shapes"] == {"one_char": 1}
+    assert got["silent_wrong_one_char_changes"] == {"5>6": 1}
     assert got["gold_ids_not_predicted"] == 1 and gold_tracking == "5213-7079-1436"
     assert got["rows_without_record"] == 1
     assert got["by_type"]["운송장번호"]["flagged_wrong"] == 1

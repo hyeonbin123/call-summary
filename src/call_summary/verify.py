@@ -79,17 +79,19 @@ def _written_form_ok(et: EntityType, value: str) -> bool:
     return pattern is None or re.fullmatch(pattern, value.strip()) is not None
 
 
-def _shape(norm: str | None, golds: list[str]) -> str:
-    """How a wrong identifier differs from the item's gold values of its type."""
+def _shape(norm: str | None, golds: list[str]) -> tuple[str, str]:
+    """How a wrong identifier differs from the item's gold values of its type, and for a one-character
+    difference which character became which ("1>2": the gold 1 came out as 2)."""
     if not golds:
-        return "no_gold_of_type"
+        return "no_gold_of_type", ""
     if norm is None:
-        return "unreadable"
+        return "unreadable", ""
     same_len = [g for g in golds if len(g) == len(norm)]
     if not same_len:
-        return "other_length"
-    diffs = min(sum(a != b for a, b in zip(norm, g, strict=True)) for g in same_len)
-    return "one_char" if diffs == 1 else "same_length"
+        return "other_length", ""
+    best = min(same_len, key=lambda g: sum(a != b for a, b in zip(norm, g, strict=True)))
+    diffs = [(g, p) for p, g in zip(norm, best, strict=True) if p != g]
+    return ("one_char", f"{diffs[0][0]}>{diffs[0][1]}") if len(diffs) == 1 else ("same_length", "")
 
 
 def _empty_counts() -> dict:
@@ -105,6 +107,7 @@ def guard_report(run: str | Path, data: str | Path | None = None) -> dict:
     by_type: dict[str, dict] = {}
     reasons_wrong: Counter = Counter()
     shapes_silent: Counter = Counter()
+    changes_silent: Counter = Counter()
     written_rule_extra = {"correct": 0, "wrong": 0}
     missed = no_record = 0
     silent: list[list] = []
@@ -143,15 +146,18 @@ def guard_report(run: str | Path, data: str | Path | None = None) -> dict:
                 false_flags.append([it.item_id, e.type, e.value, reasons])
             if not ok and not flagged:
                 golds = sorted({g for t, g in gold_ids if t == e.type and g is not None})
-                shape = _shape(norm, golds)
+                shape, change = _shape(norm, golds)
                 shapes_silent[shape] += 1
-                silent.append([it.item_id, e.type, e.value, golds, shape])
+                if change:
+                    changes_silent[change] += 1
+                silent.append([it.item_id, e.type, e.value, golds, shape, change])
         missed += sum(gold_left.values())
     return {
         **total,
         "by_type": dict(sorted(by_type.items())),
         "flagged_wrong_reasons": dict(reasons_wrong.most_common()),
         "silent_wrong_shapes": dict(shapes_silent.most_common()),
+        "silent_wrong_one_char_changes": dict(changes_silent.most_common()),
         "written_format_rule_would_also_flag": written_rule_extra,
         "gold_ids_not_predicted": missed,
         "rows_without_record": no_record,
@@ -191,6 +197,7 @@ def guard_detail(got: dict[str, dict]) -> str:
             )
         lines.append(f"  flagged wrong by reason: {g['flagged_wrong_reasons']}")
         lines.append(f"  silent wrong by shape: {g['silent_wrong_shapes']}")
+        lines.append(f"  silent one-character changes (gold>predicted): {g['silent_wrong_one_char_changes']}")
         lines.append(f"  written-format rule would also flag: {g['written_format_rule_would_also_flag']}")
         lines.append(
             f"  gold ids not predicted: {g['gold_ids_not_predicted']}, rows without record: "
@@ -211,8 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.show:
         for name, g in got.items():
             print(f"\n{name}")
-            for item_id, t, value, golds, shape in g["silent_wrong"]:
-                print(f"  silent {item_id} {t} {value!r} gold {golds} ({shape})")
+            for item_id, t, value, golds, shape, change in g["silent_wrong"]:
+                print(f"  silent {item_id} {t} {value!r} gold {golds} ({shape} {change})")
             for item_id, t, value, reasons in g["false_flags"]:
                 print(f"  false flag {item_id} {t} {value!r} {reasons}")
     if args.json:
