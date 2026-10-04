@@ -65,3 +65,43 @@ def test_unfound_report_of_a_run(tmp_path):
     assert got["predicted"] == n_gold + 1
     assert sum(got["restored"].values()) == n_gold and got["invented"] == {"금액": 1}
     assert "복원" in asr_report.unfound_table({"run": got})
+
+
+WRITTEN = "운송장 번호 6291-7877-5168로 받은 건이에요."
+
+
+def test_tracking_form_classes():
+    def form(heard):
+        return asr_report.tracking_form("6291-7877-5168", WRITTEN, heard, WRITTEN.index("6291"))
+
+    assert form(WRITTEN) == ("as_written", "6291-7877-5168")
+    assert form("운송장 번호 6291, 7877, 5168로 받은 건이에요.")[0] == "split_found"
+    assert form("운송장 번호 육이구일 칠팔칠칠 오일육팔로 받은 건이에요.")[0] == "hangul_digit_names"
+    # one digit heard as a Hangul syllable inside the number
+    assert form("운송장 번호 629일 7877 5168로 받은 건이에요.") == ("lost_hangul", "629일 7877 5168")
+    assert form("운송장 번호 629-7877-5168로 받은 건이에요.")[0] == "lost_fewer"
+    # an inserted digit at the edge stays in the span; a date elsewhere in the utterance does not count
+    assert form("운송장 번호 6291-7877-52685로 받은 건이에요.") == ("lost_more", "6291-7877-52685")
+    dated = "운송장 번호 6291-7877-5268로 10월 20일에 받은 건이에요."
+    assert form(dated) == ("lost_changed", "6291-7877-5268")
+    # the v1 range reading has its own row: "에서" alone does not make the hangul class
+    assert form("운송장 번호 6291 78717에서 5168로 받은 건이에요.") == ("lost_more", "6291 78717에서 5168")
+
+
+def test_tracking_forms_per_file(tmp_path):
+    it = _item(0, domain="parcel", category=None)
+    it.split = "dev-asr"
+    it.meta = {"asr": {"written": [WRITTEN, "네 확인했습니다.", WRITTEN]}}
+    it.turns = [
+        {"speaker": "고객", "text": "운송장 번호 6291-7877-5168로 받은 건이에요."},
+        {"speaker": "상담원", "text": "네 확인했습니다."},
+        {"speaker": "고객", "text": "운송장 번호 6291 78717에서 5168로 받은 건이에요."},
+    ]
+    path = tmp_path / "dev-asr.jsonl"
+    write_jsonl(path, [it.to_dict()])
+    got = asr_report.tracking_forms([path])[str(path)]
+    assert got["numbers"] == 2 and got["as_written"] == 1 and got["lost_more"] == 1
+    assert got["heard_has_에서"] == 1 and got["lost_hangul"] == 0
+    assert got["lost"] == [[it.item_id, "6291-7877-5168", "lost_more", "6291 78717에서 5168"]]
+    table = asr_report.tracking_forms_table({str(path): got})
+    assert "| 찾지 못함 | 1 |" in table and "| 번호 수 | 2 |" in table
