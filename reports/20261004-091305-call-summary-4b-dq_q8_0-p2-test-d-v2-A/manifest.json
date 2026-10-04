@@ -1,0 +1,32 @@
+{
+  "run_id": "20261004-091305-call-summary-4b-dq_q8_0-p2-test-d-v2-A",
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "model_fingerprint": {
+    "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+    "ollama_version": "0.35.1"
+  },
+  "data": "datasets\\test-d-v2.jsonl",
+  "data_sha": "4e3badb2eeab",
+  "n_items": 300,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "git_commit": "08b3a1fc65b79fb8b7fa81986f9a3ce5d9a1f228",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/test-d-v2.jsonl",
+    "--official",
+    "--label",
+    "p2-test-d-v2-A",
+    "--allow-test",
+    "--backend",
+    "ollama",
+    "--model",
+    "call-summary-4b-dq:q8_0"
+  ],
+  "started": "20261004-091305"
+}
