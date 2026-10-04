@@ -91,6 +91,38 @@ def test_unfound_report_counts_empty_values(tmp_path):
     assert "빈 값" in table and f"{100 * 1 / n:.1f}% (1)" in table
 
 
+def test_unfound_report_counts_placeholder_values(tmp_path):
+    # The 2026 comparators wrote a word for "no value" ("없음", "알 수 없음") where stage 3's 14B wrote "":
+    # the same failure in text form. Placeholders are counted on their own so `empty` stays as stage 3
+    # counted it, and the table gives the rate without both.
+    it = _item(0)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [it.to_dict()])
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "manifest.json").write_text(json.dumps({"data": str(data)}), encoding="utf-8")
+    extra = [
+        Entity(type="금액", value="없음"),
+        Entity(type="주문번호", value="알 수 없음"),
+        Entity(type="금액", value=" 미정 "),
+        Entity(type="금액", value=""),
+        Entity(type="금액", value="999,900원"),
+        Entity(type="금액", value="없음 아님"),  # not a placeholder word: an invented value
+    ]
+    pred = _pred(it, extra)
+    write_jsonl(run / "items.jsonl", [{"item_id": it.item_id, "pred": pred.model_dump()}])
+
+    got = asr_report.unfound(run)
+    n = len(it.gold().entities) + 6
+    assert got["predicted"] == n and got["invented"] == {"금액": 5, "주문번호": 1}
+    assert got["empty"] == 1 and got["placeholder"] == 3
+    assert asr_report.is_placeholder("알수 없음") and not asr_report.is_placeholder("")
+    table = asr_report.unfound_table({"run": got})
+    assert "자리 표시 값" in table
+    assert f"{100 * 5 / n:.1f}% (5)" in table  # without empty values only, as before
+    assert f"{100 * 2 / n:.1f}% (2)" in table  # without empty and placeholder values
+
+
 WRITTEN = "운송장 번호 6291-7877-5168로 받은 건이에요."
 
 

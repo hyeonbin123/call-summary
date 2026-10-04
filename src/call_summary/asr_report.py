@@ -3,7 +3,8 @@
 asr_report survival DATA...   per entity type, the share of gold values still findable in each transcript
                               file (the input analysis: run it before any model sees the data)
 asr_report unfound RUN...     predicted values not found in the transcript, split into restored (equal to
-                              gold) and invented, per type (stage 4 rule); also the empty values among them
+                              gold) and invented, per type (stage 4 rule); also the empty and placeholder
+                              ("없음", "알 수 없음" ...) values among them
 asr_report tracking-forms DATA...
                               how the recogniser wrote each tracking number of the written utterances
                               (input analysis of the speech condition v2)
@@ -64,12 +65,41 @@ def survival_table(got: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+# Words written in place of a value ("none", "unknown", "undecided" ...), compared with whitespace removed and
+# lowercased. Writing one is the text form of filling a type with "" (stage 3's 14B did that).
+PLACEHOLDERS = frozenset(
+    {
+        "없음",
+        "해당없음",
+        "알수없음",
+        "모름",
+        "미상",
+        "불명",
+        "미정",
+        "미확인",
+        "미확정",
+        "미제공",
+        "미입력",
+        "미지정",
+        "미언급",
+        "null",
+        "none",
+        "n/a",
+        "-",
+    }
+)
+
+
+def is_placeholder(value: str) -> bool:
+    return "".join(value.split()).lower() in PLACEHOLDERS
+
+
 def unfound(run: str | Path, data: str | Path | None = None) -> dict:
     """Restored and invented values of one evaluation run (reports/<run_id>), against its dataset."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(data or manifest["data"])}
-    predicted = empty = 0
+    predicted = empty = placeholder = 0
     restored: Counter = Counter()
     invented: Counter = Counter()
     for row in read_jsonl(run / "items.jsonl"):
@@ -83,37 +113,41 @@ def unfound(run: str | Path, data: str | Path | None = None) -> dict:
         restored += r
         invented += i
         kinds = {et.label: et.kind for et in DOMAINS[it.domain].entity_types}
-        empty += sum(
-            1
-            for e in pred.entities
-            if not e.value.strip()
-            and not occurs_in_transcript(kinds.get(e.type, "text"), e.value, it.transcript, spoken)
-        )
+        for e in pred.entities:
+            if occurs_in_transcript(kinds.get(e.type, "text"), e.value, it.transcript, spoken):
+                continue
+            if not e.value.strip():
+                empty += 1
+            elif is_placeholder(e.value):
+                placeholder += 1
     return {
         "predicted": predicted,
         "restored": dict(restored.most_common()),
         "invented": dict(invented.most_common()),
         "empty": empty,  # unfound values that are empty strings (all invented), as stage 3 counted them
+        "placeholder": placeholder,  # unfound values that are a placeholder word (all invented)
     }
 
 
 def unfound_table(got: dict[str, dict]) -> str:
     lines = [
         "| 실행 | 예측한 값 | 전사에 없는 값 | 복원 (정답과 같음) | 지어낸 값 | 그중 빈 값 "
-        "| 빈 값을 뺀 전사에 없는 값 |",
-        "|---|---|---|---|---|---|---|",
+        "| 빈 값을 뺀 전사에 없는 값 | 그중 자리 표시 값 | 빈 값과 자리 표시 값을 뺀 것 |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for name, g in got.items():
         n = g["predicted"]
         r, i = sum(g["restored"].values()), sum(g["invented"].values())
+        empty, placeholder = g.get("empty", 0), g.get("placeholder", 0)
 
         def detail(c: dict) -> str:
             return ", ".join(f"{t} {k}" for t, k in c.items())
 
         lines.append(
             f"| `{name}` | {n} | {_pct(r + i, n)}% ({r + i}) | {_pct(r, n)}% ({r}: {detail(g['restored'])}) "
-            f"| {_pct(i, n)}% ({i}: {detail(g['invented'])}) | {g.get('empty', 0)} "
-            f"| {_pct(r + i - g.get('empty', 0), n)}% ({r + i - g.get('empty', 0)}) |"
+            f"| {_pct(i, n)}% ({i}: {detail(g['invented'])}) | {empty} "
+            f"| {_pct(r + i - empty, n)}% ({r + i - empty}) | {placeholder} "
+            f"| {_pct(r + i - empty - placeholder, n)}% ({r + i - empty - placeholder}) |"
         )
     return "\n".join(lines)
 
