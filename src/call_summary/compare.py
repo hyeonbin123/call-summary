@@ -61,7 +61,8 @@ def paired_table(a: str, b: str, metrics: tuple[str, ...] = HEADLINE, n_boot: in
     ma, sa = load_run(a)
     mb, sb = load_run(b)
     lines = [
-        f"B − A: `{run_name(mb)}` − `{run_name(ma)}` (n={len(sa)})",
+        # ASCII minus: a redirected stdout is cp949 on Windows here, which has no U+2212
+        f"B - A: `{run_name(mb)}` - `{run_name(ma)}` (n={len(sa)})",
         "",
         "| metric | A | B | diff [95% CI] |",
         "|---|---|---|---|",

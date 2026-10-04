@@ -1,6 +1,8 @@
+import io
 import json
+import sys
 
-from call_summary.compare import paired_table, pick_order, pick_table, run_table, think_rows
+from call_summary.compare import main, paired_table, pick_order, pick_table, run_table, think_rows
 from call_summary.dataset import write_jsonl
 from call_summary.evaluate import run_items, summary_table
 from call_summary.judge_run import load_scores
@@ -35,6 +37,19 @@ def test_tables(tmp_path):
     assert "| bad |" in table and "| good |" in table and "100.0 [100.0, 100.0]" in table
     paired = paired_table(str(a), str(b), n_boot=50)
     assert "| exact | 0.0 | 100.0 | 100.0 [100.0, 100.0] |" in paired
+
+
+def test_paired_output_on_a_cp949_console(tmp_path, monkeypatch):
+    # On this Windows setup a redirected stdout is cp949: the paired table must encode there
+    # (the header once used U+2212 and the command crashed with UnicodeEncodeError).
+    items = [_item(i, category=None) for i in range(4)]
+    a = _write_run(tmp_path, "a", items, lambda m: "nope")
+    b = _write_run(tmp_path, "b", items, lambda m: "nope")
+    out = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(out, encoding="cp949"))
+    assert main(["--paired", str(a), str(b)]) == 0
+    sys.stdout.flush()
+    assert out.getvalue().decode("cp949").startswith("B - A: `b` - `a` (n=4)")
 
 
 def test_load_scores_roundtrip(tmp_path):
