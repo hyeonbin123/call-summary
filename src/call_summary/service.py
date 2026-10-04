@@ -4,10 +4,14 @@ The model reply must validate as an AfterCallRecord and use the domain's label l
 service retries once, sampled (a greedy retry would replay the rejected reply), and then answers 502 with
 the reason, never a half-valid record. An unreachable model server gives 503.
 
+Identifiers in the record (order, tracking and receipt numbers, card last digits) that lack the deployment
+format or cannot be found in the transcript are listed in `needs_confirmation` (verify.py); the record
+itself is unchanged.
+
 Each /summarize call that reaches the handler logs one JSON line (logger `call_summary.service`, INFO):
-request id, domain, turn and character counts, outcome, HTTP status, attempts, latency and the prompt and
-completion tokens summed over attempts (null when the model server reports none). Never the transcript or
-the record: both hold personal data.
+request id, domain, turn and character counts, outcome, HTTP status, attempts, latency, the prompt and
+completion tokens summed over attempts (null when the model server reports none) and how many identifiers
+need confirmation. Never the transcript, the record or the flagged values: they hold personal data.
 
 Run with a model:   CALL_SUMMARY_MODEL=<ollama model> uvicorn call_summary.service:create_app --factory
 Run without one:    uvicorn call_summary.service:create_offline_app --factory   (canned replies, for scans)
@@ -19,6 +23,7 @@ import dataclasses
 import json
 import logging
 import os
+import random
 import statistics
 import sys
 import threading
@@ -32,7 +37,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from .domains import DOMAINS
 from .prompts import build_messages, format_transcript, prompt_hash, record_to_json
 from .providers import OllamaProvider, Provider, Reply
-from .schema import AfterCallRecord, FollowUp, parse_reply, record_json_schema
+from .schema import AfterCallRecord, Entity, FollowUp, parse_reply, record_json_schema
+from .verify import IdentifierFlag, verify_entities
 
 MAX_TURNS = 200
 NUM_CTX = 4096  # Ollama context the service asks for
@@ -96,6 +102,8 @@ class SummarizeRequest(BaseModel):
 class SummarizeResponse(BaseModel):
     request_id: str
     record: AfterCallRecord
+    # Identifiers to read back to the caller before acting on them: wrong format or not in the transcript.
+    needs_confirmation: list[IdentifierFlag] = Field(default_factory=list)
     model: str
     attempts: int
     latency_s: float
@@ -217,6 +225,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             "latency_s": None,
             "prompt_tokens": None,
             "completion_tokens": None,
+            "needs_confirmation": None,
             "model": p.name,
         }
         prompt_tokens: list[int | None] = []
@@ -259,6 +268,8 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
                 continue
             problems = off_list_labels(req.domain, parsed.record)
             if not problems:
+                flags = verify_entities(req.domain, parsed.record, transcript)
+                line["needs_confirmation"] = len(flags)
                 latency = round(time.perf_counter() - t0, 3)
                 outcome = "ok" if attempt == 1 else "retried_ok"
                 stats.add(outcome, latency)
@@ -266,6 +277,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
                 return SummarizeResponse(
                     request_id=request_id,
                     record=parsed.record,
+                    needs_confirmation=flags,
                     model=p.name,
                     attempts=attempt,
                     latency_s=latency,
@@ -278,17 +290,21 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
 
 
 class CannedProvider:
-    """No model: a valid record for whichever domain the system prompt names. For scans and demos."""
+    """No model: a valid record for whichever domain the system prompt names. For scans and demos.
+
+    The record holds one fixed identifier of the domain, so every request also runs the identifier checks
+    on its transcript (it is listed in needs_confirmation unless the caller said it)."""
 
     name = "offline:canned"
 
     def generate(self, messages: list[dict], json_schema: dict | None = None) -> Reply:
         system = messages[0]["content"]
         domain = next((d for d in DOMAINS.values() if d.company in system), DOMAINS["shop"])
+        id_type = next(et for et in domain.entity_types if et.kind == "id")
         record = AfterCallRecord(
             category=domain.categories[0],
             resolution="해결",
-            entities=[],
+            entities=[Entity(type=id_type.label, value=id_type.make(random.Random(0)))],
             actions_taken=[],
             follow_up=FollowUp(required=False, codes=[]),
             summary="오프라인 모드의 고정 응답입니다.",

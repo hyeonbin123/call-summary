@@ -31,6 +31,36 @@ def test_summarize_ok():
     assert body["record"]["category"] == "주문 취소" and body["attempts"] == 1
 
 
+def test_identifiers_that_need_confirmation_are_listed(caplog):
+    good = _good()  # its order number D2031905 is never said in TURNS
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    c = TestClient(create_app(ScriptedProvider([good, good])))
+    r = c.post("/summarize", json={"domain": "shop", "turns": TURNS})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["needs_confirmation"] == [
+        {"type": "주문번호", "value": "D2031905", "reasons": ["not_in_transcript"]}
+    ]
+    assert body["record"] == json.loads(good)  # returned as the model wrote it
+    said = TURNS + [{"speaker": "고객", "text": "주문번호는 D 203 1905요."}]
+    assert c.post("/summarize", json={"domain": "shop", "turns": said}).json()["needs_confirmation"] == []
+    assert [x["needs_confirmation"] for x in _log_lines(caplog)] == [1, 0]
+    # The log keeps the count only: the flagged value is personal data.
+    assert "D2031905" not in " ".join(rec.getMessage() for rec in caplog.records)
+
+
+def test_offline_app_runs_the_identifier_checks():
+    c = TestClient(create_offline_app())
+    for domain in DOMAINS:
+        body = c.post("/summarize", json={"domain": domain, "turns": TURNS}).json()
+        (entity,) = body["record"]["entities"]
+        assert body["needs_confirmation"] == [{**entity, "reasons": ["not_in_transcript"]}]
+        said = TURNS + [{"speaker": "고객", "text": f"번호는 {entity['value']}입니다."}]
+        assert c.post("/summarize", json={"domain": domain, "turns": said}).json()["needs_confirmation"] == []
+    response = _openapi()["components"]["schemas"]["SummarizeResponse"]
+    assert "needs_confirmation" in response["properties"]
+
+
 def test_summarize_retries_once_then_502():
     bad_label = json.loads(_good())
     bad_label["category"] = "기타"
@@ -305,6 +335,7 @@ def test_log_lines_for_requests_that_never_reach_the_model(caplog):
         ("unknown_domain", 422, 0),
         ("too_long", 413, 0),
     ]
+    assert all(x["needs_confirmation"] is None for x in lines)
     assert "refused" not in json.dumps(lines)
 
 
