@@ -1,0 +1,35 @@
+{
+  "run_id": "20261005-033303-call-summary-4b-dq_q8_0-base0-test-a-student",
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "model_fingerprint": {
+    "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+    "ollama_version": "0.35.1"
+  },
+  "data": "datasets\\test-a.jsonl",
+  "data_sha": "9c32fada5f5f",
+  "n_items": 300,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "num_ctx": 4096,
+  "think": "off",
+  "ollama_options": {},
+  "git_commit": "f584fffb8115511995c3b49482cd881c44704143",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/test-a.jsonl",
+    "--official",
+    "--allow-test",
+    "--backend",
+    "ollama",
+    "--model",
+    "call-summary-4b-dq:q8_0",
+    "--label",
+    "base0-test-a-student"
+  ],
+  "started": "20261005-033303"
+}

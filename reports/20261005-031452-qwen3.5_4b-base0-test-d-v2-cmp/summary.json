@@ -1,0 +1,135 @@
+{
+  "n": 300,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.13333333333333333,
+    "category_acc": 0.9166666666666666,
+    "category_macro_f1": 0.9216999561605302,
+    "resolution_acc": 0.8033333333333333,
+    "entity_p": 0.7222222222222222,
+    "entity_r": 0.7979041916167665,
+    "entity_f1": 0.7581792318634424,
+    "hallucination": 0.12737127371273713,
+    "action_f1": 0.87973086627418,
+    "follow_up_acc": 0.6066666666666667,
+    "off_list": 0.12
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.09666666666666666,
+      0.17333333333333334
+    ],
+    "category_acc": [
+      0.8866666666666667,
+      0.9466666666666667
+    ],
+    "resolution_acc": [
+      0.76,
+      0.85
+    ],
+    "entity_f1": [
+      0.7304097771387491,
+      0.7845614035087719
+    ],
+    "hallucination": [
+      0.09972677595628415,
+      0.15463917525773196
+    ],
+    "action_f1": [
+      0.8600682593856656,
+      0.897822445561139
+    ],
+    "follow_up_acc": [
+      0.55,
+      0.6633333333333333
+    ]
+  },
+  "schema_ok_only": {
+    "n": 300,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.13333333333333333,
+      "category_acc": 0.9166666666666666,
+      "category_macro_f1": 0.9216999561605302,
+      "resolution_acc": 0.8033333333333333,
+      "entity_p": 0.7222222222222222,
+      "entity_r": 0.7979041916167665,
+      "entity_f1": 0.7581792318634424,
+      "hallucination": 0.12737127371273713,
+      "action_f1": 0.87973086627418,
+      "follow_up_acc": 0.6066666666666667,
+      "off_list": 0.12
+    }
+  },
+  "by_domain": {
+    "parcel": {
+      "n": 100,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.17,
+        "category_acc": 0.79,
+        "category_macro_f1": 0.8045095188151538,
+        "resolution_acc": 0.73,
+        "entity_p": 0.8392857142857143,
+        "entity_r": 0.7899159663865546,
+        "entity_f1": 0.8138528138528138,
+        "hallucination": 0.03571428571428571,
+        "action_f1": 0.8322147651006712,
+        "follow_up_acc": 0.42,
+        "off_list": 0.12
+      }
+    },
+    "shop": {
+      "n": 100,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.07,
+        "category_acc": 0.99,
+        "category_macro_f1": 0.9895652173913043,
+        "resolution_acc": 0.88,
+        "entity_p": 0.67578125,
+        "entity_r": 0.7393162393162394,
+        "entity_f1": 0.7061224489795919,
+        "hallucination": 0.12109375,
+        "action_f1": 0.868995633187773,
+        "follow_up_acc": 0.6,
+        "off_list": 0.16
+      }
+    },
+    "telecom": {
+      "n": 100,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.16,
+        "category_acc": 0.97,
+        "category_macro_f1": 0.9710251322751323,
+        "resolution_acc": 0.8,
+        "entity_p": 0.6666666666666666,
+        "entity_r": 0.8775510204081632,
+        "entity_f1": 0.7577092511013216,
+        "hallucination": 0.2131782945736434,
+        "action_f1": 0.9237875288683602,
+        "follow_up_acc": 0.8,
+        "off_list": 0.08
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 1.941,
+    "p95": 2.294
+  },
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  }
+}

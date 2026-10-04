@@ -1,0 +1,99 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 0.985,
+    "exact": 0.045,
+    "category_acc": 0.98,
+    "category_macro_f1": 0.9874469787915167,
+    "resolution_acc": 0.825,
+    "entity_p": 0.6034816247582205,
+    "entity_r": 0.8888888888888888,
+    "entity_f1": 0.7188940092165899,
+    "hallucination": 0.11992263056092843,
+    "action_f1": 0.8792165397170838,
+    "follow_up_acc": 0.78,
+    "off_list": 0.17
+  },
+  "ci95": {
+    "schema": [
+      0.965,
+      1.0
+    ],
+    "exact": [
+      0.02,
+      0.075
+    ],
+    "category_acc": [
+      0.96,
+      0.995
+    ],
+    "resolution_acc": [
+      0.77,
+      0.875
+    ],
+    "entity_f1": [
+      0.6908212560386473,
+      0.7454764776839565
+    ],
+    "hallucination": [
+      0.08946322067594434,
+      0.15065913370998116
+    ],
+    "action_f1": [
+      0.8561946902654868,
+      0.9017857142857143
+    ],
+    "follow_up_acc": [
+      0.72,
+      0.835
+    ]
+  },
+  "schema_ok_only": {
+    "n": 197,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.04568527918781726,
+      "category_acc": 0.9949238578680203,
+      "category_macro_f1": 0.9949979991996799,
+      "resolution_acc": 0.8375634517766497,
+      "entity_p": 0.6034816247582205,
+      "entity_r": 0.899135446685879,
+      "entity_f1": 0.7222222222222222,
+      "hallucination": 0.11992263056092843,
+      "action_f1": 0.8840262582056893,
+      "follow_up_acc": 0.7918781725888325,
+      "off_list": 0.17258883248730963
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 0.985,
+        "exact": 0.045,
+        "category_acc": 0.98,
+        "category_macro_f1": 0.9874469787915167,
+        "resolution_acc": 0.825,
+        "entity_p": 0.6034816247582205,
+        "entity_r": 0.8888888888888888,
+        "entity_f1": 0.7188940092165899,
+        "hallucination": 0.11992263056092843,
+        "action_f1": 0.8792165397170838,
+        "follow_up_acc": 0.78,
+        "off_list": 0.17
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 2.503,
+    "p95": 3.03
+  },
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  }
+}

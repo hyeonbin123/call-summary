@@ -1,0 +1,99 @@
+{
+  "n": 200,
+  "point": {
+    "json": 1.0,
+    "schema": 1.0,
+    "exact": 0.495,
+    "category_acc": 0.985,
+    "category_macro_f1": 0.9848092182243674,
+    "resolution_acc": 0.985,
+    "entity_p": 0.9378698224852071,
+    "entity_r": 0.9031339031339032,
+    "entity_f1": 0.9201741654571843,
+    "hallucination": 0.0621301775147929,
+    "action_f1": 0.8901345291479821,
+    "follow_up_acc": 0.91,
+    "off_list": 0.02
+  },
+  "ci95": {
+    "schema": [
+      1.0,
+      1.0
+    ],
+    "exact": [
+      0.43,
+      0.57
+    ],
+    "category_acc": [
+      0.965,
+      1.0
+    ],
+    "resolution_acc": [
+      0.965,
+      1.0
+    ],
+    "entity_f1": [
+      0.8970588235294118,
+      0.9428571428571428
+    ],
+    "hallucination": [
+      0.036923076923076927,
+      0.08928571428571429
+    ],
+    "action_f1": [
+      0.8645598194130926,
+      0.915445321307779
+    ],
+    "follow_up_acc": [
+      0.87,
+      0.945
+    ]
+  },
+  "schema_ok_only": {
+    "n": 200,
+    "point": {
+      "json": 1.0,
+      "schema": 1.0,
+      "exact": 0.495,
+      "category_acc": 0.985,
+      "category_macro_f1": 0.9848092182243674,
+      "resolution_acc": 0.985,
+      "entity_p": 0.9378698224852071,
+      "entity_r": 0.9031339031339032,
+      "entity_f1": 0.9201741654571843,
+      "hallucination": 0.0621301775147929,
+      "action_f1": 0.8901345291479821,
+      "follow_up_acc": 0.91,
+      "off_list": 0.02
+    }
+  },
+  "by_domain": {
+    "card": {
+      "n": 200,
+      "point": {
+        "json": 1.0,
+        "schema": 1.0,
+        "exact": 0.495,
+        "category_acc": 0.985,
+        "category_macro_f1": 0.9848092182243674,
+        "resolution_acc": 0.985,
+        "entity_p": 0.9378698224852071,
+        "entity_r": 0.9031339031339032,
+        "entity_f1": 0.9201741654571843,
+        "hallucination": 0.0621301775147929,
+        "action_f1": 0.8901345291479821,
+        "follow_up_acc": 0.91,
+        "off_list": 0.02
+      }
+    }
+  },
+  "latency_s": {
+    "p50": 2.329,
+    "p95": 2.778
+  },
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  }
+}
