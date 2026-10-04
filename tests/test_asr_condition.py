@@ -150,3 +150,126 @@ def test_a_run_refuses_to_resynthesise_unchanged_utterances(tmp_path, monkeypatc
     assert asr.main(args) == 2
     assert "unchanged" in capsys.readouterr().err
     assert not (tmp_path / "out" / "dev.jsonl").exists()
+
+
+# --- speech condition v3: pass 1 keeps the audio, pass 2 recognises it again ---------------------------
+
+
+def test_identifier_turns_are_the_written_order_receipt_and_tracking_numbers():
+    assert asr.says_identifier("주문번호는 D4477838입니다.")
+    assert asr.says_identifier("접수번호 R123456요")
+    assert asr.says_identifier("운송장 5891-6890-2287의 위치")
+    assert asr.says_identifier("６２９１-７８７７-５１６８요")  # NFKC
+    assert not asr.says_identifier("010-1234-5678로 연락 주세요")
+    assert not asr.says_identifier("11월 29일에 도착합니다")
+
+
+class _FakeAudio(list):
+    pass
+
+
+class _FakeListener:
+    def __init__(self):
+        self.heard: list[bytes] = []
+
+    def transcribe(self, wav: bytes) -> str:
+        self.heard.append(wav)
+        return "들림:" + wav.decode()
+
+
+def _fake_channel(tmp_path, monkeypatch, cache_rows=()):
+    cache = tmp_path / "c.jsonl"
+    cache.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in cache_rows), encoding="utf-8")
+    ident = {"tts": "melotts/KR", "versions": {"torch": "2.11.0"}}
+    ch = asr.Channel(cache, verbalizer="v2", verbalize=squash, identity=ident)
+
+    def load(self):
+        self.speaker, self.listener = object(), _FakeListener()
+        self.wav_bytes = lambda audio, rate: type("A", (), {"wav": "".join(audio).encode()})()
+
+    monkeypatch.setattr(asr.Channel, "_load_models", load)
+    monkeypatch.setattr(asr.Channel, "_speak", lambda self, spoken, speaker, seed: _FakeAudio(spoken))
+    return ch
+
+
+def test_pass_one_keeps_the_heard_audio_and_indexes_every_turn(tmp_path, monkeypatch):
+    items = [{**it, "domain": "parcel"} for it in _items()]
+    first = asr.spoken_form(items[0]["turns"][0]["text"], squash, "v2")
+    key0 = asr.cache_key(
+        asr.identity_key({"tts": "melotts/KR", "versions": {"torch": "2.11.0"}}),
+        "상담원",
+        asr.seed_of("dev-parcel-00001", 0),
+        first,
+    )
+    ch = _fake_channel(tmp_path, monkeypatch, [{"key": key0, "spoken": first, "heard": "예전에 들림"}])
+    store = asr.WavStore(tmp_path / "wav")
+    n = asr.save_wavs(ch, items, store, "dev")
+    assert n == {"synthesised": 2, "silent": 1}
+    rows = store.split_rows("dev")
+    assert [(r["item_id"], r["turn"]) for r in rows] == [("dev-parcel-00001", i) for i in range(3)]
+    assert rows[0]["key"] == key0 and rows[0]["cached_heard"] == "예전에 들림"
+    assert rows[0]["heard"] == "들림:" + first and rows[0]["domain"] == "parcel"
+    assert (store.root / rows[0]["wav"]).read_bytes() == first.encode()  # the bytes the recogniser was given
+    assert rows[1]["spoken"] == "운송장 육이구일, 칠팔칠칠, 오일육팔 로 조회해 주세요."
+    assert rows[2]["wav"] is None and rows[2]["heard"] == "" and rows[2]["audio_seconds"] == 0.0
+    # resumable: a second run synthesises nothing, and a reloaded store has the same rows
+    assert asr.save_wavs(ch, items, store, "dev") == {"done": 3}
+    assert asr.WavStore(tmp_path / "wav").split_rows("dev") == rows
+
+
+def test_pass_one_can_keep_only_identifier_turns(tmp_path, monkeypatch):
+    ch = _fake_channel(tmp_path, monkeypatch)
+    store = asr.WavStore(tmp_path / "wav")
+    items = [{**it, "domain": "parcel"} for it in _items()]
+    assert asr.save_wavs(ch, items, store, "dev", only_ids=True) == {"synthesised": 1}
+    assert [r["turn"] for r in store.split_rows("dev")] == [1]
+    # the full run later adds the other turns and keeps the first one
+    assert asr.save_wavs(ch, items, store, "dev") == {"done": 1, "synthesised": 1, "silent": 1}
+
+
+def test_pass_two_recognises_each_kept_wav_once_with_the_domain_context(tmp_path, monkeypatch):
+    ch = _fake_channel(tmp_path, monkeypatch)
+    store = asr.WavStore(tmp_path / "wav")
+    asr.save_wavs(ch, [{**it, "domain": "parcel"} for it in _items()], store, "dev")
+    calls = []
+
+    def transcribe(wav: bytes, hotwords: str | None) -> str:
+        calls.append(hotwords)
+        return f"{wav.decode()}|{hotwords}"
+
+    hyp = tmp_path / "hyp" / "Th.jsonl"
+    context = {"parcel": "새싹택배, 전자레인지"}
+    assert asr.recognise(store, "dev", "Th", hyp, transcribe, context) == {"recognised": 2}
+    assert calls == ["새싹택배, 전자레인지"] * 2
+    rows = [json.loads(line) for line in hyp.read_text(encoding="utf-8").splitlines()]
+    assert [(r["item_id"], r["turn"], r["arm"]) for r in rows] == [
+        ("dev-parcel-00001", 0, "Th"),
+        ("dev-parcel-00001", 1, "Th"),
+    ]
+    assert rows[0]["heard"].endswith("|새싹택배, 전자레인지")
+    assert asr.recognise(store, "dev", "Th", hyp, transcribe, context) == {"done": 2}
+    assert asr.recognise(store, "dev", "L", tmp_path / "L.jsonl", transcribe, None) == {"recognised": 2}
+    assert calls[-1] is None  # only Th and Qc carry the context
+
+
+def test_the_recogniser_arms_and_their_decoding():
+    assert set(asr.RECOGNISERS) == {"T", "Th", "L", "N"}
+    assert asr.RECOGNISERS["T"] == ("large-v3-turbo", False)
+    assert asr.RECOGNISERS["Th"] == ("large-v3-turbo", True)
+    assert asr.RECOGNISERS["L"] == ("large-v3", False)
+    assert asr.RECOGNISERS["N"][0].replace("\\", "/").endswith("whisper-ko-ft/outputs/turbo-n/ct2")
+
+
+def test_the_pass_one_plan_counts_what_it_would_synthesise(tmp_path, monkeypatch):
+    ch = _fake_channel(tmp_path, monkeypatch)
+    store = asr.WavStore(tmp_path / "wav")
+    items = [{**it, "domain": "parcel"} for it in _items()]
+    plan = asr.keep_plan(ch, items, store, only_ids=False)
+    assert plan == {"turns": 3, "done": 0, "silent": 1, "to_synthesise": 2, "in_text_cache": 0}
+    store.check_identity({"a": 1}, write=False)
+    assert not (store.root / "identity.json").exists()
+    store.check_identity({"a": 1})
+    with pytest.raises(SystemExit):
+        store.check_identity({"a": 2}, write=False)
+    asr.save_wavs(ch, items, store, "dev", only_ids=True)
+    assert asr.keep_plan(ch, items, store, only_ids=True)["done"] == 1

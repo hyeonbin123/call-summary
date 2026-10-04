@@ -62,8 +62,18 @@ def _last4(rng: random.Random) -> str:
     return f"{rng.randint(0, 9999):04d}"
 
 
+@dataclass(frozen=True)
+class _Pick:
+    """A value maker that picks from a closed list (the catalog; speech condition v3 lists it as context)."""
+
+    options: tuple[str, ...]
+
+    def __call__(self, rng: random.Random) -> str:
+        return rng.choice(self.options)
+
+
 def _pick(options: tuple[str, ...]) -> Callable[[random.Random], str]:
-    return lambda rng: rng.choice(options)
+    return _Pick(options)
 
 
 @dataclass(frozen=True)
@@ -891,5 +901,16 @@ CARD = Domain(
 )
 
 DOMAINS: dict[str, Domain] = {d.key: d for d in (SHOP, TELECOM, PARCEL, CARD)}
+
+
+def catalog(domain: Domain) -> tuple[str, ...]:
+    """Every value the domain's closed-list entity types can take, in entity-type order."""
+    out: dict[str, None] = {}
+    for et in domain.entity_types:
+        if isinstance(et.make, _Pick):
+            out.update(dict.fromkeys(et.make.options))
+    return tuple(out)
+
+
 TRAIN_DOMAINS: tuple[str, ...] = tuple(k for k, d in DOMAINS.items() if not d.held_out)
 HELD_OUT_DOMAINS: tuple[str, ...] = tuple(k for k, d in DOMAINS.items() if d.held_out)
