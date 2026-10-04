@@ -104,6 +104,7 @@ uv run python -m call_summary.judge_run --run outputs/runs/<run_id>
 uv run python -c "from call_summary.judge_run import hand_template_main as m; m()" --run outputs/runs/<run_id> --out work/hand.jsonl
 uv run python -m call_summary.compare outputs/runs/<a> outputs/runs/<b>
 uv run python -m call_summary.compare --paired outputs/runs/<a> outputs/runs/<b>
+uv run python -m call_summary.compare --pick outputs/runs/<a> outputs/runs/<b> ...   # dev에서 고르는 규칙 순서
 
 # 학습 (LoRA, 4B는 --qlora)
 uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outputs/train/qwen3-1.7b
