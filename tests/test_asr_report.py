@@ -67,6 +67,30 @@ def test_unfound_report_of_a_run(tmp_path):
     assert "복원" in asr_report.unfound_table({"run": got})
 
 
+def test_unfound_report_counts_empty_values(tmp_path):
+    # Stage 3 reported hallucination with and without empty values ("" filled into a type the call never
+    # mentioned): empty values are unfound and invented, and the table gives the rate without them too.
+    it = _item(0)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [it.to_dict()])
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "manifest.json").write_text(json.dumps({"data": str(data)}), encoding="utf-8")
+    extra = [
+        Entity(type="금액", value=""),
+        Entity(type="금액", value=" "),
+        Entity(type="금액", value="999,900원"),
+    ]
+    pred = _pred(it, extra)
+    write_jsonl(run / "items.jsonl", [{"item_id": it.item_id, "pred": pred.model_dump()}])
+
+    got = asr_report.unfound(run)
+    n = len(it.gold().entities) + 3
+    assert got["predicted"] == n and got["invented"] == {"금액": 3} and got["empty"] == 2
+    table = asr_report.unfound_table({"run": got})
+    assert "빈 값" in table and f"{100 * 1 / n:.1f}% (1)" in table
+
+
 WRITTEN = "운송장 번호 6291-7877-5168로 받은 건이에요."
 
 

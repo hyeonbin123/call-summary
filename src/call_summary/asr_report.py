@@ -3,7 +3,7 @@
 asr_report survival DATA...   per entity type, the share of gold values still findable in each transcript
                               file (the input analysis: run it before any model sees the data)
 asr_report unfound RUN...     predicted values not found in the transcript, split into restored (equal to
-                              gold) and invented, per type (stage 4 rule)
+                              gold) and invented, per type (stage 4 rule); also the empty values among them
 asr_report tracking-forms DATA...
                               how the recogniser wrote each tracking number of the written utterances
                               (input analysis of the speech condition v2)
@@ -21,6 +21,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 from .dataset import load_items, read_jsonl
+from .domains import DOMAINS
 from .schema import AfterCallRecord
 from .scoring import unfound_split, value_survival
 from .values import occurs_in_transcript
@@ -68,7 +69,7 @@ def unfound(run: str | Path, data: str | Path | None = None) -> dict:
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(data or manifest["data"])}
-    predicted = 0
+    predicted = empty = 0
     restored: Counter = Counter()
     invented: Counter = Counter()
     for row in read_jsonl(run / "items.jsonl"):
@@ -76,21 +77,31 @@ def unfound(run: str | Path, data: str | Path | None = None) -> dict:
             continue
         it = items[row["item_id"]]
         pred = AfterCallRecord.model_validate(row["pred"])
+        spoken = it.split.endswith("-asr")
         predicted += len(pred.entities)
-        r, i = unfound_split(it.domain, it.gold(), pred, it.transcript, spoken=it.split.endswith("-asr"))
+        r, i = unfound_split(it.domain, it.gold(), pred, it.transcript, spoken=spoken)
         restored += r
         invented += i
+        kinds = {et.label: et.kind for et in DOMAINS[it.domain].entity_types}
+        empty += sum(
+            1
+            for e in pred.entities
+            if not e.value.strip()
+            and not occurs_in_transcript(kinds.get(e.type, "text"), e.value, it.transcript, spoken)
+        )
     return {
         "predicted": predicted,
         "restored": dict(restored.most_common()),
         "invented": dict(invented.most_common()),
+        "empty": empty,  # unfound values that are empty strings (all invented), as stage 3 counted them
     }
 
 
 def unfound_table(got: dict[str, dict]) -> str:
     lines = [
-        "| 실행 | 예측한 값 | 전사에 없는 값 | 복원 (정답과 같음) | 지어낸 값 |",
-        "|---|---|---|---|---|",
+        "| 실행 | 예측한 값 | 전사에 없는 값 | 복원 (정답과 같음) | 지어낸 값 | 그중 빈 값 "
+        "| 빈 값을 뺀 전사에 없는 값 |",
+        "|---|---|---|---|---|---|---|",
     ]
     for name, g in got.items():
         n = g["predicted"]
@@ -101,7 +112,8 @@ def unfound_table(got: dict[str, dict]) -> str:
 
         lines.append(
             f"| `{name}` | {n} | {_pct(r + i, n)}% ({r + i}) | {_pct(r, n)}% ({r}: {detail(g['restored'])}) "
-            f"| {_pct(i, n)}% ({i}: {detail(g['invented'])}) |"
+            f"| {_pct(i, n)}% ({i}: {detail(g['invented'])}) | {g.get('empty', 0)} "
+            f"| {_pct(r + i - g.get('empty', 0), n)}% ({r + i - g.get('empty', 0)}) |"
         )
     return "\n".join(lines)
 
