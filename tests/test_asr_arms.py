@@ -128,6 +128,7 @@ def test_the_cheap_gate_counts_gold_identifiers_found_in_the_identifier_turns():
     assert got["Q+I"]["types"] == {"운송장번호": [3, 3]}
     assert asr_arms.gate_verdict(got) == "go"
     assert asr_arms.gate_verdict({"T": got["T"], "Q": got["Q"]}) == "stop"
+    assert asr_arms.gate_verdict(got, reference={"Q+I"}) == "stop"  # a reference arm is no candidate
 
 
 def _dataset(tmp_path, name, items, lost=()):

@@ -509,8 +509,27 @@ def write_hyp_meta(hyp_path: Path, meta: dict) -> None:
     path.write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 
+def add_torch_cuda_dlls() -> None:
+    """CTranslate2 loads cuBLAS and cuDNN by name. support-agent's environment has them as nvidia-* wheels
+    (WhisperListener adds those folders); whisper-ko-ft's environment, where arm N runs, uses the ones that
+    ship with torch, as whisper_ko_ft.evaluate_ct2 does."""
+    from importlib.util import find_spec
+
+    if os.name != "nt" or find_spec("nvidia") is not None:
+        return
+    spec = find_spec("torch")
+    if spec is None or not spec.submodule_search_locations:
+        return
+    lib = os.path.join(next(iter(spec.submodule_search_locations)), "lib")
+    if os.path.isdir(lib):
+        os.add_dll_directory(lib)
+        os.environ["PATH"] = lib + os.pathsep + os.environ.get("PATH", "")
+
+
 def run_pass_two(args) -> int:
     from support_agent.voice.speech import WhisperListener, versions
+
+    add_torch_cuda_dlls()
 
     model, hotwords = RECOGNISERS[args.recognise]
     store = WavStore(Path(args.audio))
@@ -539,7 +558,8 @@ def run_pass_two(args) -> int:
             "mel_bins": n_mels,
             "model_files": _model_files(model),
             "context": context,
-            "versions": versions("faster-whisper", "ctranslate2"),
+            "versions": versions("faster-whisper", "ctranslate2", "tokenizers", "av"),
+            "python": sys.executable,
             "commit": _git_commit(),
             "started_at": datetime.now(UTC).isoformat(timespec="seconds"),
         },

@@ -865,6 +865,8 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 모든 후보 팔은 학생에게 가기 전에 같은 식별자 규칙(id-itn-1)을 거친다. 판정은 학생이 실제로 받는 글(규칙 뒤)로 한다. 규칙 없이 인식기가 적은 글(Th, L, N, Q, Qc)의 값 보존율도 함께 적는다 (판정에 쓰지 않음)
 - **T+I는 후보가 아니다.** 식별자 규칙을 만들면서 T의 dev 전사(`datasets/dev-asr-v2.jsonl`)에 대 봤으므로 결과를 이미 안다 (아래 "식별자 규칙"). 규칙 자체가 보존율을 얼마나 바꾸는지 보이는 참고로만 적는다
 - faster-whisper 팔(T, Th, L, N)은 support-agent 음성 환경에서 `WhisperListener.transcribe`와 같은 호출로 돈다(Th만 `hotwords`를 더함). Qwen 팔은 whisper-ko-ft 9단계의 디코딩(`evaluate_qwen`)을 따르되 배치를 16에서 8로 줄이고 메모리 상한을 둔다(9단계 배치 16에서 nvidia-smi 증가 9.6~9.8 GB). 공식 파서의 반복 제거 전 글(raw)을 쓰고 반복 제거한 글(fixed)은 기록만 한다. 발화는 모두 30초보다 짧다(가장 긴 것 26.5초)
+- (2026-10-05 덧붙임, 측정 전, CPU 스모크 뒤) **N은 whisper-ko-ft의 환경에서 돌린다.** support-agent 음성 환경의 tokenizers 0.13.3은 turbo-n 폴더의 `tokenizer.json`(tokenizers 0.2x가 쓴 것)을 읽지 못해 모델을 띄우지 못했다. whisper-ko-ft 환경은 faster-whisper 1.2.1, ctranslate2 4.8.2, av 18.1.0, torch 2.11.0+cu128이 support-agent와 같고 tokenizers만 0.23.2다. 스크립트와 디코딩은 같고(`PYTHONPATH`로 support-agent의 `WhisperListener`를 쓴다), CUDA 라이브러리는 그 환경처럼 torch에 든 것을 쓴다. 팔마다 meta에 파이썬 경로와 tokenizers·av 버전을 남긴다
+- CPU 스모크 (측정 아님, 2026-10-05, 커밋 `f5b2cce` 뒤): train 앞의 두 건(택배·쇼핑몰, 17발화)으로 1패스(MeloTTS·T를 CPU에서), 2패스 Th·L·N(CPU int8), Qc(CPU bf16, 4발화), `asr_arms` build·gate·identity·compare가 끝까지 돈다. 새로 합성한 17발화의 키가 모두 v2 캐시에 있다. 결과는 `work/`(커밋하지 않음)에만 두고 아무것도 고르지 않는다
 - 넣지 않는 것: Qwen3-ASR-0.6B (9단계에서 한국어가 turbo보다 나빴다), 숫자 토큰 확률 기록 (조사 제안의 설명용 항목, 이번 판정에 쓰지 않음), 날짜·시각·금액까지 바꾸는 일반 숫자 역정규화 (아래 "하지 않는 것"), 재학습
 
 ### 식별자 규칙 id-itn-1 (`src/call_summary/id_itn.py`, 측정 전에 고정)

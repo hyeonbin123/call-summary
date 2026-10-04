@@ -182,9 +182,11 @@ def gate(items: list[Item], index: dict[tuple[str, int], dict], arms: dict[str, 
     return out
 
 
-def gate_verdict(got: dict[str, dict], base: str = "T") -> str:
-    """`stop` when no candidate finds more gold identifiers than the base arm, else `go`."""
-    return "go" if any(g["found"] > got[base]["found"] for a, g in got.items() if a != base) else "stop"
+def gate_verdict(got: dict[str, dict], base: str = "T", reference: set[str] = frozenset()) -> str:
+    """`stop` when no candidate (an arm that is neither the base nor a reference) finds more gold identifiers
+    than the base arm, else `go`."""
+    candidates = [g for a, g in got.items() if a != base and a not in reference]
+    return "go" if any(g["found"] > got[base]["found"] for g in candidates) else "stop"
 
 
 # --- stage A: compare built datasets ----------------------------------------------------------------------
@@ -367,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     g = sub.add_parser("gate", help="the cheap gate: gold identifiers in the identifier turns")
     g.add_argument("--source", required=True, help="written items, e.g. datasets/dev.jsonl")
     g.add_argument("--arm", action="append", required=True, help="NAME=index|<hyp file> (T=index first)")
+    g.add_argument("--reference", action="append", default=[], help="arms reported but not candidates")
     b = sub.add_parser("build", help="one arm's dataset")
     b.add_argument("--source", required=True)
     b.add_argument("--arm", required=True, help="arm name (+I: the identifier rule)")
@@ -408,7 +411,7 @@ def main(argv: list[str] | None = None) -> int:
             got = gate(load_items(args.source), index, arms)
             for arm, r in got.items():
                 print(f"{arm}: {r['found']}/{r['ids']} {r['types']}")
-            print("verdict:", gate_verdict(got))
+            print("verdict:", gate_verdict(got, reference=set(args.reference)))
         else:
             heard_of, meta = source(args.src)
             meta = {**meta, "arm": args.arm}
