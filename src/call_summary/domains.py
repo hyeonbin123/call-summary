@@ -71,6 +71,9 @@ class EntityType:
     label: str
     kind: Kind
     make: Callable[[random.Random], str]
+    # Identifiers only: the deployment format, a regex the whole normalized value (values.normalize) must
+    # match. A value outside it needs confirmation (verify.py). Deployment configuration: real schemes vary.
+    id_format: str | None = None
 
 
 @dataclass(frozen=True)
@@ -162,7 +165,7 @@ SHOP = Domain(
     label="온라인 쇼핑몰",
     company="도토리마켓",
     entity_types=(
-        EntityType("주문번호", "id", _order_id),
+        EntityType("주문번호", "id", _order_id, id_format=r"D\d{7}"),
         EntityType("상품명", "text", _pick(_SHOP_PRODUCTS)),
         EntityType("금액", "amount", _amount(8_000, 250_000, 100)),
         EntityType("날짜", "date", _date),
@@ -378,7 +381,7 @@ TELECOM = Domain(
         EntityType("금액", "amount", _amount(3_000, 150_000, 100)),
         EntityType("날짜", "date", _date),
         EntityType("시간", "time", _time),
-        EntityType("접수번호", "id", _receipt),
+        EntityType("접수번호", "id", _receipt, id_format=r"R\d{6}"),
     ),
     scenarios=(
         Scenario(
@@ -575,7 +578,7 @@ PARCEL = Domain(
     label="택배사",
     company="새싹택배",
     entity_types=(
-        EntityType("운송장번호", "id", _tracking),
+        EntityType("운송장번호", "id", _tracking, id_format=r"\d{12}"),
         EntityType("물품명", "text", _pick(_PARCEL_ITEMS)),
         EntityType("금액", "amount", _amount(3_000, 1_500_000, 1000)),
         EntityType("날짜", "date", _date),
@@ -744,7 +747,7 @@ CARD = Domain(
     label="카드사",
     company="구름카드",
     entity_types=(
-        EntityType("카드 끝자리", "id", _last4),
+        EntityType("카드 끝자리", "id", _last4, id_format=r"\d{4}"),
         EntityType("가맹점명", "text", _pick(_MERCHANTS)),
         EntityType("금액", "amount", _amount(5_000, 3_000_000, 100)),
         EntityType("날짜", "date", _date),
