@@ -1,0 +1,34 @@
+{
+  "run_id": "20261005-205204-call-summary-4b-dq_q8_0-v3-th-itn-dev-asr",
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "model_fingerprint": {
+    "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+    "ollama_version": "0.35.1"
+  },
+  "data": "datasets\\dev-asr-v3-th-itn.jsonl",
+  "data_sha": "aeb8ea6ea058",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "num_ctx": 4096,
+  "think": "off",
+  "ollama_options": {},
+  "git_commit": "ab288df3f662ecd08b4b4462fbe44e18966fc3c1",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev-asr-v3-th-itn.jsonl",
+    "--backend",
+    "ollama",
+    "--model",
+    "call-summary-4b-dq:q8_0",
+    "--official",
+    "--label",
+    "v3-th-itn-dev-asr"
+  ],
+  "started": "20261005-205204"
+}
