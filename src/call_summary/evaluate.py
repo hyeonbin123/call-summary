@@ -212,6 +212,14 @@ def model_fingerprint(provider: Provider) -> dict:
     return fp
 
 
+def loaded_models(provider) -> list[dict] | None:
+    """Ollama /api/ps after a run (size_vram against size, context_length); None when there is none."""
+    try:
+        return provider.loaded_models()
+    except Exception:  # noqa: BLE001 - only a record; the results are already written
+        return None
+
+
 def summary_table(scores: Sequence[ItemScore], n_boot: int = 2000) -> dict:
     out: dict = {"n": len(scores), "point": summarize(scores), "ci95": {}}
 

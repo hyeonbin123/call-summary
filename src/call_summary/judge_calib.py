@@ -4,6 +4,7 @@
   judge   run one judge model over the sample (resumable, one row per sample key)
   report  agreement with Claude per stratum (raw, with the value check, value check alone) and the
           adoption decision on the decision strata
+  cells   the value check alone against Claude, fact counts by cell and the facts where they part
 
 Sampling: one permutation (random.Random(seed)) of the first stratum run's item ids, without the ids of
 the hand-labelled strata; the strata take the next ids in their command-line order, skipping an id whose
@@ -27,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .dataset import Item, load_items, read_jsonl, write_jsonl
-from .evaluate import THINK, _git, model_fingerprint, parse_option, run_checks
+from .evaluate import THINK, _git, loaded_models, model_fingerprint, parse_option, run_checks
 from .judge import (
     JUDGE_NUM_CTX,
     JUDGE_NUM_PREDICT,
@@ -142,13 +143,6 @@ def template_rows(sample: Sequence[dict]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------------------------- judging
-def loaded_models(provider) -> list[dict] | None:
-    try:
-        return provider.loaded_models()
-    except Exception:  # noqa: BLE001 - only a record; the judgements are already written
-        return None
-
-
 def judge_sample(
     sample_path: Path, out: Path, *, model: str, num_gpu: int | None, think: str, options: dict
 ) -> dict:
@@ -408,6 +402,57 @@ def report(
     return {"tables": tables, "candidates": stats, "decision": decide(stats), "baseline": baseline}
 
 
+# --------------------------------------------------------------------------------------------- value cells
+def value_cells(claude: Rater, value_ok: dict[str, list[bool | None]], keys: Sequence[str]) -> dict:
+    """The value check alone against Claude, fact by fact: values found, missing or none, by Claude's 포함
+    or not, with the facts where they part (key/F<n>)."""
+    cells = dict.fromkeys(("found_incl", "found_not", "miss_incl", "miss_not", "noval_not", "noval_incl"), 0)
+    miss_incl: list[str] = []
+    found_not: list[str] = []
+    for k in keys:
+        for i, (ok, c) in enumerate(zip(value_ok[k], claude.verdicts[k], strict=True)):
+            inc = c == INCLUDED
+            if ok is None:
+                cells["noval_incl" if inc else "noval_not"] += 1
+            elif ok:
+                cells["found_incl" if inc else "found_not"] += 1
+                if not inc:
+                    found_not.append(f"{k}/F{i + 1}:{c}")
+            else:
+                cells["miss_incl" if inc else "miss_not"] += 1
+                if inc:
+                    miss_incl.append(f"{k}/F{i + 1}")
+    return {"cells": cells, "v_miss_but_claude_included": miss_incl, "v_found_but_claude_not": found_not}
+
+
+def cells_report(
+    sample_path: Path,
+    labels: Path | None,
+    hand: dict[str, Path],
+    groups: dict[str, Sequence[str]],
+    n_boot: int = 2000,
+    seed: int = 0,
+) -> dict:
+    """Value check V against Claude per stratum (in the order the sample first shows them), then per named
+    group, whose keys follow its strata in the given order (the bootstrap draws in that order)."""
+    sample = list(read_jsonl(sample_path))
+    claude = _load_labels(sample, labels, hand)
+    value_ok = _value_ok(sample)
+    v = Rater("V", {k: hybrid_verdicts((), ok) for k, ok in value_ok.items()})
+    keys_of: dict[str, list[str]] = {}
+    for r in sample:
+        keys_of.setdefault(r["stratum"], []).append(r["key"])
+    for name, strata in groups.items():
+        unknown = [s for s in strata if s not in keys_of]
+        if unknown:
+            raise ValueError(f"group {name}: no stratum {unknown}")
+        keys_of[name] = [k for s in strata for k in keys_of[s]]
+    return {
+        g: {"kappa_table": kappa_table(claude, v, keys, n_boot, seed), **value_cells(claude, value_ok, keys)}
+        for g, keys in keys_of.items()
+    }
+
+
 def _f(x: float) -> str:
     return "-" if x != x else f"{x:.3f}"
 
@@ -479,6 +524,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--decide-on", required=True, help="comma-separated strata the decision uses")
     r.add_argument("--n-boot", type=int, default=2000)
     r.add_argument("--json")
+    c = sub.add_parser("cells", help="the value check alone against Claude, by cell")
+    c.add_argument("--sample", required=True)
+    c.add_argument("--labels", help="Claude labels by sample key (the filled template)")
+    c.add_argument("--hand-labels", action="append", default=[], help="STRATUM=FILE, labels by item id")
+    c.add_argument(
+        "--group", action="append", default=[], help="NAME=STRATUM,STRATUM... (keys in this strata order)"
+    )
+    c.add_argument("--n-boot", type=int, default=2000)
+    c.add_argument("--json")
     args = ap.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -500,6 +554,34 @@ def main(argv: list[str] | None = None) -> int:
             options=dict(args.option),
         )
         print(json.dumps({k: meta[k] for k in ("model", "n", "n_failed", "run_checks")}, ensure_ascii=False))
+    elif args.cmd == "cells":
+        groups = {}
+        for g in args.group:
+            name, sep, strata = g.partition("=")
+            if not (sep and name and strata):
+                raise SystemExit(f"expected NAME=STRATUM,STRATUM..., got {g!r}")
+            groups[name] = strata.split(",")
+        try:
+            rep = cells_report(
+                Path(args.sample),
+                Path(args.labels) if args.labels else None,
+                _named_paths(args.hand_labels),
+                groups,
+                args.n_boot,
+            )
+        except ValueError as e:
+            raise SystemExit(str(e)) from e
+        for g, d in rep.items():
+            t = d["kappa_table"]
+            lo, hi = t["kappa_ci"]
+            print(
+                f"{g}: kappa {_f(t['kappa'])} [{_f(lo)}, {_f(hi)}], error recall {_f(t['error_recall'])}, "
+                f"false error {_f(t['false_error_rate'])}, cells {d['cells']}"
+            )
+            print(f"   V miss but Claude 포함: {d['v_miss_but_claude_included']}")
+            print(f"   V found but Claude not: {d['v_found_but_claude_not']}")
+        if args.json:
+            Path(args.json).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
     else:
         rep = report(
             Path(args.sample),

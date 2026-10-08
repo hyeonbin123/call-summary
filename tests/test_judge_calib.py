@@ -342,3 +342,65 @@ def test_judge_run_creates_the_output_folder(tmp_path, monkeypatch):
     out = tmp_path / "outputs" / "judge2" / "smoke-m.jsonl"
     assert judge_run.main(["--run", str(runs["A"]), "--limit", "1", "--out", str(out)]) == 0
     assert len(list(read_jsonl(out))) == 1 and (out.parent / "smoke-m_summary.json").exists()
+
+
+def test_judge_run_summary_records_the_commit_and_the_loaded_models(tmp_path, monkeypatch):
+    data, runs = _runs(tmp_path, n=2)
+    ps = [{"name": "m", "size": 10, "size_vram": 10, "context_length": 4096}]
+    monkeypatch.setattr(judge_run, "make_judge", lambda **kw: _Counting(replies=_all_included))
+    monkeypatch.setattr(judge_run, "model_fingerprint", lambda p: {})
+    monkeypatch.setattr(judge_run, "loaded_models", lambda p: ps)
+    monkeypatch.setattr(judge_run, "_git", lambda *a: "abc123" if a[0] == "rev-parse" else "")
+    out = runs["A"] / "judge-m.jsonl"
+    assert judge_run.main(["--run", str(runs["A"]), "--out", str(out)]) == 0
+    summary = json.loads((runs["A"] / "judge-m_summary.json").read_text(encoding="utf-8"))
+    assert summary["git_commit"] == "abc123" and summary["git_dirty"] is False
+    assert summary["loaded_models_after"] == ps
+    assert summary["started"] <= summary["finished"]
+
+
+def test_loaded_models_is_none_without_a_model_server():
+    assert judge_run.loaded_models(object()) is None  # no /api/ps: a record only, never a failure
+
+
+def test_value_cells_count_the_value_check_against_claude():
+    claude = _rater("claude", [("k1", ["포함", "틀림", "누락"]), ("k2", ["포함", "누락"])])
+    value_ok = {"k1": [False, True, None], "k2": [True, False]}
+    c = judge_calib.value_cells(claude, value_ok, ["k1", "k2"])
+    assert c["cells"] == {
+        "found_incl": 1,
+        "found_not": 1,
+        "miss_incl": 1,
+        "miss_not": 1,
+        "noval_not": 1,
+        "noval_incl": 0,
+    }
+    assert c["v_miss_but_claude_included"] == ["k1/F1"]  # V's false misses
+    assert c["v_found_but_claude_not"] == ["k1/F2:틀림"]
+
+
+def test_cells_reports_strata_then_named_groups_in_their_strata_order(tmp_path):
+    data, runs = _runs(tmp_path, n=12)
+    sample = tmp_path / "sample.jsonl"
+    argv = ["sample", "--stratum", f"S1={runs['A']}:3", "--stratum", f"S2={runs['B']}:3", "--seed", "0"]
+    assert judge_calib.main(argv + ["--out", str(sample), "--template", str(tmp_path / "t.jsonl")]) == 0
+    rows = list(read_jsonl(sample))
+    _write_judge(tmp_path / "claude.jsonl", rows, first_wrong=True)
+    out = tmp_path / "cells.json"
+    argv = ["cells", "--sample", str(sample), "--labels", str(tmp_path / "claude.jsonl")]
+    argv += ["--group", "S=S2,S1", "--n-boot", "50", "--json", str(out)]
+    assert judge_calib.main(argv) == 0
+    rep = json.loads(out.read_text(encoding="utf-8"))
+    first_seen = list(dict.fromkeys(r["stratum"] for r in rows))
+    assert list(rep) == first_seen + ["S"]
+    assert rep["S"]["kappa_table"]["n_items"] == 6
+    assert sum(rep["S"]["cells"].values()) == rep["S"]["kappa_table"]["n_facts"]
+    # the group's bootstrap draws from its keys in the order of its strata (S2, then S1)
+    claude = judge_calib._load_labels(rows, tmp_path / "claude.jsonl", {})
+    value_ok = judge_calib._value_ok(rows)
+    v = Rater("V", {k: judge_calib.hybrid_verdicts((), ok) for k, ok in value_ok.items()})
+    keys = [r["key"] for r in rows if r["stratum"] == "S2"] + [r["key"] for r in rows if r["stratum"] == "S1"]
+    want = kappa_table(claude, v, keys, n_boot=50)
+    assert rep["S"]["kappa_table"]["kappa_ci"] == list(want["kappa_ci"])
+    with pytest.raises(SystemExit):
+        judge_calib.main(argv[:-4] + ["--group", "X=S1,nope"])

@@ -5,7 +5,7 @@ Reads <run>/items.jsonl (predicted records) and the dataset file named in <run>/
 --out names another output file (its summary goes next to it as <stem>_summary.json), so a second judge
 model never overwrites the recorded j1 judgements. With --hand <file>, a JSONL of hand scores
 ({"item_id", "verdicts": [...], "wrong_statements": n}) is compared fact by fact and the agreement rate is
-added to the summary.
+added to the summary. The summary also records the code commit and Ollama /api/ps after the run.
 """
 
 from __future__ import annotations
@@ -13,10 +13,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 from .dataset import load_items, read_jsonl, write_jsonl
-from .evaluate import THINK, model_fingerprint, parse_option, run_checks
+from .evaluate import THINK, _git, loaded_models, model_fingerprint, parse_option, run_checks
 from .judge import (
     JUDGE_NUM_CTX,
     JUDGE_VERSION,
@@ -61,6 +62,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int)
     args = ap.parse_args(argv)
 
+    started = time.strftime("%Y%m%d-%H%M%S")
+    git_commit = _git("rev-parse", "HEAD")
+    git_dirty = bool(_git("status", "--porcelain", "--untracked-files=no"))
     run = Path(args.run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(args.data or manifest["data"])}
@@ -92,6 +96,11 @@ def main(argv: list[str] | None = None) -> int:
         "think": args.think,
         "options": options,
         "fingerprint": model_fingerprint(judge),
+        "git_commit": git_commit,
+        "git_dirty": git_dirty,
+        "started": started,  # this invocation (a resumed file keeps the earlier rows)
+        "finished": time.strftime("%Y%m%d-%H%M%S"),
+        "loaded_models_after": loaded_models(judge),
         "run_checks": run_checks(list(read_jsonl(out_path)), JUDGE_NUM_CTX),
         "n": len(scores),
         "n_judge_failed": sum(1 for s in scores if not s.ok),
