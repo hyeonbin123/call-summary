@@ -1,0 +1,122 @@
+{
+  "note": "Provenance of the adopted J1 judge runs committed in a3812e4. judge_run did not record the code commit or Ollama /api/ps then (0103ac9 adds both); this file carries them over from the local run log of that step (outputs/judge2/run.log, not committed). Times are local (+09:00).",
+  "judge_model": "qwen3.5:9b",
+  "judge_version": "j1",
+  "num_gpu": 99,
+  "think": "off",
+  "options": {
+    "presence_penalty": 0,
+    "repeat_penalty": 1
+  },
+  "fingerprint": {
+    "ollama_digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+    "ollama_version": "0.35.1"
+  },
+  "git_commit": "695543a2e3542ff60fb5b1a7ebcf545b77a03d29",
+  "git_check": "preflight before the runs: no tracked file modified, HEAD equal to origin/main",
+  "preflight": {
+    "ollama_version": "0.35.1",
+    "digests": "as in the rules table (qwen2.5:14b-instruct 7cdf5a0187d5c58c, qwen3.5:9b 6488c96fa5faab64, gemma4:12b-it-qat 38044be4f923e5a5, call-summary-4b-dq:q8_0 52a2d2f652612d64)",
+    "ollama_ps_before": []
+  },
+  "began": "2026-10-09 00:49:43",
+  "state_before": {
+    "gpu_util_pct": 26,
+    "gpu_mem_used_mib": 1074,
+    "ollama_ps": [],
+    "largest_process_shared_gpu_mb": 24
+  },
+  "other_gpu_use": "the user's desktop apps (a wallpaper app included), no game, no other project's GPU job",
+  "runs": [
+    {
+      "run": "reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0",
+      "judgements": "reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0/judge-J1.jsonl",
+      "started": "2026-10-09 00:49:45",
+      "finished": "2026-10-09 00:54:55",
+      "exit": 0,
+      "n": 240,
+      "n_judge_failed": 0,
+      "after": {
+        "gpu_util_pct": 72,
+        "gpu_mem_used_mib": 7506,
+        "ollama_ps": [
+          {
+            "name": "qwen3.5:9b",
+            "size_vram": 5490081790,
+            "size": 5490081790,
+            "context_length": 4096
+          }
+        ],
+        "largest_process_shared_gpu_mb": 648
+      }
+    },
+    {
+      "run": "reports/20261004-090139-call-summary-4b-dq_q8_0-p2-A-dev-asr-v2",
+      "judgements": "reports/20261004-090139-call-summary-4b-dq_q8_0-p2-A-dev-asr-v2/judge-J1.jsonl",
+      "started": "2026-10-09 00:54:57",
+      "finished": "2026-10-09 00:59:38",
+      "exit": 0,
+      "n": 240,
+      "n_judge_failed": 0,
+      "after": {
+        "gpu_util_pct": 65,
+        "gpu_mem_used_mib": 7506,
+        "ollama_ps": [
+          {
+            "name": "qwen3.5:9b",
+            "size_vram": 5490081790,
+            "size": 5490081790,
+            "context_length": 4096
+          }
+        ],
+        "largest_process_shared_gpu_mb": 648
+      }
+    },
+    {
+      "run": "reports/20261005-033303-call-summary-4b-dq_q8_0-base0-test-a-student",
+      "judgements": "reports/20261005-033303-call-summary-4b-dq_q8_0-base0-test-a-student/judge-J1.jsonl",
+      "started": "2026-10-09 00:59:40",
+      "finished": "2026-10-09 01:05:33",
+      "exit": 0,
+      "n": 300,
+      "n_judge_failed": 0,
+      "after": {
+        "gpu_util_pct": 68,
+        "gpu_mem_used_mib": 7506,
+        "ollama_ps": [
+          {
+            "name": "qwen3.5:9b",
+            "size_vram": 5490081790,
+            "size": 5490081790,
+            "context_length": 4096
+          }
+        ],
+        "largest_process_shared_gpu_mb": 648
+      }
+    },
+    {
+      "run": "reports/20261004-091305-call-summary-4b-dq_q8_0-p2-test-d-v2-A",
+      "judgements": "reports/20261004-091305-call-summary-4b-dq_q8_0-p2-test-d-v2-A/judge-J1.jsonl",
+      "started": "2026-10-09 01:05:35",
+      "finished": "2026-10-09 01:11:27",
+      "exit": 0,
+      "n": 300,
+      "n_judge_failed": 0,
+      "after": {
+        "gpu_util_pct": 70,
+        "gpu_mem_used_mib": 7504,
+        "ollama_ps": [
+          {
+            "name": "qwen3.5:9b",
+            "size_vram": 5490081790,
+            "size": 5490081790,
+            "context_length": 4096
+          }
+        ],
+        "largest_process_shared_gpu_mb": 648
+      }
+    }
+  ],
+  "gpu_part_done": "2026-10-09 01:11:29",
+  "ollama_ps_after_stop": []
+}
