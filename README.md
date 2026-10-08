@@ -108,6 +108,13 @@ uv run python -m call_summary.compare outputs/runs/<a> outputs/runs/<b>
 uv run python -m call_summary.compare --paired outputs/runs/<a> outputs/runs/<b>
 uv run python -m call_summary.compare --pick outputs/runs/<a> outputs/runs/<b> ...   # dev에서 고르는 규칙 순서
 
+# 요약 판정 재보정 (docs/experiments.md "요약 판정 재보정"): 값 확인(모델 없음), 보정 표본, 판정 모델 실행, 일치 표와 채택
+uv run --no-sync python -m call_summary.value_facts reports/<run_id>... [--judge-file judge-<이름>.jsonl]
+uv run --no-sync python -m call_summary.judge_calib sample --stratum <층>=reports/<run_id>:<건수> ... --hand H=reports/<run_id>/hand50.jsonl --out reports/judge2/sample.jsonl --template work/judge2/template.jsonl
+uv run --no-sync python -m call_summary.judge_calib judge --sample reports/judge2/sample.jsonl --model <태그> --out reports/judge2/judge-<이름>.jsonl --num-gpu 99 --think off
+uv run --no-sync python -m call_summary.judge_calib report --sample reports/judge2/sample.jsonl --labels reports/judge2/claude80.jsonl --hand-labels H=reports/<run_id>/hand50.jsonl --judge J0=... --judge J1=... --baseline J0 --candidates J1 --decide-on <층>,<층>
+uv run --no-sync python -m call_summary.judge_run --run reports/<run_id> --model <태그> --out reports/<run_id>/judge-<이름>.jsonl   # j1의 judge.jsonl을 덮어쓰지 않음
+
 # 학습 (LoRA, 4B는 --qlora)
 uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-1.7B --out outputs/train/qwen3-1.7b
 

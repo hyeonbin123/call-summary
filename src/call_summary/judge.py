@@ -12,7 +12,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
-from .providers import Provider
+from .providers import OllamaProvider, Provider, Reply
 from .specs import Spec
 
 JUDGE_VERSION = "j1"
@@ -91,17 +91,61 @@ def parse_judge(text: str, n: int) -> tuple[tuple[str, ...], int] | None:
     return tuple(facts), wrong
 
 
-def judge_summary(judge: Provider, item_id: str, spec: Spec, transcript: str, summary: str) -> SummaryScore:
+# The judge request of j1 (stage 2): schema-constrained JSON, 4096 context, short answer. A judge model is
+# the only thing a recalibration changes (docs/experiments.md "요약 판정 재보정").
+JUDGE_NUM_CTX = 4096
+JUDGE_NUM_PREDICT = 256
+
+
+def make_judge(*, model: str, num_gpu: int | None, think: bool | None, options: dict) -> OllamaProvider:
+    return OllamaProvider(
+        model=model,
+        use_schema=True,
+        num_ctx=JUDGE_NUM_CTX,
+        num_predict=JUDGE_NUM_PREDICT,
+        num_gpu=num_gpu,
+        think=think,
+        extra_options=dict(options) or None,
+    )
+
+
+def judge_reply(
+    judge: Provider, item_id: str, spec: Spec, transcript: str, summary: str
+) -> tuple[SummaryScore, Reply | None]:
+    """The score and the judge's raw reply (None when no call was made: an empty summary)."""
     n = len(spec.facts)
     if not summary.strip():
-        return SummaryScore(item_id, ("누락",) * n, 0, True)
+        return SummaryScore(item_id, ("누락",) * n, 0, True), None
     reply = judge.generate(
         [{"role": "user", "content": judge_prompt(spec, transcript, summary)}], json_schema=judge_schema(n)
     )
     parsed = parse_judge(reply.text, n)
     if parsed is None:
-        return SummaryScore(item_id, (), 0, False)
-    return SummaryScore(item_id, parsed[0], parsed[1], True)
+        return SummaryScore(item_id, (), 0, False), reply
+    return SummaryScore(item_id, parsed[0], parsed[1], True), reply
+
+
+def judge_summary(judge: Provider, item_id: str, spec: Spec, transcript: str, summary: str) -> SummaryScore:
+    return judge_reply(judge, item_id, spec, transcript, summary)[0]
+
+
+def reply_fields(reply: Reply | None) -> dict:
+    """Per-item counters kept next to a judgement (truncation and thinking checks)."""
+    if reply is None:
+        return {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "done_reason": None,
+            "latency_s": 0.0,
+            "thinking_chars": 0,
+        }
+    return {
+        "prompt_tokens": reply.prompt_tokens,
+        "completion_tokens": reply.completion_tokens,
+        "done_reason": reply.done_reason,
+        "latency_s": round(reply.latency_s, 3),
+        "thinking_chars": len(reply.thinking or ""),
+    }
 
 
 def fact_recall(scores: Sequence[SummaryScore]) -> float:
@@ -129,3 +173,16 @@ def agreement(a: Sequence[SummaryScore], b: Sequence[SummaryScore]) -> float:
         same += sum(x == y for x, y in zip(s.verdicts, o.verdicts, strict=True))
         total += len(s.verdicts)
     return same / total if total else float("nan")
+
+
+def cohen_kappa(a: Sequence[bool], b: Sequence[bool]) -> float:
+    """Cohen's kappa of two binary raters over the same units; nan when chance agreement is 1."""
+    if len(a) != len(b):
+        raise ValueError("both raters must rate the same units")
+    n = len(a)
+    if not n:
+        return float("nan")
+    po = sum(x == y for x, y in zip(a, b, strict=True)) / n
+    pa, pb = sum(a) / n, sum(b) / n
+    pe = pa * pb + (1 - pa) * (1 - pb)
+    return (po - pe) / (1 - pe) if pe < 1 else float("nan")
