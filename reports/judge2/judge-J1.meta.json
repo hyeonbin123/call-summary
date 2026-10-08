@@ -1,0 +1,50 @@
+{
+  "model": "qwen3.5:9b",
+  "judge_version": "j1",
+  "num_gpu": 99,
+  "think": "off",
+  "options": {
+    "presence_penalty": 0,
+    "repeat_penalty": 1
+  },
+  "num_ctx": 4096,
+  "num_predict": 256,
+  "temperature": 0.0,
+  "seed": 0,
+  "fingerprint": {
+    "ollama_digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+    "ollama_version": "0.35.1"
+  },
+  "git_commit": "7eeda025c446211ad05644c4d146d2bdf1011466",
+  "sample": "reports\\judge2\\sample.jsonl",
+  "started": "20261009-003706",
+  "finished": "20261009-004036",
+  "n": 130,
+  "n_failed": 0,
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  },
+  "loaded_models_after": [
+    {
+      "name": "qwen3.5:9b",
+      "model": "qwen3.5:9b",
+      "size": 5490081790,
+      "digest": "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "9.7B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-09T01:10:35.5570356+09:00",
+      "size_vram": 5490081790,
+      "context_length": 4096
+    }
+  ]
+}

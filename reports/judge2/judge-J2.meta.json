@@ -1,0 +1,50 @@
+{
+  "model": "gemma4:12b-it-qat",
+  "judge_version": "j1",
+  "num_gpu": 99,
+  "think": "off",
+  "options": {
+    "presence_penalty": 0,
+    "repeat_penalty": 1
+  },
+  "num_ctx": 4096,
+  "num_predict": 256,
+  "temperature": 0.0,
+  "seed": 0,
+  "fingerprint": {
+    "ollama_digest": "38044be4f923e5a55264ed7df4eaac2676651a905f735197c504045140c02bd3",
+    "ollama_version": "0.35.1"
+  },
+  "git_commit": "7eeda025c446211ad05644c4d146d2bdf1011466",
+  "sample": "reports\\judge2\\sample.jsonl",
+  "started": "20261009-004039",
+  "finished": "20261009-004546",
+  "n": 130,
+  "n_failed": 0,
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  },
+  "loaded_models_after": [
+    {
+      "name": "gemma4:12b-it-qat",
+      "model": "gemma4:12b-it-qat",
+      "size": 7657540811,
+      "digest": "38044be4f923e5a55264ed7df4eaac2676651a905f735197c504045140c02bd3",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma4",
+        "families": [
+          "gemma4"
+        ],
+        "parameter_size": "11.9B",
+        "quantization_level": "Q4_0"
+      },
+      "expires_at": "2026-10-09T01:15:46.1625744+09:00",
+      "size_vram": 7657540811,
+      "context_length": 4096
+    }
+  ]
+}

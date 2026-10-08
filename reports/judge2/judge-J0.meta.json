@@ -1,0 +1,47 @@
+{
+  "model": "qwen2.5:14b-instruct",
+  "judge_version": "j1",
+  "num_gpu": 44,
+  "think": "off",
+  "options": {},
+  "num_ctx": 4096,
+  "num_predict": 256,
+  "temperature": 0.0,
+  "seed": 0,
+  "fingerprint": {
+    "ollama_digest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+    "ollama_version": "0.35.1"
+  },
+  "git_commit": "7eeda025c446211ad05644c4d146d2bdf1011466",
+  "sample": "reports\\judge2\\sample.jsonl",
+  "started": "20261009-003039",
+  "finished": "20261009-003703",
+  "n": 130,
+  "n_failed": 0,
+  "run_checks": {
+    "length_stops": 0,
+    "thinking_items": 0,
+    "context_full": 0
+  },
+  "loaded_models_after": [
+    {
+      "name": "qwen2.5:14b-instruct",
+      "model": "qwen2.5:14b-instruct",
+      "size": 9953733507,
+      "digest": "7cdf5a0187d5c58cc5d369b255592f7841d1c4696d45a8c8a9489440385b22f6",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen2",
+        "families": [
+          "qwen2"
+        ],
+        "parameter_size": "14.8B",
+        "quantization_level": "Q4_K_M"
+      },
+      "expires_at": "2026-10-09T01:07:02.467546+09:00",
+      "size_vram": 8533626060,
+      "context_length": 4096
+    }
+  ]
+}
