@@ -1,0 +1,80 @@
+{"key": "k001", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k002", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k003", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true, "note": "잘못 온 물건 회수 뒤 원래 물건이 아니라 새 전자레인지를 보낸다고 씀"}
+{"key": "k004", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k005", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k006", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k007", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k008", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k009", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k010", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k011", "verdicts": ["틀림", "포함"], "wrong_statements": 1, "ok": true, "note": "주문번호를 OD1902657로 씀"}
+{"key": "k012", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": "이관 이유(고가 물품)는 빠졌지만 이관은 있음"}
+{"key": "k013", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k014", "verdicts": ["틀림", "포함", "포함"], "wrong_statements": 1, "ok": true, "note": "취소 요청을 출고 상황 문의로 씀"}
+{"key": "k015", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true, "note": "이번 통화의 장애 접수와 방문 예약을 이미 신고된 내역을 확인한 것으로 씀"}
+{"key": "k016", "verdicts": ["틀림", "포함"], "wrong_statements": 1, "ok": true, "note": "운송장번호 끝자리(1162)와 물품(의료 상자)이 다름"}
+{"key": "k017", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k018", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k019", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k020", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": "변경 제한이라는 이유는 빠졌지만 11월 19일 적용 예약은 있음"}
+{"key": "k021", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k022", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k023", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k024", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k025", "verdicts": ["포함", "포함"], "wrong_statements": 1, "ok": true, "note": "상담원의 오전 9시 연락 약속은 있으나 고객이 다시 연락한다는 문장도 있음"}
+{"key": "k026", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k027", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k028", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": "'배송 완료로 나오는'은 빠졌지만 받지 못했다는 신고는 있음"}
+{"key": "k029", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k030", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": "'이의 신청'을 '일신청'으로 씀 (알아볼 수 있음)"}
+{"key": "k031", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k032", "verdicts": ["포함", "포함", "누락"], "wrong_statements": 0, "ok": true, "note": "다시 연락할 시각(오전 10시)이 빠짐"}
+{"key": "k033", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k034", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k035", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k036", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k037", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k038", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k039", "verdicts": ["틀림", "포함", "누락"], "wrong_statements": 1, "ok": true, "note": "운송장번호가 614-7673-6899(숫자 하나 빠짐), 물품 가격 109만 1천 원이 빠짐"}
+{"key": "k040", "verdicts": ["포함", "틀림"], "wrong_statements": 1, "ok": true, "note": "다시 연락하는 쪽이 고객으로 바뀜, 지점 확인 요청을 했다고 쓰지 않음"}
+{"key": "k041", "verdicts": ["누락", "포함"], "wrong_statements": 0, "ok": true, "note": "적립금이 사라졌다는 문의 내용이 빠짐"}
+{"key": "k042", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k043", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k044", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k045", "verdicts": ["틀림", "포함"], "wrong_statements": 2, "ok": true, "note": "운송장번호 끝에 숫자 하나가 더 붙음(30382), '상담원이 잘못 이해하여'라는 문장"}
+{"key": "k046", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k047", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k048", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k049", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k050", "verdicts": ["포함", "누락"], "wrong_statements": 0, "ok": true, "note": "이의 신청 접수가 빠짐"}
+{"key": "k051", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k052", "verdicts": ["틀림", "포함", "포함"], "wrong_statements": 1, "ok": true, "note": "주문번호 끝에 숫자 하나가 더 붙음(D90973165)"}
+{"key": "k053", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k054", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k055", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k056", "verdicts": ["포함", "틀림"], "wrong_statements": 2, "ok": true, "note": "요청한 10월 30일이 아니라 당일로 바꿨다고 씀, '이미 지난 날짜'라는 문장"}
+{"key": "k057", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k058", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k059", "verdicts": ["누락", "누락"], "wrong_statements": 0, "ok": true, "note": "보낼 물품(의류 상자)과 요금(1만 9천 원)이 빠짐"}
+{"key": "k060", "verdicts": ["포함", "누락"], "wrong_statements": 0, "ok": true, "note": "담당 지점 확인 요청이 빠짐"}
+{"key": "k061", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k062", "verdicts": ["틀림", "포함"], "wrong_statements": 1, "ok": true, "note": "주문번호 D782695(숫자 하나 빠짐), 환불 금액이 빠짐"}
+{"key": "k063", "verdicts": ["포함", "누락"], "wrong_statements": 0, "ok": true, "note": "가입 기록 확인과 환급 불가가 빠지고 해지만 씀"}
+{"key": "k064", "verdicts": ["누락", "포함"], "wrong_statements": 0, "ok": true, "note": "받지 못했다는 신고 내용이 빠짐"}
+{"key": "k065", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": "상품명의 '2'가 빠졌지만 같은 상품"}
+{"key": "k066", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k067", "verdicts": ["누락", "포함"], "wrong_statements": 0, "ok": true, "note": "청구 금액 11만 800원이 빠짐"}
+{"key": "k068", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k069", "verdicts": ["포함", "포함", "누락"], "wrong_statements": 0, "ok": true, "note": "물품 가격 314,000원이 빠짐"}
+{"key": "k070", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k071", "verdicts": ["틀림", "틀림"], "wrong_statements": 2, "ok": true, "note": "운송장번호 6510(정답 6511), 다시 연락하는 쪽이 고객으로 바뀌고 지점 확인 요청이 없음"}
+{"key": "k072", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k073", "verdicts": ["틀림", "포함"], "wrong_statements": 1, "ok": true, "note": "주문번호 D5686626(정답 D5686616), 상품명 '이화용'"}
+{"key": "k074", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k075", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k076", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k077", "verdicts": ["포함", "포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k078", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
+{"key": "k079", "verdicts": ["틀림", "틀림"], "wrong_statements": 2, "ok": true, "note": "운송장번호 5269(정답 5169), 요청한 11월 6일이 아니라 다른 날로 바꿨다고 씀"}
+{"key": "k080", "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": true, "note": ""}
