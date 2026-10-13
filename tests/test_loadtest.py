@@ -58,6 +58,29 @@ def test_a_failed_request_is_counted_not_fatal():
     assert res["latency_s"] is not None
 
 
+# 부하 시험의 p50·p95는 evaluate와 같은 계산(scoring.pctl)이다. 요청마다 시계를 정해진 만큼 넘기는 가짜
+# 클라이언트로 지연 1~20초(짝수 개)를 만든다: p50은 가운데 두 값의 평균(10.5)이 아니라 v[10] = 11초, p95는
+# v[int(0.95·20)] = 20초가 아니라 v[int(0.95·19)] = 19초다. 요청마다 건 id·상태·지연이 보낸 순서대로 남아
+# 계산식을 바꿔도 기록에서 다시 셀 수 있다.
+def test_load_percentiles_use_the_shared_rule(monkeypatch):
+    delays = [7, 3, 12, 1, 20, 15, 9, 4, 18, 2, 11, 6, 16, 8, 19, 5, 14, 10, 17, 13]
+    clock = {"now": 0.0, "i": 0}
+    monkeypatch.setattr(loadtest, "time", SimpleNamespace(perf_counter=lambda: clock["now"]))
+
+    class Client:
+        def post(self, path, json=None):
+            clock["now"] += delays[clock["i"]]
+            clock["i"] += 1
+            return SimpleNamespace(status_code=200)
+
+    items = [_item(i, category=None) for i in range(len(delays))]
+    res = run_load(Client(), items, concurrency=1)
+    assert res["latency_s"]["p50"] == 11.0 and res["latency_s"]["p95"] == 19.0
+    assert [r["latency_s"] for r in res["requests"]] == delays
+    assert [r["item_id"] for r in res["requests"]] == [it.item_id for it in items]
+    assert {r["status"] for r in res["requests"]} == {"200"}
+
+
 # httpx.Client를 가짜로 바꿔, 동시 1·2 두 단계를 다 돈 뒤 /stats 요청에서 서비스가 사라진 상황을 만든다.
 # main은 예외로 끝나지만 --out 파일에는 끝난 두 단계의 결과가 이미 남아 있어야 한다(단계마다 저장).
 def test_finished_stages_are_saved_before_a_later_failure(tmp_path, monkeypatch):

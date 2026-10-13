@@ -320,6 +320,17 @@ def summarize(items: Sequence[ItemScore]) -> dict[str, float]:
     return {name: fn(items) for name, fn in METRICS.items()}
 
 
+# 정렬한 목록의 백분위 값(보간 없음): p50은 가운데 원소 v[n // 2], 그 밖의 q는 v[int(q·(n−1))] 위치. 지연
+# p50·p95를 내는 모든 곳(evaluate, service_eval, bench, loadtest, 서비스 /stats)이 이 함수 하나를 쓴다.
+# 왜: 2026-10-13까지 loadtest와 /stats는 p50을 statistics.median(짝수 개면 가운데 두 값의 평균), p95를
+# v[int(0.95·n)]로 따로 계산해, 같은 목록에서 evaluate보다 한 순위 위의 p95를 냈다(docs/experiments.md "학습
+# epoch 경계와 지연 백분위 바로잡기"). 기록된 실행 대부분이 evaluate의 계산이라 그쪽으로 맞췄다.
+def pctl(sorted_vals: Sequence[float], q: float) -> float:
+    """Percentile of a sorted list, no interpolation: p50 = v[n // 2], otherwise v[int(q * (n - 1))]."""
+    n = len(sorted_vals)
+    return sorted_vals[n // 2] if q == 0.5 else sorted_vals[int(q * (n - 1))]
+
+
 # 한 실행의 지표에 대한 백분위 부트스트랩 95% 구간. 건을 복원 추출로 n_boot번(기본 2,000번, 문서의 규칙) 다시
 # 뽑아 지표를 계산하고, 정렬한 값의 2.5%·97.5% 위치를 고른다.
 # seed를 고정해 같은 실행이면 같은 구간이 나온다. 다시 뽑은 표본에서 지표가 NaN이면(예: 예측 값이 하나도 없음)

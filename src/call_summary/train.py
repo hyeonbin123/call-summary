@@ -43,6 +43,11 @@ from .prompts import PROMPT_VERSION, build_messages, prompt_hash, record_to_json
 # 손실에서 뺄 위치의 라벨 값. PyTorch cross_entropy의 ignore_index 기본값(-100)과 같게 둔다.
 IGNORE = -100
 
+# 학습 루프 판. train_config.json에 남겨, 같은 인수로 학습한 어댑터라도 어느 루프로 만들었는지
+# 가린다(evaluate가 이 파일의 해시를 모델 지문으로 쓴다). 1: 2026-10-13 고치기 전, 기울기 누적 묶음이 epoch
+# 경계를 넘어 이어졌다. 2: 묶음이 epoch 안에서 끝난다(accum_plan).
+TRAIN_LOOP_VERSION = 2
+
 
 # 학습 건 중 n건을 업종마다 고르게 고른다. 업종을 이름순으로 돌며 파일 순서대로 하나씩 가져가므로 결정적이다.
 # n이 없거나 전체 이상이면 전체를 쓴다.
@@ -134,6 +139,24 @@ def cap_vram(max_gb: float | None) -> None:
 
     total = torch.cuda.get_device_properties(0).total_memory
     torch.cuda.set_per_process_memory_fraction(min(1.0, max_gb * 1024**3 / total), 0)
+
+
+# 한 epoch의 미니배치 n_micro개를 기울기 누적 묶음으로 나눈다. 미니배치마다 (그 묶음의 크기, 이 미니배치 뒤에
+# optimizer 스텝을 하는지)를 돌려준다. 묶음은 grad_accum개씩이고 epoch의 마지막 묶음은 남은 것만 갖는다
+# (1,500건, 누적 16이면 16 × 93 + 12). 그래서 한 epoch는 정확히 ceil(n_micro / grad_accum) 스텝이고, epoch<n>
+# 체크포인트는 그 epoch까지의 데이터만 본다. 손실을 묶음 크기로 나누면 스텝마다 묶음 안 평균이 된다.
+# 왜: 고치기 전 루프는 미니배치 수를 epoch를 넘어 이어 세어, epoch 끝에 남은 미니배치가 다음 epoch 앞
+# 미니배치와 한 스텝으로 합쳐졌다(1,500건이면 epoch1 저장에 둘째 epoch 4건, 마지막 저장에 셋째 epoch 8건이
+# 들어감, docs/experiments.md "학습 epoch 경계와 지연 백분위 바로잡기").
+def accum_plan(n_micro: int, grad_accum: int) -> list[tuple[int, bool]]:
+    """(size of the micro-batch's accumulation group, whether the optimizer steps after it), for each
+    micro-batch of one epoch. Groups never cross an epoch: the last one takes the remaining micro-batches."""
+    plan = []
+    for i in range(n_micro):
+        start = i - i % grad_accum
+        size = min(grad_accum, n_micro - start)
+        plan.append((size, i == start + size - 1))
+    return plan
 
 
 # 명령줄 입구. 기본값은 3단계 규칙의 설정이다: LoRA r=16, alpha=32, dropout 0.05, 모든 선형층, 학습률 2e-4
@@ -243,6 +266,8 @@ def main(argv: list[str] | None = None) -> int:
     # 나온 스텝은 건너뛴다.
     params = [p for p in model.parameters() if p.requires_grad]
     opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=0.0)
+    # 한 epoch의 누적 묶음(accum_plan). 스텝 수가 아래 steps_per_epoch와 같다.
+    plan = accum_plan(math.ceil(len(examples) / args.batch), args.grad_accum)
     steps_per_epoch = math.ceil(len(examples) / (args.batch * args.grad_accum))
     total_steps = math.ceil(steps_per_epoch * args.epochs)
     if args.max_steps:
@@ -250,8 +275,9 @@ def main(argv: list[str] | None = None) -> int:
     sched = get_cosine_schedule_with_warmup(opt, int(args.warmup * total_steps), total_steps)
     scaler = torch.amp.GradScaler("cuda")
 
-    # 학습 설정 전체(인수, 예시 수, 스텝 수, 프롬프트 판·지문, 학습 파라미터 수)를 train_config.json으로
-    # 남긴다. export.py가 qlora 값을, evaluate.py가 이 파일의 해시를 모델 지문으로 읽는다.
+    # 학습 설정 전체(인수, 예시 수, 스텝 수, 프롬프트 판·지문, 학습 파라미터 수, 학습 루프 판)를
+    # train_config.json으로 남긴다. export.py가 qlora 값을, evaluate.py가 이 파일의 해시를 모델 지문으로
+    # 읽는다. 학습 루프 판이 없는 파일은 고치기 전 루프(판 1)로 만든 것이다.
     config = {
         **vars(args),
         "n_examples": len(examples),
@@ -260,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         "prompt_version": PROMPT_VERSION,
         "prompt_hash": prompt_hash(),
         "trainable_params": trainable,
+        "train_loop": TRAIN_LOOP_VERSION,
     }
     (out / "train_config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     log = open(out / "train_log.jsonl", "a", encoding="utf-8")
@@ -283,7 +310,6 @@ def main(argv: list[str] | None = None) -> int:
 
     model.train()
     step = 0
-    micro = 0
     running = 0.0
     running_n = 0
     t0 = time.time()
@@ -291,26 +317,26 @@ def main(argv: list[str] | None = None) -> int:
     done = False
     while not done:
         epoch += 1
-        for ids, labels, mask in batches():
+        # 미니배치마다 누적 묶음의 크기와 스텝 여부를 함께 받는다. 묶음은 epoch마다 새로 시작한다.
+        for (ids, labels, mask), (group, step_now) in zip(batches(), plan, strict=True):
             # 순전파는 fp16 autocast로, 로짓은 답 구간만(tail_len) 받는다.
             with torch.autocast("cuda", dtype=torch.float16):
                 # Logits only for the answer span: a 150k-token vocabulary over the whole prompt is the
                 # largest tensor in training and pushed the process past the card's memory.
                 logits = model(input_ids=ids, attention_mask=mask, logits_to_keep=tail_len(labels)).logits
-            # 기울기를 grad_accum번 모아 한 스텝으로 쓰므로 손실을 미리 나눈다. 유한하지 않은 손실은 기록만
-            # 하고 넘어간다(GradScaler가 그 스텝을 건너뛴다). 3단계 학습에서는 이런 스텝이
-            # 없었다(docs/experiments.md 3단계 진행 기록).
-            loss = tail_loss(logits, labels) / args.grad_accum
+            # 기울기를 묶음 크기(보통 grad_accum, epoch 끝 묶음은 남은 수)만큼 모아 한 스텝으로 쓰므로 손실을
+            # 미리 그 크기로 나눈다. 유한하지 않은 손실은 기록만 하고 넘어간다(GradScaler가 그 스텝을
+            # 건너뛴다). 3단계 학습에서는 이런 스텝이 없었다(docs/experiments.md 3단계 진행 기록).
+            loss = tail_loss(logits, labels) / group
             if not torch.isfinite(loss):
                 print(f"non-finite loss at step {step}", file=sys.stderr)
                 log.write(json.dumps({"step": step, "event": "nonfinite_loss"}) + "\n")
             scaler.scale(loss).backward()
-            running += loss.item() * args.grad_accum
+            running += loss.item() * group
             running_n += 1
-            micro += 1
-            # 누적이 다 차지 않았으면 다음 미니배치로. micro는 epoch를 넘어 계속 세므로, 한 epoch의 끝에 남은
-            # 미니배치는 다음 epoch의 첫 스텝에 합쳐진다.
-            if micro % args.grad_accum:
+            # 묶음이 다 차지 않았으면 다음 미니배치로. 묶음은 epoch 경계를 넘지 않으므로 epoch의 마지막
+            # 미니배치 뒤에는 늘 스텝을 한다(accum_plan).
+            if not step_now:
                 continue
             # 스텝: 기울기를 원래 크기로 되돌린 뒤 노름 1.0으로 자르고, optimizer·scaler·스케줄을 한 칸
             # 진행한다.

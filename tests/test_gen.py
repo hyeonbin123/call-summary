@@ -5,11 +5,13 @@
 # 금액·번호가 끼어듦, 명세에 없는 본인 확인) 정답 라벨에 잡음이 생기므로, 자동 검사가 이런 대화를 빠짐없이
 # 버려야 한다(docs/experiments.md 1단계 규칙 "자동 검사").
 
+import math
+
 from call_summary.dataset import Item
 from call_summary.gen import check_dialogue, check_summary, generate_item, writer_prompt
 from call_summary.providers import ScriptedProvider
 from call_summary.specs import EV_CORRECTION, make_spec, make_specs
-from call_summary.train import IGNORE, encode, take_balanced
+from call_summary.train import IGNORE, accum_plan, encode, take_balanced
 
 
 # 말실수 사건(고객이 틀린 번호를 먼저 말함)이 든 명세를 dev 쇼핑몰 번호 순서로 찾는다. 명세는 결정적이라 매번
@@ -131,6 +133,35 @@ def test_take_balanced():
     assert take_balanced(items, None) == items
 
 
+# train.accum_plan: 기울기 누적 묶음은 epoch 경계를 넘지 않고, epoch의 마지막 묶음은 남은 미니배치만 갖는다.
+# 학습 루프처럼 epoch마다 같은 계획을 돌려, 스텝마다 한 epoch의 미니배치만 묶이고 손실 가중치(1 / 묶음 크기)의
+# 합이 1인지, epoch<n> 저장 시점까지 본 미니배치가 정확히 n epoch 분량인지 본다. 3단계 설정(1,500건, 배치 1,
+# 누적 16)과 데이터 크기 곡선(500건)이다. 고치기 전 루프는 미니배치 수를 epoch를 넘어 이어 세어, 1,500건이면
+# epoch1 저장에 둘째 epoch 4건, 마지막 저장에 셋째 epoch 8건이 더 들어갔다(500건이면 12건, 24건).
+def test_accum_groups_never_cross_an_epoch():
+    assert accum_plan(5, 2) == [(2, False), (2, True), (2, False), (2, True), (1, True)]
+    assert accum_plan(4, 2) == [(2, False), (2, True), (2, False), (2, True)]
+    for n, accum, last in ((1500, 16, 12), (500, 16, 4)):
+        plan = accum_plan(n, accum)
+        steps_per_epoch = math.ceil(n / accum)  # as in train.main
+        assert sum(step_now for _, step_now in plan) == steps_per_epoch
+        assert plan[-1] == (last, True)
+        step, group, seen, saved = 0, [], [], {}
+        for epoch in (1, 2):
+            for size, step_now in plan:
+                group.append((epoch, size))
+                if not step_now:
+                    continue
+                assert {e for e, _ in group} == {epoch}
+                assert math.isclose(sum(1 / s for _, s in group), 1.0)
+                seen += group
+                group = []
+                step += 1
+                if step % steps_per_epoch == 0:
+                    saved[step // steps_per_epoch] = [e for e, _ in seen]
+        assert saved[1] == [1] * n and saved[2] == [1] * n + [2] * n
+
+
 # 토크나이저 대용: 채팅 템플릿은 메시지를 잇고 "<gen>"을 붙이며, 글자마다 id 하나를 준다. 진짜 Qwen3
 # 토크나이저 없이 encode의 가리기 규칙만 본다.
 class _FakeTok:
@@ -206,6 +237,30 @@ def test_take_first_keeps_index_order_per_domain():
     assert len(got) == 10
     parcel = next(it for it in items if it.domain == "parcel")
     assert id_values(parcel) and all("-" not in v for v in id_values(parcel))
+
+
+# finalize --specs: 거절 건의 유형은 --specs로 준 폴더의 명세에서 찾는다(예전에는 현재 작업 폴더의
+# data/specs로 고정이라 --raw로 다른 원본을 주어도 명세는 그 폴더에서 읽었다). 통과 원본 2건, 거절 1건, 명세
+# 3건을 임시 폴더에 두고 dev만 확정한다.
+def test_finalize_reads_specs_from_the_given_folder(tmp_path):
+    import json
+
+    from call_summary.dataset import write_jsonl
+    from call_summary.finalize import main as finalize_main
+
+    specs = make_specs("dev", ("shop",), 3)
+    raw, spec_dir, out = tmp_path / "raw", tmp_path / "specs", tmp_path / "out"
+    ok = [Item(item_id=s.spec_id, split="dev", domain=s.domain, spec=s, turns=_turns(s)) for s in specs[:2]]
+    write_jsonl(raw / "dev.jsonl", [it.to_dict() for it in ok])
+    rejected = {"spec_id": specs[2].spec_id, "problems": ["extra amount ['10000']"]}
+    write_jsonl(raw / "dev.rejects.jsonl", [rejected])
+    write_jsonl(spec_dir / "dev.jsonl", [s.to_dict() for s in specs])
+    argv = ["--raw", str(raw), "--specs", str(spec_dir), "--out", str(out), "--splits", "dev"]
+    assert finalize_main(argv) == 0
+    rep = json.loads((out / "finalize_report.json").read_text(encoding="utf-8"))["dev"]
+    assert rep["attempted"] == 3 and rep["rejected"] == 1
+    assert rep["rejected_by_category"] == {f"shop/{specs[2].category}": 1}
+    assert rep["reasons"] == {"extra amount": 1}
 
 
 # 요청이 시간 초과 등으로 실패해도 생성 전체가 죽지 않고 시도 한 번으로 세어 다음 시도로

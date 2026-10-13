@@ -40,7 +40,6 @@ import json
 import logging
 import os
 import random
-import statistics
 import sys
 import threading
 import time
@@ -52,11 +51,13 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 # 프로젝트 모듈: 업종 라벨 목록(domains), 학습·평가와 같은 프롬프트 조립(prompts. 서빙 프롬프트가 학습 때와
-# 같아야 한다), 모델 호출(providers), 기록 형식과 답 읽기(schema), 확인이 필요한 번호 검사(verify).
+# 같아야 한다), 모델 호출(providers), 기록 형식과 답 읽기(schema), 확인이 필요한 번호 검사(verify), /stats의
+# 지연 백분위(scoring.pctl, 평가 도구와 같은 계산).
 from .domains import DOMAINS
 from .prompts import build_messages, format_transcript, prompt_hash, record_to_json
 from .providers import OllamaProvider, Provider, Reply
 from .schema import AfterCallRecord, Entity, FollowUp, parse_reply, record_json_schema
+from .scoring import pctl
 from .verify import IdentifierFlag, verify_entities
 
 # 한 요청에 받는 발화 수의 상한(입력 크기 제한).
@@ -195,7 +196,7 @@ class Stats:
                 self.latencies.append(latency)
 
     # 현재 수와 지연 분포(p50, p95, 최대)를 돌려준다. Lock 안에서는 목록을 복사·정렬만 하고 계산은 밖에서
-    # 한다. p95는 정렬한 목록의 0.95 위치 값(끝을 넘지 않게 자름)이다.
+    # 한다. p50·p95는 scoring.pctl(evaluate·loadtest와 같은 계산, 보간 없음)이다.
     def snapshot(self) -> dict:
         with self._lock:
             lat = sorted(self.latencies)
@@ -203,8 +204,8 @@ class Stats:
         if lat:
             out["latency_s"] = {
                 "n": len(lat),
-                "p50": round(statistics.median(lat), 3),
-                "p95": round(lat[min(len(lat) - 1, int(0.95 * len(lat)))], 3),
+                "p50": round(pctl(lat, 0.5), 3),
+                "p95": round(pctl(lat, 0.95), 3),
                 "max": round(lat[-1], 3),
             }
         return out

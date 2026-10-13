@@ -42,13 +42,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 # 서비스와 같은 요청을 만들려고 프롬프트(build_messages, p1 0-shot)와 서비스의 NUM_CTX(4,096)를 그대로
-# 가져온다. 정확도 확인용으로 채점기(score_item, exact_rate)도 쓴다.
+# 가져온다. 정확도 확인용으로 채점기(score_item, exact_rate)도 쓴다. 백분위는 scoring.pctl(evaluate와 같은
+# 계산: p50은 가운데 원소, p95는 int(0.95·(n−1)) 위치)이라 이전 실행 기록의 지연과 그대로 견줄 수 있다.
 from .dataset import load_items
 from .evaluate import _git
 from .prompts import PROMPT_VERSION, build_messages, prompt_hash
 from .providers import OllamaProvider
 from .schema import parse_reply, record_json_schema
-from .scoring import exact_rate, score_item
+from .scoring import exact_rate, pctl, score_item
 from .service import NUM_CTX
 
 # 쉬는 상태 기준(효율 추가 측정 규칙): 1분 표본에서 시스템 CPU 평균 15% 미만, GPU 사용률 평균 50% 미만, 모델을
@@ -59,14 +60,6 @@ from .service import NUM_CTX
 IDLE_CPU = 15.0
 IDLE_GPU_UTIL = 50.0
 IDLE_OTHER_MIB = 2560
-
-
-# 백분위: evaluate와 같은 계산(p50은 가운데 원소, p95는 int(0.95·(n−1)) 위치)을 써서 이전 실행 기록의 지연과
-# 그대로 견줄 수 있게 한다.
-def pctl(sorted_vals: Sequence[float], q: float) -> float:
-    """evaluate's convention: p50 = v[n // 2], p95 = v[int(0.95 * (n - 1))]."""
-    n = len(sorted_vals)
-    return sorted_vals[n // 2] if q == 0.5 else sorted_vals[int(q * (n - 1))]
 
 
 # 토큰 수 ÷ 시간(나노초를 초로 바꿈) = 초당 토큰. 시간이 0이거나 없으면 None.

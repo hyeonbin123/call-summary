@@ -36,7 +36,7 @@ from .dataset import Item, load_items, write_jsonl
 from .prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_messages, prompt_hash
 from .providers import HFProvider, OllamaProvider, Provider, Reply
 from .schema import AfterCallRecord, parse_reply, record_json_schema
-from .scoring import METRICS, ItemScore, bootstrap_ci, score_item, summarize
+from .scoring import METRICS, ItemScore, bootstrap_ci, pctl, score_item, summarize
 
 # 요약 표에 기본으로 넣고 부트스트랩 구간을 계산하는 주요 지표. exact(구조 필드가 모두 맞은 비율)가 주
 # 지표이고, 나머지는 어디서 틀렸는지 보는 세부 지표다(docs/experiments.md 공통). compare.py도 이 목록을 표의
@@ -446,10 +446,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     write_jsonl(out_dir / "items.jsonl", rows)
     table = summary_table(scores)
-    # 지연 p50·p95는 정렬한 목록의 위치 값으로 낸다(보간 없음). run_checks의 컨텍스트 검사는 Ollama
-    # 백엔드에서만 한다(hf는 num_ctx 개념이 없어 None).
+    # 지연 p50·p95는 정렬한 목록의 위치 값으로 낸다(보간 없음, scoring.pctl: 지연을 내는 모든 도구가 같은
+    # 계산을 쓴다). run_checks의 컨텍스트 검사는 Ollama 백엔드에서만 한다(hf는 num_ctx 개념이 없어 None).
     lat = sorted(r["latency_s"] for r in rows)
-    table["latency_s"] = {"p50": lat[len(lat) // 2], "p95": lat[int(0.95 * (len(lat) - 1))]} if lat else {}
+    table["latency_s"] = {"p50": pctl(lat, 0.5), "p95": pctl(lat, 0.95)} if lat else {}
     table["run_checks"] = run_checks(rows, args.num_ctx if args.backend == "ollama" else None)
     (out_dir / "summary.json").write_text(json.dumps(table, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({k: round(v, 4) for k, v in table["point"].items()}, ensure_ascii=False))

@@ -100,9 +100,12 @@ def main(argv: list[str] | None = None) -> int:
     out_path = Path(args.out) if args.out else run / "judge.jsonl"
     summary_path = out_path.with_name(out_path.stem + "_summary.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    # 이어 하기: 출력 파일에 이미 있는 item_id는 건너뛰고, 그 판정은 집계에 다시 넣는다.
+    # 이어 하기: 출력 파일에 이미 있는 item_id는 건너뛰고, 그 판정은 집계에 다시 넣는다. 집계에는 이번에 고른
+    # 건(rows, --limit 적용)만 넣는다. 파일에 그보다 많은 행이 있어도(예: 전체 판정 뒤 --limit으로 다시 부름)
+    # 요약의 건수와 지표가 이번 호출의 범위와 맞게 하려는 것이다.
+    wanted = {row["item_id"] for row in rows}
     done = {d["item_id"] for d in read_jsonl(out_path)} if out_path.exists() else set()
-    scores: list[SummaryScore] = load_scores(out_path) if done else []
+    scores: list[SummaryScore] = [s for s in load_scores(out_path) if s.item_id in wanted] if done else []
     # 한 건 판정할 때마다 한 줄 쓰고 flush해, 판정 모델이 죽거나 중간에 멈춰도 이미 쓴 줄은 남는다. 예측
     # 기록(pred)이 없거나 요약이 빈 건은 빈 요약으로 판정에 넘겨 모두 누락으로 친다.
     with open(out_path, "a", encoding="utf-8", newline="\n") as f:
@@ -122,7 +125,8 @@ def main(argv: list[str] | None = None) -> int:
     # 판정 요약: 판정 모델·판·설정, 모델 지문(digest), 코드 상태, 시작·끝 시각, 판정 뒤 /api/ps(모델이 GPU에
     # 다 올라갔는지), run_checks(잘린 답, 생각 글, 컨텍스트를 채운 답 수), 건수, 판정 실패 수, 사실 재현율,
     # 오답 비율.
-    # run_checks는 이번 호출에서 쓴 줄만이 아니라 출력 파일 전체를 다시 읽어 센다.
+    # run_checks는 이번 호출에서 쓴 줄만이 아니라 이어 하기 전에 쓴 줄까지 출력 파일에서 다시 읽어 세되, 위
+    # 집계처럼 이번에 고른 건만 센다.
     table: dict = {
         "judge_model": judge.name,
         "judge_version": JUDGE_VERSION,
@@ -135,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         "started": started,  # this invocation (a resumed file keeps the earlier rows)
         "finished": time.strftime("%Y%m%d-%H%M%S"),
         "loaded_models_after": loaded_models(judge),
-        "run_checks": run_checks(list(read_jsonl(out_path)), JUDGE_NUM_CTX),
+        "run_checks": run_checks([d for d in read_jsonl(out_path) if d["item_id"] in wanted], JUDGE_NUM_CTX),
         "n": len(scores),
         "n_judge_failed": sum(1 for s in scores if not s.ok),
         "fact_recall": fact_recall(scores),

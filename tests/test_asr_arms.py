@@ -43,8 +43,8 @@ def test_context_lists_the_company_and_the_whole_catalog():
 
 
 # 택배 "배송 조회" 건 하나를 만든다: 발화 1에 운송장번호, 발화 2는 "..."(소리 없는 발화로 쓴다). 건, 정답
-# 운송장번호, 읽은 꼴을 튜플로 돌려준다(반환 타입 표기는 Item이지만 실제로는 튜플이다).
-def _parcel(i: int, said: str) -> Item:
+# 운송장번호, 읽은 꼴을 튜플로 돌려준다.
+def _parcel(i: int, said: str) -> tuple[Item, str, str]:
     it = _item(i, "parcel", category="배송 조회")
     tracking = next(e.value for e in it.gold().entities if e.type == "운송장번호")
     others = " ".join(f"{e.type} {e.value}" for e in it.gold().entities if e.type != "운송장번호")

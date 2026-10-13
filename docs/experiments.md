@@ -24,6 +24,7 @@
 - 2026-10-04 학습하지 않은 비교 대상에 2026년 기준의 4B 지시 모델 두 개(qwen3:4b-instruct-2507, qwen3.5:4b)를 더한다. 2·3단계의 비교 대상과 결과는 그대로 둔다. 규칙은 맨 아래 "2026년 기준 프롬프트 전용 비교 대상" 절
 - 2026-10-05 음성 조건의 인식기를 바꿔 같은 소리에서 비교한다 (음성 조건 v3). 학생은 그대로이고 v2 결과도 그대로 둔다. 규칙은 맨 아래 "음성 조건 v3" 절
 - 2026-10-08 요약 판정을 다시 보정한다: 사실에 적힌 숫자 값을 판정 모델 없이 확인하는 값 확인을 더하고, 2026년 판정 모델 두 개를 Claude의 새 라벨로 보정한다. 2단계의 j1 수치와 해석은 그대로 둔다. 규칙은 맨 아래 "요약 판정 재보정" 절. 2026-10-09 결과: 값 확인에 qwen3.5:9b 판정을 더한 형태를 채택했다 (보정 kappa 0.603, 보조 지표)
+- 2026-10-13 측정에 쓴 코드의 버그 둘(학습 루프의 epoch 경계, 부하 시험·서비스 `/stats`의 지연 백분위 계산식)을 고쳤다. 기존 수치는 지우지 않고 각 결과 절에 고치기 전 코드로 낸 값이라고 적는다. 재측정 계획은 맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절
 
 ## 1단계: 데이터 만들기
 
@@ -175,6 +176,7 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - 16:40 Qwen3-1.7B LoRA 학습 끝 (188스텝, 56분, 손실 0.56 → 0.15, 최대 4.8 GB). 20:12 Qwen3-4B QLoRA 학습 끝 (188스텝, 2시간 25분, 손실 → 0.12, 최대 6.3 GB). fp16에서 손실이 유한하지 않은 스텝은 없었다
 
 ### 3단계 결과: dev (240건)
+- (2026-10-13 덧붙임) 이 표의 학습한 행, 그리고 이 문서의 학습한 학생 수치(3·4·5단계와 그 뒤 절)는 모두 기울기 누적 묶음이 epoch 경계를 넘던 학습 코드로 만든 어댑터의 값이다. 지우지 않고 고치기 전 코드로 낸 값으로 둔다. 고친 코드로 다시 학습해 견줄 계획은 맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절
 
 | 후보 | 스키마 | exact | 유형 | 결과 | 핵심 값 F1 | 환각 | 처리 F1 | 후속 조치 |
 |---|---|---|---|---|---|---|---|---|
@@ -193,6 +195,8 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - test 측정 목록 (각 1회): test-a는 2단계의 7B·14B·4B 2-shot을 그대로 쓰고 학습한 학생·14B-p2를 더한다. test-b·c는 학습한 학생, 학습 전 학생, 7B, 14B, 14B-p2. 그 뒤 데이터 크기 곡선(train 500건으로 같은 설정 학습, dev)
 
 ### 3단계 결과: test-a·b·c (2026-09-29, 각 1회)
+- (2026-10-13 덧붙임) 학습한 학생의 수치와 데이터 크기 곡선은 고치기 전 학습 코드(epoch 경계 버그)로 만든 어댑터의 값이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
+
 학습한 학생은 Qwen3-4B QLoRA 2 epoch (4bit 바탕 + 어댑터). 실행 기록은 `reports/*-s3-test-*`, test-a의 7B·14B·4B 2-shot은 2단계 실행(`reports/*-s2-testa-*`).
 
 **exact (괄호는 95% 구간)**
@@ -284,6 +288,8 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - "음성 조건에서도 14B를 넘음": 고른 학생(섞어 학습한 학생이 위 두 판정을 모두 통과하면 그것, 아니면 깨끗한 학생) − 14B, test-d에서 하한 > 0
 
 ### 4단계 결과 (2026-09-29)
+- (2026-10-13 덧붙임) 깨끗한 학생과 섞어 학습한 학생의 수치는 고치기 전 학습 코드(epoch 경계 버그)로 만든 어댑터의 값이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
+
 실행 기록 `reports/*-s4-*`. 모든 4단계 실행은 커밋 `7929218`의 코드로 돌았다 (같은 날 다른 세션의 코드 검토 수정은 측정이 모두 끝난 21:40에 main에 합쳐졌다). 음성 조건 데이터 생성: train 절반 750건 9,700여 발화 4시간 4분. 섞어 학습 1시간 52분.
 
 **dev-asr (240건)**
@@ -355,6 +361,8 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 - 넣지 않은 것: 업종별 라벨 목록을 JSON 스키마 enum으로 넣어 디코딩 단계에서 목록 밖 라벨을 막는 방법(검토 세션 제안). 학습한 학생의 목록 밖 라벨 비율이 test-a·b·c·d에서 모두 0이라 이득이 작고, 재시도 경로가 이미 있다. 다른 업종을 붙일 때 다시 볼 일로 남긴다
 
 ### 5단계 첫 측정과 두 가지 발견 (2026-09-29 22:01 ~ 09-30 01:13)
+- (2026-10-13 덧붙임) 서빙 모델은 고치기 전 학습 코드(epoch 경계 버그)로 만든 섞어 학습한 학생이다. 아래 부하 p50(3.9·7.3·14.7초)은 고치기 전 `loadtest`의 계산(가운데 두 값의 평균)이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
+
 확정 규칙대로 잰 결과 (`reports/*-s5-*`, `reports/*-service-s5-*`, `reports/s5-load-f16.json`, 서빙 모델 = 섞어 학습한 학생을 fp16 바탕에 합친 GGUF):
 
 | dev (240건, Ollama, 스키마 없음) | exact | f16 대비 [95% 구간] | 파일 | 순차 지연 p50 |
@@ -387,6 +395,8 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 판정 문장: "서비스 경로가 품질을 잃지 않음" = 서비스 dev exact − 같은 모델을 직접 잰 dev exact의 짝지은 차이 하한 > −3%p
 
 ### 다시 잰 결과 (2026-09-30 01:19 ~ 03:48)
+- (2026-10-13 덧붙임) 서빙 모델은 고치기 전 학습 코드(epoch 경계 버그)로 만든 섞어 학습한 학생이다. 아래 부하 표의 p50·p95는 고치기 전 `loadtest`의 계산(p50 = 가운데 두 값의 평균, p95 = v[int(0.95·n)])이라 이 문서의 다른 지연(p50 = v[n // 2], p95 = v[int(0.95·(n−1))])과 한 순위 다를 수 있다. 요청별 지연을 남기지 않아 기록에서 다시 계산할 수 없다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
+
 실행 기록 `reports/*-s5b-*`, `reports/*-service-s5b-*`, `reports/s5b-load-q8_0.json`. 새 내보내기 `outputs/export/qwen3-4b-mixed-dq` (선형층 252개를 4bit 바탕에서 풀어낸 값으로 바꿔 합침).
 
 | dev (240건) | exact | 비교 [95% 구간] | 파일 | 순차 지연 p50 |
@@ -446,6 +456,8 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 다시 잰 결과 표의 순차 지연 p95는 그때의 실행 기록(`reports/*-s5b-dev-dq-*/summary.json`, 첫 요청 포함)에서 옮겨 결과 절에 함께 적는다. 그때의 GPU 조건은 기록되지 않았다
 
 ### 효율 추가 측정 결과 (2026-10-03 01:36 ~ 04:24)
+- (2026-10-13 덧붙임) 잰 모델은 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델이다. 이 표의 지연 백분위는 처음부터 evaluate와 같은 계산이라 백분위 고침과는 관계없다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
+
 실행 기록 `reports/s5c-bench-{q8_0,f16,q4_k_m}.json` (요청별 기록 포함, 측정 코드 `0ee468b`, Ollama 0.35.0). 세 모델 모두 37개 층 전부 GPU, 컨텍스트 4096.
 
 | dev 240건, 한 건씩 | f16 | **q8_0 (서빙)** | q4_K_M |
@@ -557,6 +569,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 이 바로잡음은 입력 분석의 설명만 고친다. 값 보존율 표, 모델 결과, 판정(A − R)은 그대로다. 아래 결과 절 결론의 "숫자 하나가 빠지거나 바뀌는 일"도 이 바로잡음대로 읽는다
 
 ### 음성 조건 v2 결과 (2026-10-04 08:50 ~ 09:27)
+- (2026-10-13 덧붙임) 학생 수치는 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델의 값이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 실행 조건: 모두 `--official`, 코드·데이터 커밋 `08b3a1f`(규칙 `ac9a670`, v2 데이터와 입력 분석을 커밋한 뒤 R을 시작함). Ollama 0.35.1(manifest에 기록), 모델 `call-summary-4b-dq:q8_0`(digest `52a2d2f6…`, 5단계 서빙 모델과 같음), p1 0-shot, num_ctx 4096, 스키마 강제 없음, temperature 0. 실행 스크립트 `work/p2/run_p2_eval.sh`(로컬)
 - GPU를 함께 쓴 프로그램: 배경화면 프로그램 꺼짐, 게임 없음. 데스크톱 앱 창(게임 런처, 메신저, 컨테이너 도구, 채팅 앱)만 떠 있었다 (시작 전 GPU 사용률 0%·616 MiB, CPU 7~12%. 측정 중 GPU는 Ollama가 약 95%·5.5 GB). 정확도만 재므로 유휴 대기는 하지 않았다
 - 진행 메모: 08:49에 시작한 첫 실행은 R이 한 건도 끝내기 전에 멈추고 08:50에 같은 스크립트를 다시 시작했다 (도구의 백그라운드 작업 시간 제한 2시간이 B를 학습하는 경로에 모자라 분리된 프로세스로 옮김). 측정 규칙과 명령은 그대로다
@@ -638,6 +651,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 서비스를 바꾸면 규칙대로 HawkScan을 다시 돌리고 결과를 "보안 스캔 기록"에 적는다
 
 ### 확인이 필요한 번호 표시 결과 (2026-10-04)
+- (2026-10-13 덧붙임) 대 본 답은 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델의 답이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 규칙 커밋 `f777455` 뒤에 기록된 답에 대 봤다 (`python -m call_summary.verify`, 새 추론·GPU 없음). 표시되지 않은 틀린 번호에서 어느 숫자가 어느 숫자로 바뀌었는지 세는 칸은 결과를 적으면서 도구에 더했다 (보고용, 지표와 기준은 그대로)
 
 **dev (기준을 보는 데이터)**
@@ -786,6 +800,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 다음: 이 결과를 커밋·push한 뒤 C\*로 test-a와 test-d-v2, C0로 test-c를 한 번씩, 학생을 test-a와 test-c에서 한 번씩 잰다 (`work/base0/run_test.sh u2 p2 2 u2 p2`)
 
 ### test 결과와 판정 (2026-10-05 03:04 ~ 03:54, 각 1회)
+- (2026-10-13 덧붙임) 학생 쪽 수치는 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델의 값이다. 비교 대상 쪽은 관계없다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 실행 조건: dev 결과와 고른 설정을 커밋·push한 `f584fff`에서 `work/base0/preflight.sh`를 다시 통과한 뒤(Ollama 0.35.1, digest 셋, 깨끗한 트리) `work/base0/run_test.sh u2 p2 2 u2 p2`로 돌렸다. 모두 `--official --allow-test`. 비교 대상은 dev와 같은 옵션(num_ctx 8192, 벌점 끔, 생각 끔)이고, C\* = qwen3.5:4b p2 2-shot으로 test-a와 test-d-v2를, C0 = qwen3.5:4b p2 0-shot으로 test-c를 쟀다. 학생 `call-summary-4b-dq:q8_0`은 서빙 조건(p1 0-shot, num_ctx 4096, 생각 끔, 태그 설정 그대로)이다. 순서: C\* test-a → C\* test-d-v2 → C0 test-c → `ollama stop` → 학생 test-a → 학생 test-c → `ollama stop`
 - GPU를 함께 쓴 프로그램은 dev 때와 같다 (배경화면 창 없음, 게임 없음, 시작 전 GPU 0%·294 MiB). 정확도만 재므로 유휴 대기는 하지 않았다
 
@@ -1004,6 +1019,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 다음: 이 결과와 세 파일을 커밋·push한 뒤 `work/asr3/gpu/run_stage_b.sh Th+I L+I`로 서빙 학생을 T, Th+I, L+I에서 잰다
 
 ### 단계 B 결과와 판정 (2026-10-05 20:35 ~ 21:23, dev-asr 240건, 각 1회)
+- (2026-10-13 덧붙임) 학생은 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 실행 조건: 단계 A 결과와 세 데이터 파일을 커밋·push한 `ab288df`에서 `preflight.sh`를 다시 통과한 뒤(깨끗한 트리, HEAD = origin/main, Ollama 0.35.1에 올라 있는 모델 없음, GPU 2,370 MiB) `work/asr3/gpu/run_stage_b.sh Th+I L+I`로 돌렸다. 모두 `--official`, 서빙 학생 `call-summary-4b-dq:q8_0`(digest `52a2d2f6…`, 37/37층 GPU), p1 0-shot, num_ctx 4096, 생각 끔, 스키마 강제 없음, temperature 0. 순서: T(`datasets/dev-asr-v3-t.jsonl`, 동일성 확인이 완전하지 않아 새 T 글) → Th+I → L+I → `ollama stop`. 실행 기록 `reports/20261005-203517-…-v3-T-dev-asr`, `reports/20261005-205204-…-v3-th-itn-dev-asr`, `reports/20261005-210806-…-v3-l-itn-dev-asr`, 표 `outputs/asr3/stage_b.txt`
 - GPU를 함께 쓴 프로그램: 사용자 게임(단계 A의 게임 3)이 내내 돌았다(약 2~3 GB). GPU 메모리 합계 7.4~8.2 GB, Ollama 러너의 공유 GPU 메모리는 492 MB로 CS-BASE0 때(424 MB)와 비슷했고 건당 시간은 2.5~5.1초로 평소와 같았다. 정확도만 재므로 기다리지 않았다
 
@@ -1147,6 +1163,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 라벨을 매기며 본 값 확인의 약점 (규칙은 바꾸지 않는다): 정답 번호 앞뒤에 글자가 더 붙은 번호("OD1902657", "D90973165")는 정규화한 요약 안에 정답 번호가 부분 문자열로 들어 있어 V가 찾은 것으로 친다 (`occurs_in_transcript`는 전사에서 번호를 찾으려고 만든 규칙이라 부분 문자열로 찾는다). 이런 사실은 V가 놓치고 판정 모델이 잡아야 한다. 결과에 V와 Claude가 어긋난 사실을 적는다
 
 ### 값 확인 결과 (2026-10-08, GPU 없음, 판정 모델을 돌리기 전)
+- (2026-10-13 덧붙임) 서빙 학생의 행은 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델의 답에서 낸 값이다. 2단계 기준선 행은 관계없다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 규칙 커밋 `2455fea`의 코드로 기록된 답에 댔다 (`python -m call_summary.value_facts <run>...`, 2단계 실행은 `--judge-file judge.jsonl`). 새 추론 없음. 결과 파일은 `outputs/judge2/v-served.json`, `v-stage2.json`, `v-vs-claude.json`(커밋하지 않음, 같은 명령으로 다시 나온다)
   - (2026-10-09 검토 뒤 바로잡음) `v-vs-claude.json`과 아래 "값 확인 V와 Claude 라벨" 표는 위 명령이 아니라 커밋하지 않은 확인 스크립트로 만들었다. 같은 계산을 `judge_calib cells`로 옮겨 커밋했다 (`0103ac9`). `python -m call_summary.judge_calib cells --sample reports/judge2/sample.jsonl --labels reports/judge2/claude80.jsonl --hand-labels H=reports/20260928-062104-Qwen_Qwen3-4B-s2-qwen3-4b-2s/hand50.jsonl --group S=S-asr,S-dev`가 그 표의 셀 수, 어긋난 사실, kappa 구간(채택 층 [0.326, 0.745] 포함)을 그대로 다시 낸다 (2026-10-09에 같은 JSON이 나오는 것을 확인)
 
@@ -1254,6 +1271,7 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 정리: 요약 지표로 쓸 수 있는 것은 주로 값 확인이다. 채택한 V+J1의 사실 재현율은 보정 kappa 0.603과 함께 보조 지표로만 적고, 결론의 주 지표는 계속 exact다
 
 ### 채택한 판정으로 서빙 학생 판정 (2026-10-09, GPU, 규칙 5)
+- (2026-10-13 덧붙임) 판정한 답은 고치기 전 학습 코드(epoch 경계 버그)로 만든 서빙 모델의 답이다 (맨 아래 "학습 epoch 경계와 지연 백분위 바로잡기" 절)
 - 보정 결과를 커밋·push한 `695543a` 뒤에 `qwen3.5:9b`(J1과 같은 요청: num_gpu 99, think off, presence_penalty 0, repeat_penalty 1)로 서빙 학생의 기록된 실행 넷을 한 번씩 판정했다 (00:49~01:11, 1,080건). 결과 `reports/<run>/judge-J1.jsonl`과 `judge-J1_summary.json`. 기록된 답에 대는 판정이라 학생의 추론은 다시 하지 않았다
   - (2026-10-09 검토 뒤 덧붙임) 측정 조건의 "meta에 커밋을 남긴다"와 "끝난 뒤 `/api/ps`의 size_vram/size와 context_length를 meta에 남긴다"와 달리, 이 판정의 `judge-J1_summary.json`에는 커밋과 `/api/ps`가 없다 (`judge_run`이 남기지 않았다). 위의 "`695543a` 뒤에"와 아래의 "size_vram = size"는 로컬 실행 로그에만 근거가 있었다. 그 줄을 옮겨 `reports/judge2/adopted-J1.meta.json`으로 커밋했다: 측정 코드 `695543a`(실행 전 점검에서 추적 파일 변경 없음, HEAD = origin/main), digest, 실행별 시작·끝 시각, 실행마다 끝난 뒤의 `/api/ps`(qwen3.5:9b size_vram = size = 5,490,081,790, context_length 4096). `judge_run`은 이제 summary에 둘을 남긴다 (`0103ac9`)
 - 조건: 보정 때와 같다 (Ollama 0.35.1, digest `6488c96f…`, 사용자의 데스크톱 앱이 GPU를 약 25% 씀, 게임 없음). 모델은 모두 GPU에 올라갔고(size_vram = size), 러너의 공유 GPU 메모리 648 MB, 건당 1.13~1.16초(중앙값). 판정 실패, 컨텍스트를 채운 판정, 생각 글이 붙은 판정 모두 0건이고 가장 긴 프롬프트는 992토큰이다. 서빙 학생의 요약 중 빈 것은 없다
@@ -1273,3 +1291,93 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
   - (2026-10-09 검토 뒤 바로잡음) 정의를 잘못 적었다. 표의 wrong_rate는 판정 모델이 사실 하나라도 '틀림'으로 봤거나 대화와 어긋난 문장(wrong_statements)을 하나라도 적은 건의 비율이다 (`judge.wrong_rate`, `value_facts`의 판정 줄이 같은 정의다. 2단계의 wrong_rate도 이 정의로 셌다)
 - test 두 실행은 기록된 답을 한 번 판정한 것이고, 이 결과로 아무것도 고르거나 바꾸지 않았다
 - 요약 지표의 지위 (규칙 5대로): V+J1 사실 재현율은 보정 kappa 0.603과 함께 보조 지표다. 결론의 주 지표는 계속 exact다. 2단계 실행의 j1 수치와 해석은 그대로 둔다
+
+## 학습 epoch 경계와 지연 백분위 바로잡기 (2026-10-13 규칙, 재측정 전)
+
+2026-10-13 코드를 다시 읽다가 측정에 쓴 코드의 버그 둘을 찾아 고쳤다. 고친 코드와 이 계획을 먼저 커밋한 뒤 잰다. 기존 수치는 지우지 않고 각 결과 절에 "고치기 전 코드로 낸 값"이라고 적어 둔다 (2026-10-13 덧붙임).
+
+### 1. 학습: 기울기 누적 묶음이 epoch 경계를 넘었다 (`src/call_summary/train.py`)
+- **고치기 전 동작** (첫 학습 코드부터): 미니배치 수를 epoch마다 새로 세지 않고 이어 셌다. 미니배치 16개(배치 1 × 누적 16)를 모으면 optimizer 스텝을 하므로, epoch 끝에 16개를 채우지 못한 미니배치는 다음 epoch(새로 섞은 순서)의 앞 미니배치와 한 스텝이 됐다. 스텝 수는 epoch마다 ceil(건수 ÷ 16)으로 정했으므로, 정한 스텝 수를 채우려고 마지막 스텝은 셋째 epoch의 앞 건까지 가져다 썼다
+  - 1,500건 (16 × 93 + 12, epoch마다 94스텝, 모두 188스텝): 94스텝 = 첫 epoch의 마지막 12건 + 둘째 epoch의 앞 4건이고, 여기서 `epoch1`을 저장했다. 둘째 epoch의 나머지 스텝 93개는 고친 코드의 묶음과 4건씩 어긋난다. 188스텝 = 둘째 epoch의 마지막 8건 + 셋째 epoch의 앞 8건이고, 여기서 `epoch2`와 `final`(같은 가중치)을 저장했다. `final`은 3,000건이 아니라 3,008건을 봤다
+  - 500건 (16 × 31 + 4, epoch마다 32스텝): `epoch1`은 둘째 epoch 12건을, `final`은 셋째 epoch 24건(63스텝에 8건, 64스텝은 16건 모두)을 더 봤다
+  - 셋째 epoch 건이 들어간 스텝은 코사인 학습률의 끝이라 학습률이 아주 작다 (1,500건의 188스텝은 최대 2e-4의 0.007%, 500건의 63·64스텝은 0.25%·0.06%). 가중치를 더 바꾼 쪽은 학습률이 최대의 약 53%인 epoch 경계 스텝(94, 32)과 그 뒤 둘째 epoch 묶음이 모두 바뀐 것이다. 데이터 순서(seed 0으로 epoch마다 섞음), 학습률 일정, 스텝 수는 고친 코드와 같다
+- **고친 동작**: 묶음이 epoch 안에서 끝난다. epoch의 마지막 묶음은 남은 미니배치(1,500건이면 12개)로 스텝을 하고, 손실을 묶음 크기로 나눠 묶음 안 평균을 쓴다 (`train.accum_plan`). `epoch<n>`은 정확히 n epoch를 본 어댑터다. `train_config.json`에 `"train_loop": 2`를 남긴다 (이 키가 없는 기존 어댑터는 고치기 전 루프다. evaluate의 모델 지문 `train_config_sha`도 그래서 달라진다). 테스트 `tests/test_gen.py::test_accum_groups_never_cross_an_epoch`
+- 가중치가 바뀌므로 기록에서 다시 계산할 수 없다. 다시 학습한다. 학습 라이브러리(torch 2.11.0+cu128, transformers 5.17.0, peft 0.21.0, bitsandbytes 0.50.2)는 기록된 학습·평가 때와 같다 (`uv.lock`이 그 뒤 바뀌지 않았다)
+
+**영향받는 기존 수치** (모두 이 학습 코드로 만든 어댑터에서 나왔다)
+- 3단계: dev 표의 학습한 네 행(1.7B LoRA 1·2 epoch 75.8 / 89.6, 4B QLoRA 1·2 epoch 87.9 / 93.3)과 학생 고르기, test-a·b·c의 학습한 학생(95.7 / 90.0 / 55.0)과 판정 표, 데이터 크기 곡선(500건 66.2)
+- 4단계: 깨끗한 학생(3단계의 4B, dev-asr 50.8, test-d 51.7), 섞어 학습한 학생(dev-asr 1·2 epoch 71.7 / 77.9, test-d 80.7, test-a 95.7), 판정 넷, 복원·지어낸 값
+- 그 뒤의 모든 학생 수치: 서빙 모델 `call-summary-4b-dq:*`는 섞어 학습한 학생의 `final`(어댑터 sha `04ece58adfad`)을 내보낸 것이다. 5단계(HF 4bit + 어댑터 dev 94.6, GGUF f16·q8_0·q4_K_M, 서비스 경로, 부하), 효율 추가 측정, 음성 조건 v2(test-d-v2 79.3), 확인이 필요한 번호 표시, 2026년 비교 대상과의 판정(학생 쪽), 음성 조건 v3 단계 B, 요약 판정 재보정의 서빙 학생 수치, README의 학습한 모델 수치
+- 관계없는 것: 학습하지 않은 모델(qwen2.5, 학습 전 Qwen3, 2026년 4B 비교 대상)의 수치, 판정 모델 보정의 kappa 계산 방법, 데이터와 음성 조건 입력 분석
+
+**다시 학습하는 것**: 결론에 쓰인 두 학생만. 3단계에서 고른 Qwen3-4B QLoRA(이하 깨끗한 학생)와 4단계의 섞어 학습한 학생이다. 인수, 데이터, seed는 처음과 같고 출력 폴더만 다르다. 1.7B와 500건 학습은 다시 하지 않고 고치기 전 값으로 둔다 (아래 (c)에 걸리면 1.7B는 다시 한다). 섞어 학습 데이터 `data/train_mixed.jsonl`은 커밋하지 않은 파일이다. 4단계와 같은 방법(`datasets/train.jsonl`에서 `datasets/train-half-asr.jsonl`에 있는 건만 바꿔 끼움)으로 다시 만들면 4단계 때 파일과 바이트가 같다 (sha256 `642c137226cb045865e521212be00896b38815d3ae9fbac6dc633fddd347702b`, 2026-10-13 확인). 학습 전에 이 값을 확인한다.
+
+```bash
+# 깨끗한 학생 (3단계와 같은 인수), dev에서 두 epoch
+T4=outputs/train/qwen3-4b-qlora-r16-fix
+uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-4B --train datasets/train.jsonl --out $T4 --qlora
+for e in epoch1 final; do
+  uv run --no-sync python -m call_summary.evaluate --data datasets/dev.jsonl --official --label fix-s3-qwen3-4b-qlora-$e \
+    --backend hf --model Qwen/Qwen3-4B --adapter $T4/$e --load-4bit --batch 4
+done
+# 섞어 학습한 학생 (4단계와 같은 인수), dev-asr(v1)에서 두 epoch, 2 epoch는 dev에서도
+MIX=outputs/train/qwen3-4b-qlora-r16-mixed-fix
+uv run --no-sync python -m call_summary.train --model Qwen/Qwen3-4B --train data/train_mixed.jsonl --out $MIX --qlora
+for e in epoch1 final; do
+  uv run --no-sync python -m call_summary.evaluate --data datasets/dev-asr.jsonl --official --allow-test \
+    --label fix-s4-dev-asr-mixed-$e --backend hf --model Qwen/Qwen3-4B --load-4bit --batch 4 --adapter $MIX/$e
+done
+uv run --no-sync python -m call_summary.evaluate --data datasets/dev.jsonl --official --label fix-s5-dev-hf4bit-mixed \
+  --backend hf --model Qwen/Qwen3-4B --load-4bit --batch 4 --adapter $MIX/final
+# 고르기와 판정 (CPU). <고친 실행>은 (a)에서 고른 어댑터의 실행
+uv run --no-sync python -m call_summary.compare --pick reports/*-fix-s3-qwen3-4b-qlora-epoch1 reports/*-fix-s3-qwen3-4b-qlora-final
+uv run --no-sync python -m call_summary.compare --pick reports/*-fix-s4-dev-asr-mixed-epoch1 reports/*-fix-s4-dev-asr-mixed-final
+uv run --no-sync python -m call_summary.compare --paired reports/20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2 <고친 실행>
+uv run --no-sync python -m call_summary.compare --paired reports/20260929-171049-Qwen_Qwen3-4B-s4-dev-asr-mixed-e2 <고친 실행>
+uv run --no-sync python -m call_summary.compare --paired reports/20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed <고친 실행>
+```
+
+**고르기와 판정** (기존 규칙 그대로, 짝지은 부트스트랩 2,000번)
+- (a) epoch 고르기: 깨끗한 학생은 3단계 규칙(dev exact → 핵심 값 F1 → 환각이 낮은 것), 섞어 학습한 학생은 4단계 규칙(dev-asr exact. 같으면 dev exact로 가르므로 그때만 `epoch1`도 dev에서 잰다. 그래도 같으면 2 epoch)
+- (b) 고른 어댑터 − 고치기 전 기록, exact의 짝지은 차이 95% 구간: 깨끗한 학생은 dev(기록 93.3), 섞어 학습한 학생은 dev-asr(기록 77.9)와 dev(기록 94.6). 섞어 학습한 학생의 dev는 (a)에서 2 epoch를 고른 경우에만 위 명령의 실행과 견주고, 1 epoch를 고르면 `epoch1`도 dev에서 잰다
+- **"고치기 전 수치를 그대로 쓴다"**: 두 학생 모두 (a)에서 다시 2 epoch를 고르고, (b)의 구간 셋이 모두 −3%p와 +3%p 사이에 있다. 3%p는 4단계 "깨끗한 전사에서 손해 없음"과 5단계 양자화·서비스 경로 규칙의 한계를 양쪽으로 쓴 것이다. 묶음만 다른 두 학습이라도 dev에서 맞고 틀리는 건이 몇 개씩 바뀔 수 있어, 차이가 0에 가까워도 구간이 ±3%p를 넘을 수 있다. 그때는 아래대로 test를 다시 잰다
+- (c) 깨끗한 학생이 고른 어댑터의 dev exact가 1.7B LoRA 2 epoch의 기록값 89.6 이하이면, 3단계의 학생 고르기(4B > 1.7B)를 이 실행만으로 확인할 수 없다. 그때는 1.7B도 고친 코드로 다시 학습하고(`--model Qwen/Qwen3-1.7B --train datasets/train.jsonl --out outputs/train/qwen3-1.7b-r16-fix`, LoRA, 평가는 `--backend hf --model Qwen/Qwen3-1.7B --adapter <폴더>/<epoch> --batch 4`) 3단계 규칙으로 다시 고른다
+- **그대로 쓰면**: 기존 수치의 표시를 "고치기 전 코드로 낸 값. 고친 코드로 다시 학습한 dev 결과는 같은 범위"로 바꾼다. test는 다시 재지 않고 서빙 모델도 그대로다. 고친 어댑터는 기록으로 남긴다
+- **그대로 쓰지 않으면** (그 학생만):
+  - 깨끗한 학생: 고친 학생(고른 epoch)으로 test-a·b·c를 한 번씩 재고(`--data datasets/<split>.jsonl --official --allow-test --label fix-s3-<split>-qwen3-4b-qlora`, 나머지 인수는 위와 같음), 3단계 판정 문장을 기록된 비교 대상 실행과 `compare --paired`로 다시 낸다. 고친 학생은 새 모델이고 test로 아무것도 고르지 않으므로 "test는 고른 것만 한 번" 규칙과 맞는다. README 3단계 표에는 새 값을 고치기 전 값 옆에 적는다
+  - 섞어 학습한 학생: 고친 학생으로 test-d(v1, `datasets/test-d.jsonl`)와 test-a를 한 번씩 재고(`--label fix-s4-test-d-mixed`, `fix-s4-test-a-mixed`) 4단계 판정 넷을 다시 낸다. 깨끗한 학생 쪽은 위에서 정해진 것(고친 것 또는 기록된 것)을 쓴다
+  - 서빙 모델과 그 뒤 측정(내보내기, 양자화 고르기, 서비스, 부하, 음성 조건 v2·v3, 2026년 비교, 요약 판정)은 이번에 다시 재지 않고 고치기 전 값으로 둔다. 고친 학생으로 서빙 모델을 바꿀지는 결과를 적은 뒤 새 절로 규칙을 먼저 적는다
+- 조건: 정확도만 재므로 쉬는 상태를 기다리지 않고, GPU를 함께 쓴 프로그램을 수치 옆에 적는다. 다른 프로젝트의 GPU 작업이 없을 때 하나씩 돌리고, 학습은 로그가 멈추지 않는지 지켜본다
+
+**예상 GPU 시간** (2026-09-28·29의 같은 작업 기록 기준): 깨끗한 학생 학습 2.4시간 + dev 두 번 1.5시간, 섞어 학습 1.9시간 + dev-asr 두 번 1.7시간 + dev 한 번 0.6시간 → 약 8시간. 다른 프로그램이 GPU를 함께 쓰면 더 걸린다 (최대 약 12시간으로 잡는다). 조건부: (c) 1.7B 약 2시간, 깨끗한 학생 test 셋 약 1.4시간, 섞어 학습한 학생 test 둘 약 1.6시간
+
+### 2. 지연 백분위: 도구마다 계산식이 달랐다
+- **고치기 전 동작**: `evaluate`·`service_eval`·`bench`는 정렬한 지연에서 p50 = v[n // 2], p95 = v[int(0.95·(n−1))]를 썼고, `loadtest`와 서비스 `/stats`는 p50 = `statistics.median`(짝수 개면 가운데 두 값의 평균), p95 = v[min(n−1, int(0.95·n))]를 썼다. 240건이면 p95가 228번째 값 대신 229번째 값(한 순위 위)이고, p50은 121번째 값 대신 120·121번째 값의 평균이다
+- **고친 동작**: 모든 곳이 `scoring.pctl` 하나를 쓴다. 기록된 실행 대부분의 계산인 evaluate 쪽으로 맞췄다. `loadtest` 결과에는 요청마다 건 id·상태·지연을 남겨, 계산식을 바꿔도 기록에서 다시 셀 수 있게 했다. 테스트 `tests/test_loadtest.py::test_load_percentiles_use_the_shared_rule`, `tests/test_service.py::test_stats_percentiles_use_the_shared_rule`
+- **영향받는 기존 수치**: 5단계 첫 측정의 부하 p50 3.9·7.3·14.7초(`reports/s5-load-f16.json`), "다시 잰 결과" 부하 표의 p50 2.7 / 5.0 / 10.0초와 p95 3.2 / 5.7 / 11.1초(`reports/s5b-load-q8_0.json`), 두 파일의 `service_stats`(문서에 옮기지 않음). 처리량과 오류 수, 그리고 evaluate·service_eval·bench로 낸 지연(모든 실행의 `summary.json`, 순차 지연 열, 효율 추가 측정 표, README 5단계 표의 p50)은 처음부터 고친 계산과 같아 바뀌지 않는다
+- **기록에서 다시 계산할 수 없다**: `loadtest`는 요약만 남겼고, 서비스의 요청별 로그는 2026-10-03에 더해져 그때 서버 기록에는 지연이 없다. 같은 목록이면 새 p95 ≤ 기록된 p95, 새 p50 ≥ 기록된 p50이고, 차이는 이웃한 두 순위 값의 간격을 넘지 않는다
+- **재측정** (GPU, 속도 측정): 서빙 모델은 그대로 두고 부하 시험만 같은 조건(dev 240건, 동시 1·2·4, 스키마 끔)으로 다시 한다. 모델을 올리려고 먼저 5건을 보내고 그 결과는 버린다 (그래서 `service_stats`에 5건이 더 들어간다. 2026-09-30에는 앞선 서비스 측정이 모델을 올려 두었다)
+
+```bash
+CALL_SUMMARY_MODEL=call-summary-4b-dq:q8_0 uv run --no-sync uvicorn call_summary.service:create_app --factory --port 8072
+uv run --no-sync python -m call_summary.loadtest --data datasets/dev.jsonl --limit 5 --concurrency 1   # 모델 올리기, 버림
+uv run --no-sync python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4 --out reports/s5d-load-q8_0.json
+# 같은 요청별 기록에 예전 계산식을 적용 (계산식만의 차이)
+uv run --no-sync python -c "import json, statistics as st; r = json.load(open('reports/s5d-load-q8_0.json', encoding='utf-8')); [print(x['concurrency'], round(st.median(v), 3), round(v[min(len(v) - 1, int(0.95 * len(v)))], 3)) for x in r['runs'] for v in [sorted(q['latency_s'] for q in x['requests'] if q['status'] == '200')]]"
+```
+
+- 조건: 속도를 재므로 쉬는 상태(1분 평균 CPU 15% 미만, GPU 사용률 50% 미만, 다른 프로그램의 GPU 메모리 2.5 GB 미만. 효율 추가 측정과 같은 기준)를 **최대 10분** 기다리고, 그래도 아니면 그대로 재서 CPU·GPU 사용률과 함께 돈 프로그램의 종류를 적고 "부하 조건"으로 표시한다. 효율 추가 측정에서 60분을 기다려도 쉬는 상태가 오지 않았기 때문이다. Ollama 버전(2026-09-30은 0.34.2, 지금은 0.35.1)과 `OLLAMA_NUM_PARALLEL`을 함께 적는다
+- 적을 것: 동시성마다 처리량, 고친 계산의 p50·p95, 같은 요청별 기록에 예전 계산을 적용한 p50·p95와 그 차이(계산식만의 효과), 2026-09-30 값(참고. 기계 조건과 Ollama 버전이 달라 절대값으로 견주지 않는다). 아무것도 고르지 않는 측정이다. 예전 표는 그대로 둔다
+- 함께 CPU로 셀 것: 2026-09-29·30의 서비스 경유 실행 넷(`reports/*-service-s5-*`, `reports/*-service-s5b-*`, 동시 1)은 `items.jsonl`에 요청별 지연이 있어, 두 계산식을 같은 목록에 적용한 p50·p95를 결과 절에 함께 적는다 (모델 없음)
+- **예상 GPU 시간**: 약 0.5~0.8시간 (2026-09-30 부하 시험 31분 + 모델 올리기 + 최대 10분 대기)
+
+### 측정 수치에 영향이 없는 고침 (같은 날)
+- `judge_run` 이어 하기: 출력 파일에 이번에 고른 건(`--limit`)보다 많은 행이 있으면 요약의 건수·지표·`run_checks`가 파일 전체를 셌다. 이제 고른 건만 센다 (테스트 `test_judge_run_resume_counts_only_the_selected_items`). 기록된 판정 요약 15개(2단계 j1 11개, 서빙 학생 J1 넷)는 모두 요약 건수 = 실행 건수 = 판정 파일 행 수(중복 없음)라 바뀌는 값이 없다
+- `finalize`: 거절 건의 유형을 찾는 명세 폴더가 현재 작업 폴더의 `data/specs`로 고정돼 있었다. `--specs`로 줄 수 있게 했다 (기본값은 같음). 1단계 확정은 저장소 폴더에서 기본 경로로 돌았으므로 `datasets/finalize_report.json`은 그대로다
+
+### 순서
+1. 이 절, 고친 코드, 각 결과 절의 덧붙임을 커밋·push한다 (평가는 깨끗한 트리에서 `--official`)
+2. 부하 시험을 다시 잰다 (2번 절)
+3. 깨끗한 학생 학습 → dev 두 번 → 섞어 학습한 학생 학습 → dev-asr 두 번 → dev 한 번 (1번 절)
+4. 고르기·판정을 CPU로 내고 결과 절("재측정 결과")을 이 절 아래에 더한다. README의 표시 줄을 결과에 맞게 바꾼다
+5. 판정에 따라 test를 한 번씩 재고 기록한다

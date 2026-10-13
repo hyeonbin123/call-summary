@@ -17,7 +17,7 @@ from call_summary.dataset import load_items
 from call_summary.domains import DOMAINS
 from call_summary.prompts import record_to_json
 from call_summary.providers import OllamaProvider, Reply, ScriptedProvider
-from call_summary.service import EXAMPLE_REQUEST, MAX_CHARS, create_app, create_offline_app
+from call_summary.service import EXAMPLE_REQUEST, MAX_CHARS, Stats, create_app, create_offline_app
 from call_summary.specs import make_spec
 
 # 번호를 하나도 말하지 않는 짧은 대화(쇼핑몰).
@@ -298,6 +298,15 @@ def test_stats_after_requests():
     st = c.get("/stats").json()
     assert st["requests"]["retried_ok"] == 1 and st["requests"]["ok"] == 1
     assert st["latency_s"]["n"] == 2
+
+
+# /stats의 p50·p95는 평가 도구와 같은 계산(scoring.pctl)이다. 지연 1~20초(짝수 개)면 p50은 가운데 두 값의
+# 평균(10.5)이 아니라 v[10] = 11초, p95는 v[int(0.95·20)] = 20초가 아니라 v[int(0.95·19)] = 19초다.
+def test_stats_percentiles_use_the_shared_rule():
+    st = Stats()
+    for sec in range(20, 0, -1):
+        st.add("ok", float(sec))
+    assert st.snapshot()["latency_s"] == {"n": 20, "p50": 11.0, "p95": 19.0, "max": 20.0}
 
 
 # 오프라인 모드는 네 업종 모두 200을 주고 모델 이름이 offline:canned이며 OpenAPI를 공개한다(스캔용).

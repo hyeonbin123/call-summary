@@ -16,7 +16,7 @@ dropped connection) counts as status "error:<exception>". Results go to --out as
 
 from __future__ import annotations
 
-# statistics: 지연의 중앙값·평균. time.perf_counter: 단조 증가 고해상도 시계라 경과 시간 측정에 쓴다.
+# statistics: 지연의 평균. time.perf_counter: 단조 증가 고해상도 시계라 경과 시간 측정에 쓴다.
 # ThreadPoolExecutor: 동시 요청을 스레드로 흉내 낸다(요청 대부분이 네트워크·모델 대기라 스레드로 충분하다).
 import argparse
 import json
@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .dataset import Item, load_items
+from .scoring import pctl
 
 
 # 데이터셋 한 건을 /summarize 요청 본문({domain, turns})으로 바꾼다. 서비스 API가 받는 형식 그대로다.
@@ -38,7 +39,7 @@ def request_body(item: Item) -> dict:
 # items 전체를 동시성 concurrency로 보내고 결과 요약 dict를 돌려준다.
 # client를 인자로 받는 이유: 실제 측정에서는 httpx.Client를, 테스트(tests/test_loadtest.py)에서는 오프라인
 # 서비스의 FastAPI TestClient나 일부러 예외를 내는 가짜 client를 넣어 같은 코드를 GPU 없이 확인한다.
-# 출력: 동시성, 건수, 상태별 개수, 전체 경과 시간, 처리량, 지연(p50, p95, 평균, 최대).
+# 출력: 동시성, 건수, 상태별 개수, 전체 경과 시간, 처리량, 지연(p50, p95, 평균, 최대), 요청별 기록.
 def run_load(client, items: Sequence[Item], concurrency: int) -> dict:
     """`client` is anything with .post(path, json=...) returning an object with .status_code (httpx.Client,
     FastAPI TestClient)."""
@@ -71,13 +72,19 @@ def run_load(client, items: Sequence[Item], concurrency: int) -> dict:
         "wall_s": round(wall, 2),
         "throughput_rps": round(len(results) / wall, 3) if wall else None,
         "latency_s": None,
+        # 요청마다 (건 id, 상태, 지연)을 보낸 순서대로 남긴다. 2026-09-30 부하 시험은 요약만 남겨, 백분위
+        # 계산식을 고친 뒤 기록에서 다시 계산할 수 없었다(docs/experiments.md "학습 epoch 경계와 지연 백분위
+        # 바로잡기").
+        "requests": [
+            {"item_id": it.item_id, "status": status, "latency_s": round(sec, 4)}
+            for it, (status, sec) in zip(items, results, strict=True)
+        ],
     }
-    # p95는 정렬한 목록에서 0.95 위치의 값을 고른다(보간 없이 가장 가까운 순위, 마지막 원소를 넘지 않게
-    # 자른다).
+    # p50·p95는 scoring.pctl로 낸다(evaluate·service_eval·bench와 같은 계산, 보간 없음).
     if lat:
         out["latency_s"] = {
-            "p50": round(statistics.median(lat), 3),
-            "p95": round(lat[min(len(lat) - 1, int(0.95 * len(lat)))], 3),
+            "p50": round(pctl(lat, 0.5), 3),
+            "p95": round(pctl(lat, 0.95), 3),
             "mean": round(statistics.fmean(lat), 3),
             "max": round(lat[-1], 3),
         }

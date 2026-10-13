@@ -187,10 +187,9 @@ def _order_dates(slots: list[SlotValue]) -> list[SlotValue]:
 # 말실수 값을 만든다: 번호의 숫자 하나를 다른 숫자로 바꾼다. 고객이 처음에 이 값을 말했다가 고치는
 # 장면(EV_CORRECTION)에 쓰고, 정답에는 넣지 않는다. 모델이 고치기 전 값을 기록하면 오답이 되므로 정정 이해를
 # 시험한다.
-# 주의: docstring은 금액도 다룬다고 하지만 코드는 번호(id)만 처리하고 그 밖의 종류는 예외를 낸다. 호출하는
-# 곳(make_spec)은 번호로만 부른다.
+# 번호(id)만 다루고 그 밖의 종류는 예외를 낸다. 호출하는 곳(make_spec)은 번호로만 부른다.
 def _mutate(rng: random.Random, sv: SlotValue, kind: str) -> SlotValue:
-    """A plausible wrong value: one digit changed (ids) or a different round amount."""
+    """A plausible wrong value: one digit of an id changed. Other kinds raise ValueError (only ids used)."""
     if kind == "id":
         digits = [i for i, ch in enumerate(sv.value) if ch.isdigit()]
         i = rng.choice(digits)

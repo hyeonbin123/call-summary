@@ -73,11 +73,12 @@ def id_values(item: Item) -> set[str]:
 
 
 # 한 분할의 생성 거절 통계를 만든다: 시도한 명세 수, 통과, 거절, 거절률, 유형별 거절 수, 이유별 거절 수.
-# 명세는 data/specs/<분할>.jsonl에서 읽는다(build_specs의 출력, 현재 작업 폴더 기준 상대 경로). 거절 기록은
-# gen.py가 남긴 <분할>.rejects.jsonl이다.
-def rejection_report(raw_dir: Path, split: str) -> dict:
+# 명세는 specs_dir/<분할>.jsonl에서 읽는다(build_specs의 출력, main의 --specs, 기본 data/specs). 거절 기록은
+# gen.py가 남긴 <분할>.rejects.jsonl이다. 예전에는 명세 폴더가 현재 작업 폴더 기준 data/specs로 고정돼,
+# --raw로 다른 원본을 주어도 명세는 그 폴더에서 읽었다.
+def rejection_report(raw_dir: Path, split: str, specs_dir: Path = Path("data/specs")) -> dict:
     rej_path = raw_dir / f"{split}.rejects.jsonl"
-    specs = {d["spec_id"]: Spec.from_dict(d) for d in read_jsonl(Path("data/specs") / f"{split}.jsonl")}
+    specs = {d["spec_id"]: Spec.from_dict(d) for d in read_jsonl(specs_dir / f"{split}.jsonl")}
     rejected = list(read_jsonl(rej_path)) if rej_path.exists() else []
     ok = load_items(raw_dir / f"{split}.jsonl")
     by_cat: Counter = Counter()
@@ -102,11 +103,12 @@ def rejection_report(raw_dir: Path, split: str) -> dict:
     }
 
 
-# 명령줄 진입점. --raw(생성 원본 폴더), --out(확정 분할을 쓸 폴더), --splits(처리할 분할, 기본은 TARGETS의
-# 다섯 개).
+# 명령줄 진입점. --raw(생성 원본 폴더), --specs(명세 폴더, 거절 건의 유형을 찾는 데 쓴다), --out(확정 분할을
+# 쓸 폴더), --splits(처리할 분할, 기본은 TARGETS의 다섯 개).
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--raw", default="data/raw")
+    ap.add_argument("--specs", default="data/specs", help="spec files (build_specs output) per split")
     ap.add_argument("--out", default="data")
     ap.add_argument("--splits", nargs="+", default=list(TARGETS))
     args = ap.parse_args(argv)
@@ -143,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         n = write_jsonl(Path(args.out) / f"{split}.jsonl", (it.to_dict() for it in chosen))
         # test-b는 Claude가 직접 쓴 대화를 따로 조립한 것이라(docs/experiments.md 1단계) 생성 거절 기록이 없어
         # 거절 통계를 만들지 않는다. 나머지 분할은 거절 통계에 다시 거른 건, train 겹침, 모자란 건수를 더한다.
-        rep = rejection_report(raw, split) if split != "test-b" else {}
+        rep = rejection_report(raw, split, Path(args.specs)) if split != "test-b" else {}
         rep.update(
             {
                 "written": n,

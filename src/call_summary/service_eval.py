@@ -29,7 +29,7 @@ from pathlib import Path
 from .dataset import Item, load_items, write_jsonl
 from .evaluate import _file_hash, _git, _git_strict, summary_table
 from .schema import ParseResult, parse_reply
-from .scoring import ItemScore, score_item
+from .scoring import ItemScore, pctl, score_item
 
 
 # 건마다 서비스에 요청하고 채점한다. client는 httpx.Client나 FastAPI TestClient처럼 post()를 가진 객체면
@@ -82,12 +82,13 @@ def run_service_items(
     return rows, scores
 
 
-# evaluate.summary_table(지표와 구간)에 서비스 쪽 집계를 더한다: 200 응답의 왕복 지연 p50·p95, 상태 코드별 수,
-# 시도 횟수별 수(재시도·거절 비율을 문서에 적는 근거, docs/experiments.md 5단계 "재시도 0, 거절 0").
+# evaluate.summary_table(지표와 구간)에 서비스 쪽 집계를 더한다: 200 응답의 왕복 지연 p50·p95(scoring.pctl),
+# 상태 코드별 수, 시도 횟수별 수(재시도·거절 비율을 문서에 적는 근거, docs/experiments.md 5단계
+# "재시도 0, 거절 0").
 def service_summary(rows: Sequence[dict], scores: Sequence[ItemScore]) -> dict:
     table = summary_table(scores)
     lat = sorted(r["latency_s"] for r in rows if r["status"] == 200)
-    table["latency_s"] = {"p50": lat[len(lat) // 2], "p95": lat[int(0.95 * (len(lat) - 1))]} if lat else {}
+    table["latency_s"] = {"p50": pctl(lat, 0.5), "p95": pctl(lat, 0.95)} if lat else {}
     table["status"] = {str(k): v for k, v in sorted(Counter(str(r["status"]) for r in rows).items())}
     table["attempts"] = {
         str(k): v for k, v in sorted(Counter(r["attempts"] for r in rows if r["attempts"]).items())

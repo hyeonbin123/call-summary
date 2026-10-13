@@ -396,6 +396,27 @@ def test_judge_run_creates_the_output_folder(tmp_path, monkeypatch):
     assert len(list(read_jsonl(out))) == 1 and (out.parent / "smoke-m_summary.json").exists()
 
 
+# 이어 하기: 출력 파일에 이번에 고른 건보다 많은 행이 있으면(세 건을 모두 판정한 뒤 --limit 1로 다시 부름)
+# 요약의 건수·지표·run_checks는 고른 한 건만 센다. 이미 판정한 건은 모델을 다시 부르지 않고, 파일의 행도
+# 그대로 둔다. 셋째 건의 판정 행에만 "length"(답 상한에서 잘림)를 넣어 run_checks가 고르지 않은 건을 세지
+# 않는지 본다.
+def test_judge_run_resume_counts_only_the_selected_items(tmp_path, monkeypatch):
+    data, runs = _runs(tmp_path, n=3)
+    provider = _Counting(replies=_all_included)
+    monkeypatch.setattr(judge_run, "make_judge", lambda **kw: provider)
+    monkeypatch.setattr(judge_run, "model_fingerprint", lambda p: {})
+    out = runs["A"] / "judge-m.jsonl"
+    assert judge_run.main(["--run", str(runs["A"]), "--out", str(out)]) == 0
+    rows = list(read_jsonl(out))
+    rows[2]["done_reason"] = "length"
+    write_jsonl(out, rows)
+    calls = len(provider.calls)
+    assert judge_run.main(["--run", str(runs["A"]), "--out", str(out), "--limit", "1"]) == 0
+    summary = json.loads((runs["A"] / "judge-m_summary.json").read_text(encoding="utf-8"))
+    assert summary["n"] == 1 and summary["run_checks"]["length_stops"] == 0
+    assert len(provider.calls) == calls and len(list(read_jsonl(out))) == 3
+
+
 # judge_run summary에 측정 코드의 커밋·작업 트리 상태·시작/끝 시각·끝난 뒤 /api/ps(모델이 GPU에 다 올라갔는지,
 # 컨텍스트 길이)가 남는지 확인한다. 판정 실행이 어느 코드와 조건으로 돌았는지 기록에 남기려고 더했다(커밋
 # 0103ac9).
