@@ -4,12 +4,25 @@ The forms below are written by hand from how the v2 verbalizer reads identifiers
 letter name in front, a space before the particle). They were fixed before any Qwen3-ASR output was seen.
 """
 
+# [테스트 묶음] 음성 조건 v3의 식별자 규칙 id-itn-1(call_summary.id_itn)을 검증한다. 인식기가 숫자 하나씩 읽은
+# 번호를 한글 숫자 이름으로 적거나 숫자와 섞어 적으면 채점이 번호를 찾지 못하므로, 그런 번호만 숫자로 되돌리는
+# 규칙이다.
+# [왜 중요한가] 이 규칙은 모든 후보 인식기 팔에 똑같이 적용되고, Qwen3-ASR 출력을 보기 전에 이 테스트(56개)로
+# 고정했다(docs/experiments.md 음성 조건 v3 "식별자 규칙" 확인). 바꾸면 안 되는 꼴(날짜·금액·시각·일반 낱말)을
+# 건드리면 다른 값을 망가뜨려 비교가 틀어진다. 쓴 글 dev·train에서 바뀌는 발화가 0이어야 한다는 확인도 같은
+# 이유다.
+
 import pytest
 
+# occurs_in_transcript: 되돌린 번호를 채점기가 실제로 찾는지 확인하는 데 쓴다.
 from call_summary.id_itn import ITN_VERSION, id_itn
 from call_summary.values import occurs_in_transcript
 
 
+# 바뀌어야 하는 꼴: 주문번호(디/D + 7자리), 접수번호(알/R + 6자리), 운송장번호(12자리, 묶음 사이 구분자는
+# 그대로), 숫자와 이름이 섞인 꼴(기준 인식기가 실제로 적는 "627일 8127 2631"), 카드 끝자리. 번호 뒤의 조사
+# '이'를 숫자로 먹지 않는 경계 처리("이 맞습니다", "이에요", 13번째 이름은 조사)와 앞의 "이"(이것)·뒤의 "3시"
+# 같은 낱말을 번호에서 떼는 경우도 함께 본다.
 @pytest.mark.parametrize(
     "heard,want",
     [
@@ -60,10 +73,15 @@ from call_summary.values import occurs_in_transcript
         ("육이구일, 칠팔칠칠, 오일육팔 3시에 도착", "6291, 7877, 5168 3시에 도착"),  # "3시" is a word
     ],
 )
+# 위 표의 들린 글을 규칙에 넣으면 기대한 글이 정확히 나와야 한다.
 def test_identifiers_read_digit_by_digit_become_digits(heard, want):
     assert id_itn(heard) == want
 
 
+# 바뀌면 안 되는 꼴: 날짜·시각·금액(수사로 읽은 "오십구만"은 십·만이 덩어리를 끊음), 숫자 이름 글자가 든 일반
+# 낱말("이사", "일일이", "오일"), 이미 숫자인 번호, 잘못 들은 글자(B)로 시작하는 번호, 세 자리 이하의 짧은
+# 덩어리, 번호 뒤에 붙은 낱말("이 오는데", "이구요", "팔린", "오배송")과 앞의 "이 15,900원". 마지막 묶음은
+# 규칙을 만들 때 쓴 글·기준 인식기 글에서 실제로 잘못 바꿨던 꼴들이다(문서: 끝 낱말 규칙에 더함).
 @pytest.mark.parametrize(
     "heard",
     [
@@ -95,15 +113,20 @@ def test_identifiers_read_digit_by_digit_become_digits(heard, want):
         "",
     ],
 )
+# 위 표의 글은 규칙을 거쳐도 한 글자도 바뀌지 않아야 한다.
 def test_everything_else_is_left_alone(heard):
     assert id_itn(heard) == heard
 
 
+# "디" 뒤 숫자가 8개면 주문번호(7자리)가 아니므로 "디"는 그대로 두고, 숫자 이름 8개는 숫자 하나씩 읽은 번호로
+# 따로 판단해 숫자로 바꾼다.
 def test_a_prefix_of_the_wrong_length_is_kept_and_the_digits_judged_alone():
     # 디 + 8 names is not an order number; the 8 names are still a number read digit by digit
     assert id_itn("디 사사칠칠팔삼팔구 요") == "디 44778389 요"
 
 
+# 규칙의 목적 확인: 되돌린 전사에서 채점 규칙(spoken=True)이 운송장번호와 주문번호를 찾고, 되돌리기 전의 한글
+# 이름 꼴에서는 찾지 못한다.
 def test_converted_identifiers_are_found_by_the_scorer():
     text = id_itn(
         "상담원: 운송장 번호 육이구일, 칠팔칠칠, 오일육팔 로 조회할게요\n고객: 디 사사칠칠팔삼팔 이에요"
@@ -113,6 +136,8 @@ def test_converted_identifiers_are_found_by_the_scorer():
     assert not occurs_in_transcript("id", "6291-7877-5168", "육이구일, 칠팔칠칠, 오일육팔", spoken=True)
 
 
+# 두 번 적용해도 결과가 같고(이미 숫자인 번호를 다시 바꾸지 않음), 규칙 판 이름이 id-itn-1이다. 판 이름은 만든
+# 데이터의 meta.asr.itn에 남는다(asr_arms.build).
 def test_idempotent_and_versioned():
     once = id_itn("운송장 육이구일, 칠팔칠칠, 오일육팔 이고 주문은 디 사사칠칠팔삼팔")
     assert id_itn(once) == once

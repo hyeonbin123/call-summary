@@ -5,6 +5,16 @@
 - HFProvider: transformers + optional PEFT adapter (students before GGUF export). Heavy imports are lazy.
 """
 
+# [파일 역할] 모델을 부르는 실행기(provider)를 한 인터페이스 뒤에 모은 모듈이다. 모두 "채팅 메시지 목록을 받아
+# 원 답 글(Reply)을 돌려준다"는 같은 꼴이라, 평가·서비스·생성·판정 코드는 어떤 백엔드인지 몰라도 된다.
+# [왜 필요한가] 이 프로젝트는 같은 프롬프트·같은 채점으로 서로 다른 실행 경로를 비교한다: Ollama의 qwen2.5
+# 기준선, transformers로 돌린 학습 전후 학생(4bit + LoRA 어댑터), GGUF로 바꿔 Ollama에 올린 서빙 학생.
+# 실행기만 바꿔 끼우면 나머지 측정 코드가 그대로이므로 "서빙해도 품질이 그대로인가" 같은 비교가 공정해진다.
+# [설계 이유] torch·transformers·httpx는 함수 안에서 불러온다(지연 import). 그래서 GPU·모델 없이 도는 테스트와
+# CI가 ScriptedProvider만으로 이 모듈을 쓸 수 있다(README "테스트는 GPU·모델 없이 돈다").
+# [주요 구성] Reply(답과 측정값) / Provider(인터페이스) / ScriptedProvider(테스트용) / OllamaProvider(HTTP) /
+# HFProvider(transformers).
+
 from __future__ import annotations
 
 import time
@@ -12,9 +22,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 
+# Ollama /api/chat 응답에 들어 있는 시간 카운터(나노초) 이름. 5단계 효율 추가 측정(bench)에서 모델
+# 적재·프롬프트 처리·생성 시간을 나눠 보려고 Reply에 함께 담는다(커밋 0ee468b).
 OLLAMA_TIMINGS = ("total_duration", "load_duration", "prompt_eval_duration", "eval_duration")
 
 
+# 모델 답 하나와 그 측정값. text는 원 답 글, latency_s는 클라이언트에서 잰 시간, 토큰 수는 백엔드가 알려 줄
+# 때만 채운다.
+# thinking과 done_reason은 측정 조건이 지켜졌는지(생각 모드가 꺼졌는지, num_predict에서 잘리지 않았는지)
+# 확인하는 데 쓴다(evaluate.run_checks).
 @dataclass
 class Reply:
     text: str
@@ -27,12 +43,16 @@ class Reply:
     done_reason: str | None = None  # Ollama's stop reason: "stop", or "length" when num_predict cut the reply
 
 
+# 실행기 인터페이스(구조적 타입). name 속성과 generate(messages, json_schema)만 있으면 된다. json_schema는
+# 스키마 강제 디코딩을 지원하는 백엔드만 쓰고 나머지는 무시한다.
 class Provider(Protocol):
     name: str
 
     def generate(self, messages: list[dict], json_schema: dict | None = None) -> Reply: ...
 
 
+# 테스트용 실행기. 미리 정한 답 목록을 차례로 돌려주거나, 메시지를 받아 답을 만드는 함수를 쓴다. 받은 메시지를
+# calls에 남겨 테스트가 프롬프트를 확인할 수 있다(예: tests/test_scoring.py가 few-shot 메시지를 비교).
 @dataclass
 class ScriptedProvider:
     """Returns replies from a function of the messages (or a fixed list, in order)."""
@@ -50,6 +70,9 @@ class ScriptedProvider:
         return Reply(text=text, latency_s=0.0)
 
 
+# 로컬 Ollama 서버(/api/chat)를 부르는 실행기. 기준선 모델, 대화 생성 교사(gen.py), 요약 판정 모델(judge.py),
+# GGUF로 서빙하는 학생(service.py, evaluate --backend ollama, bench.py)이 모두 이것을 쓴다.
+# 기본 디코딩은 탐욕적(temperature 0)이고 seed를 고정한다(docs/experiments.md 공통 "모든 모델 탐욕적").
 @dataclass
 class OllamaProvider:
     model: str
@@ -57,15 +80,25 @@ class OllamaProvider:
     temperature: float = 0.0
     num_ctx: int = 8192
     num_predict: int = 1024
+    # GPU에 올릴 층 수. None이면 Ollama가 정하는데, Windows에서는 VRAM을 꽉 채워 시스템 메모리로 넘치면 요청이
+    # 10분 넘게 걸린 적이 있어 14B는 44층으로 제한했다(docs/experiments.md 1단계 진행 기록).
     num_gpu: int | None = None  # layers on GPU; None lets Ollama decide (it can overfill VRAM on Windows)
     seed: int = 0
+    # keep_alive: 마지막 요청 뒤 모델을 메모리에 남겨 둘 시간. 측정 중 요청마다 모델을 다시 올리지 않게 한다.
+    # timeout_s: 요청 하나의 HTTP 시간 한도(초).
     keep_alive: str = "30m"
     timeout_s: float = 600.0
+    # use_schema: JSON 스키마를 Ollama format으로 넘겨 강제 디코딩할지. 기본은 끈다. 학습한 모델은 스키마
+    # 문법이 키 순서를 바꾸면 필드를 빠뜨렸다(5단계 발견 1). 판정 모델은 켠다(judge.make_judge).
+    # think: 생각 모드 스위치. False를 보내 Qwen3 계열의 생각 글을 끈다(공정하고 빠른 기준선을 위해). None이면
+    # 요청에 넣지 않는다.
     use_schema: bool = False  # pass the JSON schema as Ollama's `format` (constrained decoding)
     think: bool | None = False  # Qwen3-style thinking models: off by default for a fair, fast baseline
     # Further Ollama options (e.g. presence_penalty); the fixed decoding settings above have their own fields.
     extra_options: dict | None = None
 
+    # 필드로 따로 둔 디코딩 설정. extra_options로 이 값들을 덮어쓰면 실행 기록의 필드 값과 실제 요청이
+    # 어긋나므로 __post_init__에서 막는다.
     _FIXED = ("temperature", "num_ctx", "num_predict", "num_gpu", "seed")
 
     def __post_init__(self) -> None:
@@ -73,10 +106,14 @@ class OllamaProvider:
         if clash:
             raise ValueError(f"extra_options cannot set {clash}; use the provider fields")
 
+    # 실행 기록에 남는 이름. 스키마 강제를 켠 실행은 ":schema"를 붙여 같은 모델의 두 조건을 구분한다(2단계의
+    # 7B 스키마 강제 참고치 등).
     @property
     def name(self) -> str:
         return f"ollama:{self.model}" + (":schema" if self.use_schema else "")
 
+    # 요청 본문을 만들어 /api/chat에 한 번 보내고 Reply로 바꾼다. stream=False라 답 전체가 한 번에 온다.
+    # 실패한 HTTP 상태는 raise_for_status로 예외가 되어 부른 쪽(재시도·오류 집계)이 처리한다.
     def generate(self, messages: list[dict], json_schema: dict | None = None) -> Reply:
         import httpx
 
@@ -92,6 +129,8 @@ class OllamaProvider:
                 "seed": self.seed,
             },
         }
+        # 선택 설정은 값이 있을 때만 넣는다. 넣지 않으면 서버·모델 태그의 기본값을 쓴다. extra_options는 고정
+        # 설정 뒤에 합치지만 __post_init__이 겹침을 막아 두었다.
         if self.num_gpu is not None:
             body["options"]["num_gpu"] = self.num_gpu
         body["options"].update(self.extra_options or {})
@@ -99,6 +138,7 @@ class OllamaProvider:
             body["think"] = self.think
         if self.use_schema and json_schema is not None:
             body["format"] = json_schema
+        # 지연은 HTTP 왕복 전체를 클라이언트에서 잰다(서버 쪽 시간은 timings에 따로 있다).
         t0 = time.perf_counter()
         r = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=self.timeout_s)
         r.raise_for_status()
@@ -109,10 +149,13 @@ class OllamaProvider:
             prompt_tokens=data.get("prompt_eval_count"),
             completion_tokens=data.get("eval_count"),
             timings={k: data.get(k) for k in OLLAMA_TIMINGS},
+            # 생각 글이 빈 문자열이면 None으로 바꿔 "생각 글 없음"을 한 가지 값으로 센다.
             thinking=data["message"].get("thinking") or None,
             done_reason=data.get("done_reason"),
         )
 
+    # Ollama /api/ps: 지금 올라간 모델 목록(size_vram 대 size로 GPU에 다 올라갔는지, context_length 등).
+    # evaluate.loaded_models를 거쳐 judge_run·judge_calib가 판정 뒤 기록에 남긴다.
     def loaded_models(self) -> list[dict]:
         import httpx
 
@@ -121,6 +164,9 @@ class OllamaProvider:
         return r.json().get("models", [])
 
 
+# transformers로 직접 돌리는 실행기. 학습 전 학생의 기준선(Qwen3 fp16)과, GGUF로 바꾸기 전의 학습한 학생(바탕
+# 모델 + PEFT LoRA 어댑터, 4B는 4bit 바탕)을 잴 때 쓴다(evaluate --backend hf).
+# RTX 2080 Ti(Turing)에는 bf16이 없어 fp16으로 돌린다(docs/plan.md).
 @dataclass
 class HFProvider:
     """Greedy decoding with transformers. fp16 on this GPU (no bf16 on Turing)."""
@@ -130,6 +176,8 @@ class HFProvider:
     load_4bit: bool = False
     max_new_tokens: int = 1024
     enable_thinking: bool = False
+    # PyTorch가 쓸 GPU 메모리 상한(GB). Windows에서는 VRAM을 넘겨도 오류 없이 시스템 메모리로 새어 나가 몇
+    # 배나 느려지므로, train.cap_vram으로 상한을 건다(train.cap_vram docstring).
     max_vram_gb: float | None = 9.5  # see train.cap_vram
     _model: object = field(default=None, init=False, repr=False)
     _tok: object = field(default=None, init=False, repr=False)
@@ -142,6 +190,8 @@ class HFProvider:
             + (":4bit" if self.load_4bit else "")
         )
 
+    # 처음 generate할 때 한 번만 모델과 토크나이저를 올린다. 무거운 import도 여기서 해 테스트 환경에서는
+    # 실행되지 않는다.
     def _load(self) -> None:
         if self._model is not None:
             return
@@ -152,6 +202,9 @@ class HFProvider:
 
         cap_vram(self.max_vram_gb)
         kwargs: dict = {"dtype": torch.float16, "device_map": "cuda"}
+        # 4bit 바탕(QLoRA 학습 때와 같은 nf4, 계산은 fp16)으로 올린다. 학습(train.py)과 내보내기(export.py)는
+        # double quant를 켜고 여기서는 끈다. 이 차이는 알려진 한계로 기록돼 있고, 모든 4bit 평가가 같은
+        # 설정이라 비교에는 영향이 없다고 보았다(docs/experiments.md 4단계 한계).
         if self.load_4bit:
             from transformers import BitsAndBytesConfig
 
@@ -160,6 +213,7 @@ class HFProvider:
             )
         tok = AutoTokenizer.from_pretrained(self.model_id)
         model = AutoModelForCausalLM.from_pretrained(self.model_id, **kwargs)
+        # 어댑터가 있으면 바탕 위에 LoRA를 얹는다(합치지 않고 그대로 추론). eval()로 dropout 등을 끈다.
         if self.adapter:
             from peft import PeftModel
 
@@ -167,9 +221,14 @@ class HFProvider:
         model.eval()
         self._model, self._tok = model, tok
 
+    # 한 건 생성은 크기 1인 배치로 처리한다. json_schema는 쓰지 않는다(transformers 경로에는 스키마 강제가
+    # 없다).
     def generate(self, messages: list[dict], json_schema: dict | None = None) -> Reply:
         return self.generate_batch([messages])[0]
 
+    # 여러 대화를 왼쪽 패딩으로 묶어 한 번에 탐욕적 생성한다. evaluate가 --batch > 1일 때 길이가 비슷한 건끼리
+    # 묶어 부른다. 지연은 배치 전체 시간을 건수로 나눈 값이라 배치 크기가 1인 실행끼리만 비교할 수
+    # 있다(docstring).
     def generate_batch(self, batch: list[list[dict]]) -> list[Reply]:
         """Greedy decoding of several conversations at once (left padding). Latency is the batch's
         wall time divided evenly, so per-item latency is only comparable between runs with batch size 1."""
@@ -177,17 +236,23 @@ class HFProvider:
 
         self._load()
         tok, model = self._tok, self._model
+        # 모델의 채팅 템플릿으로 프롬프트 글을 만든다. enable_thinking=False면 Qwen3 템플릿이 빈 생각 블록을
+        # 넣어 생각 모드를 끈다. 학습도 같은 템플릿으로 입력을 만든다(train.encode).
         prompts = [
             tok.apply_chat_template(  # type: ignore[attr-defined]
                 m, tokenize=False, add_generation_prompt=True, enable_thinking=self.enable_thinking
             )
             for m in batch
         ]
+        # 생성 모델은 오른쪽에 이어 쓰므로 패딩은 왼쪽에 둔다(오른쪽 패딩이면 패딩 뒤에서 생성이 시작된다).
+        # 패딩 토큰이 없으면 EOS를 패딩으로 쓴다.
         tok.padding_side = "left"  # type: ignore[attr-defined]
         if tok.pad_token is None:  # type: ignore[attr-defined]
             tok.pad_token = tok.eos_token  # type: ignore[attr-defined]
         # Same tokenization as training (train.encode): the chat template already holds special tokens.
         enc = tok(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to("cuda")  # type: ignore[operator]
+        # no_grad로 기울기 계산을 끄고, do_sample=False로 탐욕적 생성을 한다. 답 상한은 max_new_tokens(기본
+        # 1,024, Ollama의 num_predict와 같다).
         t0 = time.perf_counter()
         with torch.no_grad():
             out = model.generate(  # type: ignore[attr-defined]
@@ -197,6 +262,9 @@ class HFProvider:
                 pad_token_id=tok.pad_token_id,  # type: ignore[attr-defined]
             )
         latency = (time.perf_counter() - t0) / len(batch)
+        # 출력은 [패딩된 입력 + 새 토큰]이므로, 입력 폭 뒤만 잘라 새로 만든 답으로 쓴다. 새 토큰 수는 패딩
+        # 토큰이 아닌 것만 센다(일찍 끝난 건은 뒤가 패딩으로 채워진다). 프롬프트 토큰 수는 attention mask의
+        # 1을 센다.
         width = enc["input_ids"].shape[1]
         replies = []
         for i in range(len(batch)):

@@ -1,5 +1,14 @@
+# [테스트 묶음] 모델 없이 도는 음성 조건 분석 도구 call_summary.asr_report와 그 바탕인 scoring.unfound_split을
+# 검증한다. survival(정답 값 보존율), unfound(전사에 없는 예측 값을 복원·지어낸 값으로 나누고 빈 값·자리 표시
+# 값을 따로 셈), tracking-forms(인식기가 운송장번호를 어떤 꼴로 적었는지 분류)를 다룬다.
+# [왜 중요한가] 이 도구의 수치가 문서의 표(4단계 입력 분석, 음성 조건 v2의 운송장번호 표, 2026 비교 대상의
+# "없음" 자리 표시 값)로 그대로 들어간다. v2 입력 분석의 운송장번호 표는 처음에 저장소 밖 스크립트로 셌다가 이
+# 도구로 옮겨 커밋된 데이터만으로 다시 나오게 했다(커밋 58520e3).
+
 import json
 
+# _item(tests/test_scoring.py): 정답 값을 모두 말하는 짧은 가짜 건. 발화를 바꿔 "인식 뒤 값이 사라진 전사"를
+# 만든다.
 from call_summary import asr_report
 from call_summary.dataset import write_jsonl
 from call_summary.schema import Entity, ParseResult
@@ -7,11 +16,20 @@ from call_summary.scoring import score_item, unfound_split
 from tests.test_scoring import _item
 
 
+# 정답 기록에 예측 값(extra)을 더한 예측 기록을 만든다.
 def _pred(it, extra=()):
     gold = it.gold()
     return gold.model_copy(update={"entities": [*gold.entities, *extra]})
 
 
+# 전사에 없는 예측 값이 정답과 같으면 복원, 아니면 지어낸 값으로 나뉘는지 확인한다(4단계 규칙 "복원과 환각을
+# 나눠 센다").
+# - 값이 모두 전사에 있으면 정답 값은 어느 쪽에도 들지 않고, 정답에 없는 금액과 업종에 없는 유형만 지어낸
+#   값이다.
+# - 값이 사라진 전사(silent)에서는 정답을 그대로 옮긴 값이 모두 복원으로 센다(학습한 이름으로 인식 오류를
+#   바로잡는 경우).
+# - 복원 + 지어낸 값의 합이 채점기의 환각 수(entity_hallucinated)와 같다. 두 지표가 같은 "전사에 없는 값"을
+#   나눈 것임을 보장한다.
 def test_unfound_values_split_into_restored_and_invented():
     it = _item(0)  # shop: every gold value is said in the transcript
     gold = it.gold()
@@ -31,6 +49,9 @@ def test_unfound_values_split_into_restored_and_invented():
     assert score.entity_hallucinated == sum(restored.values()) + sum(made_up.values())
 
 
+# survival이 파일마다 유형별 [찾은 값, 전체]와 모든 값이 남은 건 수를 세고, 표에 백분율로 나오는지 본다. 값을
+# 모두 말한 파일은 100%, 값이 하나도 없는 파일은 0%다. 이 표는 모델을 돌리기 전에 입력 조건을 적는 "입력
+# 분석"에 쓴다.
 def test_survival_table_per_file(tmp_path):
     it = _item(0)
     heard = _item(0)
@@ -48,6 +69,8 @@ def test_survival_table_per_file(tmp_path):
     assert "모든 값이 남은 건" in table and "100.0" in table and "0.0" in table
 
 
+# 기록된 실행 하나(manifest + items.jsonl)를 읽어 unfound가 예측한 값 수, 복원, 지어낸 값을 세는지 확인한다.
+# 분할이 "-asr"라 넓은 번호 규칙으로 찾는다.
 def test_unfound_report_of_a_run(tmp_path):
     it = _item(0)
     it.split = "dev-asr"
@@ -67,6 +90,8 @@ def test_unfound_report_of_a_run(tmp_path):
     assert "복원" in asr_report.unfound_table({"run": got})
 
 
+# 빈 값("", 공백만)은 지어낸 값으로 들어가면서 empty로도 따로 센다. 3단계가 환각을 빈 값 포함·제외 두 가지로
+# 보고했으므로(docs/experiments.md 3단계) 표에 빈 값을 뺀 비율이 함께 나와야 한다.
 def test_unfound_report_counts_empty_values(tmp_path):
     # Stage 3 reported hallucination with and without empty values ("" filled into a type the call never
     # mentioned): empty values are unfound and invented, and the table gives the rate without them too.
@@ -91,6 +116,9 @@ def test_unfound_report_counts_empty_values(tmp_path):
     assert "빈 값" in table and f"{100 * 1 / n:.1f}% (1)" in table
 
 
+# "없음", "알 수 없음", "미정" 같은 자리 표시 낱말은 placeholder로 따로 센다(띄어쓰기·앞뒤 공백 무시, "알수
+# 없음"도 같음). 낱말 전체가 자리 표시일 때만이라 "없음 아님"은 그냥 지어낸 값이다. empty는 3단계와 같은
+# 셈으로 그대로 두고, 표에는 빈 값만 뺀 비율과 둘 다 뺀 비율을 함께 낸다(커밋 e9dc490).
 def test_unfound_report_counts_placeholder_values(tmp_path):
     # The 2026 comparators wrote a word for "no value" ("없음", "알 수 없음") where stage 3's 14B wrote "":
     # the same failure in text form. Placeholders are counted on their own so `empty` stays as stage 3
@@ -123,9 +151,15 @@ def test_unfound_report_counts_placeholder_values(tmp_path):
     assert f"{100 * 2 / n:.1f}% (2)" in table  # without empty and placeholder values
 
 
+# 운송장번호 하나가 든 쓴 글. 아래 테스트가 같은 문장을 인식기가 여러 꼴로 적은 경우를 흉내 낸다.
 WRITTEN = "운송장 번호 6291-7877-5168로 받은 건이에요."
 
 
+# tracking_form의 분류를 꼴마다 확인한다: 원래 꼴 그대로, 묶음이 쉼표로 나뉘었지만 채점 규칙으로 찾음, 한글
+# 숫자 이름 네 자 이상, 그리고 찾지 못한 번호를 번호와 정렬한 구간으로 나눈 네 가지(한글 음절이 섞임, 숫자가
+# 적음, 많음, 수는 같고 다름).
+# 가장자리에 붙은 숫자는 구간에 넣고("52685"), 같은 발화의 다른 곳에 있는 날짜는 넣지 않는다. v1의 범위
+# 읽기("에서")는 따로 세므로 "에서"만으로 한글 음절 꼴이 되지 않는다(커밋 58520e3).
 def test_tracking_form_classes():
     def form(heard):
         return asr_report.tracking_form("6291-7877-5168", WRITTEN, heard, WRITTEN.index("6291"))
@@ -144,6 +178,8 @@ def test_tracking_form_classes():
     assert form("운송장 번호 6291 78717에서 5168로 받은 건이에요.") == ("lost_more", "6291 78717에서 5168")
 
 
+# tracking_forms가 파일의 모든 발화를 쓴 글(meta.asr.written)과 들린 글로 짝지어 번호마다 분류하고, 찾지 못한
+# 번호 목록과 "에서"가 들린 발화 수를 남기는지, 표에 행 이름대로 나오는지 확인한다.
 def test_tracking_forms_per_file(tmp_path):
     it = _item(0, domain="parcel", category=None)
     it.split = "dev-asr"

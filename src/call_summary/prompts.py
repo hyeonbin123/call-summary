@@ -1,17 +1,40 @@
 """The summarizer prompt: the same text for every model, trained or not. Changing it after measuring starts
 must be recorded in docs/experiments.md (its hash goes into every run manifest)."""
 
+# [파일 역할] 상담 후처리 기록을 요청하는 프롬프트(시스템 지시문, 사용자 메시지, few-shot 예시)를 만드는
+# 모듈이다. 학습 전 모델, 비교용 큰 모델, 학습한 학생, 서비스가 모두 이 함수로 같은 메시지를 만든다.
+# [왜 필요한가] 측정이 공정하려면 모든 모델이 같은 지시문을 받아야 하고, 학습한 모델은 학습 때 본 프롬프트를
+# 서빙 때도 그대로 받아야 한다(train.py docstring "The prompt is exactly the evaluation prompt"). 그래서
+# 프롬프트를 한곳에 두고, 바뀌었는지는 prompt_hash로 실행 기록(manifest)에 남겨 확인한다.
+# [주요 구성] _SYSTEM(p1 지시문) / _GUIDE_P2(p2에 덧붙이는 기록 기준) → system_prompt(업종 라벨을 채움) →
+# format_transcript·user_prompt(대화 부분) → build_messages(채팅 메시지 목록) → record_to_json(학습 목표
+# 문자열) → prompt_hash(지시문 지문).
+
 from __future__ import annotations
 
+# hashlib: 프롬프트 지문(sha256 앞 12자리)을 만들어 실행 기록에 남긴다. json: 정답 기록을 학습 목표 문자열로
+# 직렬화한다.
 import hashlib
 import json
 
+# DOMAINS: 업종별 회사 이름·문의 유형·핵심 값 유형·처리·후속 조치 목록. 지시문에 이 목록을 그대로 넣어, 모델이
+# 고를 수 있는 라벨을 업종마다 닫힌 집합으로 알려 준다.
+# RESOLUTIONS: 처리 결과 네 가지(해결/부분 해결/미해결/이관). AfterCallRecord: 출력 스키마.
 from .domains import DOMAINS
 from .schema import RESOLUTIONS, AfterCallRecord
 
+# PROMPT_VERSION: 기본 프롬프트. 모든 모델과 모든 학습이 p1을 쓴다.
+# PROMPT_VERSIONS: 고를 수 있는 판. p2는 3단계에서 "학습 이득이 기록 관례를 배운 것뿐인가"를 가르려고 14B에 준
+# 비교용 프롬프트이고(docs/experiments.md 2단계 오류 분석), 2026-10-05 비교 대상(qwen3.5:4b 등)의 후보로도
+# 쓰였다. evaluate.py의 --prompt 선택지가 이 튜플이다.
 PROMPT_VERSION = "p1"  # every model and all training use p1; p2 is a prompt-only comparison (stage 3)
 PROMPT_VERSIONS = ("p1", "p2")
 
+# p1 시스템 지시문. {company}·{categories} 같은 자리는 system_prompt가 업종 정보로 채운다. JSON 예시의
+# 중괄호는 str.format이 자리 표시로 읽지 않도록 두 겹으로 적었다.
+# 지시문은 "JSON 하나로만" 답하라고 하고, 필드마다 고를 수 있는 목록을 나열하며, 대화에 없는 값을 지어내지
+# 말고 고객이 고친 값은 고친 값만 적으라고 한다. 고친 값 규칙은 명세의 correction 사건(고객이 번호를 잘못
+# 말했다 고침)과 짝을 이룬다.
 _SYSTEM = """당신은 {company}({label}) 고객센터의 상담 후처리 담당자입니다. 상담 대화 전사를 읽고 상담 기록을 JSON 하나로만 작성하세요. JSON 밖에는 아무것도 쓰지 마세요.
 
 필드:
@@ -24,6 +47,10 @@ _SYSTEM = """당신은 {company}({label}) 고객센터의 상담 후처리 담�
 - follow_up: {{"required": 후속 조치가 필요한지 true/false, "codes": 후속 조치 목록}}. 목록은 다음 중에서: {follow_ups}
 - summary: 상담 내용을 3~5문장의 한국어로 요약. 고객의 요청, 상담원이 확인하거나 처리한 것, 결과와 후속 조치를 담으세요."""
 
+# _GUIDE_P2: 명세 생성기의 기록 관례(해결/부분 해결의 경계, 본인 확인을 처리에 넣는 것, 해결돼도 남은 일은
+# 후속 조치로 적는 것 등)를 사람이 쓰는 지침서처럼 요약한 글이다. 2단계에서 학습 전 모델이 틀린 것의 상당수가
+# 프롬프트에 적지 않은 관례였기 때문에 추가했다(README 3단계 결과 요약). 모든 경우를 담지는
+# 않는다(docs/experiments.md).
 # p2 = p1 + the labelling conventions written out, as an annotation guideline would state them.
 _GUIDE_P2 = """
 
@@ -43,14 +70,19 @@ _GUIDE_P2 = """
   - 그 밖의 코드(재입고 알림, 기사 방문 예정, 임대폰 배송, 서류 제출 대기, 재발급 카드 배송)는 이름 그대로의 일이 남은 경우"""
 
 
+# 업종 하나의 시스템 지시문을 만든다. 입력: 업종 키(shop, telecom, parcel, card)와 프롬프트 판. 출력: 라벨
+# 목록을 채운 지시문 문자열.
+# 알 수 없는 판 이름은 ValueError로 막아, 오타로 다른 프롬프트를 쓴 측정이 조용히 기록되지 않게 한다.
 def system_prompt(domain_key: str, version: str = PROMPT_VERSION) -> str:
     d = DOMAINS[domain_key]
 
+    # 목록을 쉼표로 잇는 도우미. 비어 있으면 "(없음)"으로 적어 지시문에 빈 칸이 생기지 않게 한다.
     def join(xs: tuple[str, ...]) -> str:
         return ", ".join(xs) if xs else "(없음)"
 
     if version not in PROMPT_VERSIONS:
         raise ValueError(version)
+    # p2는 p1 뒤에 기록 기준을 덧붙인 것이므로, p1 부분은 두 판에서 글자까지 같다.
     text = _SYSTEM + (_GUIDE_P2 if version == "p2" else "")
     return text.format(
         company=d.company,
@@ -63,15 +95,23 @@ def system_prompt(domain_key: str, version: str = PROMPT_VERSION) -> str:
     )
 
 
+# 발화 목록을 "상담원: ..." / "고객: ..." 줄로 잇는다. 데이터셋(Item.transcript), 서비스 요청, 음성 조건
+# 전사가 모두 이 꼴로 바뀌어 모델에 들어간다.
 def format_transcript(turns: list[dict]) -> str:
     """turns: [{"speaker": "상담원"|"고객", "text": ...}]"""
     return "\n".join(f"{t['speaker']}: {t['text']}" for t in turns)
 
 
+# 사용자 메시지: 전사를 감싸고 "상담 기록 JSON:"으로 끝내, 모델이 바로 JSON을 쓰기 시작하도록 유도한다.
 def user_prompt(transcript: str) -> str:
     return f"상담 대화:\n{transcript}\n\n상담 기록 JSON:"
 
 
+# 한 통화의 채팅 메시지 목록을 만든다. 순서: system → (예시마다 user 전사 → assistant 정답 JSON) → user 실제
+# 전사.
+# shots를 주면 few-shot(2단계 기준선의 2-shot, 2026-10-05 비교 대상)이 되고, 학습·서빙은 shots 없이 0-shot으로
+# 부른다. 예시 정답도 record_to_json으로 직렬화해 학습 목표와 같은 꼴을 보여 준다.
+# 호출 위치: evaluate.py, train.py(학습 입력), service.py(서빙), bench.py.
 def build_messages(
     domain_key: str,
     transcript: str,
@@ -87,16 +127,28 @@ def build_messages(
     return msgs
 
 
+# 정답 기록을 한 줄 JSON 문자열로 만든다. 학습 목표이자 few-shot 예시 답이고, 오프라인 서비스의 고정 답도 이
+# 함수로 만든다.
+# model_dump는 스키마에 정의한 필드 순서를 지키므로 키 순서가 늘 같다. 5단계에서 JSON 스키마 강제 디코딩이 키
+# 순서를 바꾸자 학습한 모델이 필드를 빠뜨린 일이 있어(README 5단계), 학습 때의 키 순서는 이 함수가 정한 것이
+# 기준이다. ensure_ascii=False로 한글을 \u 이스케이프 없이 그대로 써 사람이 읽을 수 있게 한다(docstring).
 def record_to_json(record: AfterCallRecord) -> str:
     """The training target text: compact but readable, keys in schema order, Hangul unescaped."""
     return json.dumps(record.model_dump(), ensure_ascii=False)
 
 
+# 프롬프트 판의 지문(sha256 앞 12자리)을 만든다. 실행 기록(evaluate, train, bench의 manifest)과 서비스 /health
+# 응답에 들어가, 측정이 어떤 프롬프트로 돌았는지와 서빙 프롬프트가 학습 때와 같은지 확인하는 데 쓴다.
+# 판 이름, 지시문 원문, 네 업종의 완성된 지시문을 모두 해시에 넣어, 업종 라벨 목록(domains.py)만 바뀌어도
+# 지문이 바뀐다.
+# p2가 생기기 전과 같은 순서로 p1을 계산해 예전 실행 기록의 지문이 그대로 맞는다(테스트가 p1 지문 값을 고정해
+# 확인한다).
 def prompt_hash(version: str = PROMPT_VERSION) -> str:
     """p1's hash is computed exactly as before p2 existed, so earlier manifests still match."""
     h = hashlib.sha256()
     h.update(version.encode())
     h.update(_SYSTEM.encode())
+    # p2일 때만 기록 기준 원문을 더 넣는다. p1 경로에 이 줄이 끼지 않아야 예전 p1 지문이 그대로다.
     if version == "p2":
         h.update(_GUIDE_P2.encode())
     for key in sorted(DOMAINS):

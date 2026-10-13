@@ -6,6 +6,15 @@ compare --pick RUN...     runs ranked by the pick rule: exact, then entity F1, t
 compare --think-check RUN...  per run: thinking text, <think> tags, replies cut at num_predict, answer tokens
 """
 
+# [파일 역할] 기록된 평가 실행(outputs/runs/<id>/ 또는 reports/<id>/)을 읽어 docs/experiments.md에 붙일 표를
+# 만드는 모델 없는 도구다. 실행마다 지표와 95% 구간을 나란히 보여 주는 표, 두 실행의 짝지은 차이 표, dev에서
+# 고르는 규칙대로 실행을 줄 세운 표, 생각 끄기 확인 표를 낸다.
+# [왜 필요한가] 이 프로젝트는 판정을 "같은 건끼리 짝지은 부트스트랩 95% 구간의 하한이 0보다 큰가"로
+# 내린다(docs/experiments.md 공통). 결과 표와 판정을 손으로 계산하지 않고 실행 기록(manifest.json,
+# summary.json, items.jsonl)에서 다시 계산하게 해, 누구나 같은 숫자를 다시 낼 수 있게 한다.
+# [연결] evaluate.py가 쓴 실행 폴더를 읽고, 지표 계산은 scoring.py(METRICS, paired_bootstrap_diff)를 그대로
+# 쓴다.
+
 from __future__ import annotations
 
 import argparse
@@ -13,11 +22,17 @@ import json
 import math
 from pathlib import Path
 
+# HEADLINE: 표에 기본으로 넣는 지표 목록(evaluate.py와 같은 것을 써서 실행 요약과 표의 열이 어긋나지 않게
+# 한다).
+# METRICS: 지표 이름 → 건별 점수 목록에서 값을 계산하는 함수. ItemScore: 건 하나의 채점 결과.
+# paired_bootstrap_diff: 같은 건 id를 양쪽에서 함께 다시 뽑아 B − A 차이의 구간을 낸다.
 from .dataset import read_jsonl
 from .evaluate import HEADLINE
 from .scoring import METRICS, ItemScore, paired_bootstrap_diff
 
 
+# 실행 폴더 하나에서 manifest(실행 조건)와 건별 채점 결과(items.jsonl의 score)를 읽는다. 짝지은 비교는
+# 요약값이 아니라 이 건별 점수로 다시 계산한다.
 def load_run(run: str | Path) -> tuple[dict, list[ItemScore]]:
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
@@ -25,6 +40,8 @@ def load_run(run: str | Path) -> tuple[dict, list[ItemScore]]:
     return manifest, scores
 
 
+# 표에 쓸 실행 이름: 모델(provider) 이름에 shot 수와 p1이 아닌 프롬프트 판을 붙인다(예: "qwen2.5:14b p2", "...
+# 2-shot"). 기본값(0-shot, p1)은 생략해 이름을 짧게 한다.
 def run_name(manifest: dict) -> str:
     shots = manifest.get("shots") or 0
     prompt = manifest.get("prompt_version", "p1")
@@ -33,12 +50,16 @@ def run_name(manifest: dict) -> str:
     )
 
 
+# 숫자를 표의 칸 글자로 바꾼다. 비율은 백분율 소수 한 자리, 초 단위 값(pct=False)은 소수 두 자리. None이나
+# NaN(예: 핵심 값을 하나도 내지 않아 정의되지 않는 정밀도)은 "-"로 적는다.
 def fmt(x: float, pct: bool = True) -> str:
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return "-"
     return f"{100 * x:.1f}" if pct else f"{x:.2f}"
 
 
+# 실행마다 한 줄: 건수, 지표마다 "점 추정 [95% 하한, 상한]", 지연 p50(초). 값은 evaluate가 미리 계산해 둔
+# summary.json에서 읽는다. 구간이 없는 지표는 NaN으로 두어 "-"로 보인다.
 def run_table(runs: list[str], metrics: tuple[str, ...] = HEADLINE) -> str:
     head = "| run | n | " + " | ".join(metrics) + " | p50 s |"
     lines = [head, "|" + "---|" * (len(metrics) + 3)]
@@ -57,10 +78,16 @@ def run_table(runs: list[str], metrics: tuple[str, ...] = HEADLINE) -> str:
     return "\n".join(lines)
 
 
+# 두 실행 A, B의 지표마다 A 값, B 값, B − A 차이와 짝지은 부트스트랩 95% 구간(기본 2,000번)을 표로 낸다. 같은
+# 데이터의 같은 건이 양쪽에 있어야 하며, 맞지 않으면 paired_bootstrap_diff가 오류를 낸다.
+# 판정 문장("하한 > 0이면 넘음" 등)은 이 표의 diff 구간으로 내린다(예: 2026년 비교 대상 판정 `compare --paired
+# <비교 대상> <학생>`).
 def paired_table(a: str, b: str, metrics: tuple[str, ...] = HEADLINE, n_boot: int = 2000) -> str:
     ma, sa = load_run(a)
     mb, sb = load_run(b)
     lines = [
+        # 제목 줄의 빼기 기호는 ASCII "-"로 쓴다. Windows 한국어 환경에서 출력을 파일로 돌리면 표준 출력이
+        # cp949인데 cp949에는 유니코드 빼기(U+2212)가 없다. 돌린 출력도 동작하게 고친 것이다(커밋 0ea5791).
         # ASCII minus: a redirected stdout is cp949 on Windows here, which has no U+2212
         f"B - A: `{run_name(mb)}` - `{run_name(ma)}` (n={len(sa)})",
         "",
@@ -75,6 +102,9 @@ def paired_table(a: str, b: str, metrics: tuple[str, ...] = HEADLINE, n_boot: in
     return "\n".join(lines)
 
 
+# 고르는 규칙의 정렬 키: exact 높은 순 → 핵심 값 F1 높은 순 → 환각 낮은 순. 높은 것이 앞에 오도록 앞의 둘은
+# 부호를 뒤집는다.
+# 값이 정의되지 않으면(핵심 값을 하나도 내지 않은 실행 등) 가장 나쁜 값으로 쳐 맨 뒤로 보낸다.
 def _pick_key(point: dict) -> tuple[float, float, float]:
     def num(x: float | None, worst: float) -> float:
         return worst if x is None or (isinstance(x, float) and math.isnan(x)) else x
@@ -87,6 +117,10 @@ def _pick_key(point: dict) -> tuple[float, float, float]:
     )
 
 
+# dev 결과로 후보를 고르는 규칙의 순서대로 실행을 줄 세운다(첫 번째가 고른 것). 예: 2026-10-05 비교 대상 8개
+# 설정에서 C*를 고를 때 등록 순서로 넘겼다(docs/experiments.md).
+# sorted는 안정 정렬이라 세 기준이 모두 같으면 넘긴 순서가 유지된다. 그래서 규칙의 마지막 동률 기준("등록
+# 순서가 앞선 것")을 맞추려면 등록 순서대로 넘겨야 한다.
 def pick_order(runs: list[str]) -> list[str]:
     """Runs best first by dev exact, then entity F1, then lower hallucination; full ties keep the given
     order (list the runs in their registered order)."""
@@ -94,6 +128,7 @@ def pick_order(runs: list[str]) -> list[str]:
     return sorted(runs, key=lambda r: _pick_key(points[r]))
 
 
+# pick_order의 결과를 순위, 실행 이름(폴더 이름), exact, 핵심 값 F1, 환각으로 표에 적는다.
 def pick_table(runs: list[str]) -> str:
     lines = ["| rank | run | exact | entity_f1 | hallucination |", "|---|---|---|---|---|"]
     for i, r in enumerate(pick_order(runs), 1):
@@ -104,6 +139,11 @@ def pick_table(runs: list[str]) -> str:
     return "\n".join(lines)
 
 
+# 생각 모드를 끈 설정이 실제로 꺼졌는지 실행마다 확인할 값들을 모은다(2026-10-05 비교 대상의 "생각 끄기 확인"
+# 단계용 도구, docs/experiments.md).
+# 세는 것: 생각 글(Ollama message.thinking)이 붙어 온 답, 답 안의 <think> 태그, num_predict에서 잘린
+# 답(done_reason "length"), 스키마 통과 수, 답 토큰 수의 p50·최대. 생각 글이 남으면 답 상한(1,024토큰)에서
+# 잘려 JSON이 사라지므로, 이 값들로 측정 조건이 지켜졌는지 판단한다.
 def think_rows(runs: list[str]) -> list[dict]:
     """Per run, what shows whether the thinking switch held: replies that came with thinking text
     (Ollama's message.thinking), replies with <think> tags in the answer, replies cut at num_predict,
@@ -112,6 +152,7 @@ def think_rows(runs: list[str]) -> list[dict]:
     for r in runs:
         manifest = json.loads((Path(r) / "manifest.json").read_text(encoding="utf-8"))
         rows = list(read_jsonl(Path(r) / "items.jsonl"))
+        # 답 토큰 수는 백엔드가 알려 준 건만 쓴다. p50은 정렬한 목록의 가운데 원소다(evaluate와 같은 방식).
         toks = sorted(x["completion_tokens"] for x in rows if x.get("completion_tokens") is not None)
         out.append(
             {
@@ -130,6 +171,9 @@ def think_rows(runs: list[str]) -> list[dict]:
     return out
 
 
+# 명령줄 진입점. 위치 인자 실행들은 run_table로, --paired는 짝지은 표, --pick은 고르는 순서, --think-check는
+# 생각 끄기 확인 줄(JSON)을 찍는다. 여러 옵션을 한 번에 주면 pick → think-check → paired → 실행 표 순서로 모두
+# 찍는다.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("runs", nargs="*")

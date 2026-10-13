@@ -1,7 +1,15 @@
+# [테스트 묶음] 5단계 부하 시험 도구 call_summary.loadtest를 모델 없이 검증한다: 오프라인 서비스에 동시 요청을
+# 보내 처리량·지연·상태를 세는지, 전송 실패(시간 초과)를 실행 중단이 아닌 오류 상태로 세는지, 동시성 단계마다
+# 결과를 파일에 남겨 뒤 단계가 실패해도 앞 결과가 남는지.
+# [왜 중요한가] 부하 표(동시 1·2·4의 처리량, p50/p95, 오류 수)가 이 도구에서 나온다(docs/experiments.md
+# 5단계). 타임아웃·연결 끊김을 error:<예외> 상태로 세고 단계마다 --out을 다시 쓰도록 고쳤다(커밋 6238213).
+
 import json
 import threading
 from types import SimpleNamespace
 
+# TestClient + create_offline_app: 모델 없는 오프라인 서비스(고정 답)에 실제 HTTP 경로로 요청한다. httpx는
+# 예외 종류(ReadTimeout, ConnectError)를 만들고 httpx.Client를 가짜로 바꾸는 데 쓴다.
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +21,8 @@ from call_summary.service import create_offline_app
 from tests.test_scoring import _item
 
 
+# 동시 3으로 9건을 보내 모두 200이고 지연·처리량이 계산되며, 서비스의 /stats에도 ok 9건이 잡히는지
+# 확인한다(클라이언트 수와 서비스 수가 맞는다).
 def test_run_load_against_offline_service():
     items = [_item(i, category=None) for i in range(9)]
     with TestClient(create_offline_app()) as client:
@@ -22,6 +32,7 @@ def test_run_load_against_offline_service():
         assert client.get("/stats").json()["requests"]["ok"] == 9
 
 
+# 세 번째 요청만 시간 초과를 내는 가짜 클라이언트. 동시 요청 스레드가 순번을 같이 세므로 Lock으로 지킨다.
 class FlakyClient:
     """The third request times out; every other one answers 200."""
 
@@ -38,6 +49,8 @@ class FlakyClient:
         return SimpleNamespace(status_code=200)
 
 
+# 시간 초과 한 건은 "error:ReadTimeout" 상태로 세고 나머지 다섯 건은 정상 집계된다. 지연 분포는 200 응답만으로
+# 계산된다.
 def test_a_failed_request_is_counted_not_fatal():
     items = [_item(i, category=None) for i in range(6)]
     res = run_load(FlakyClient(), items, concurrency=2)
@@ -45,6 +58,8 @@ def test_a_failed_request_is_counted_not_fatal():
     assert res["latency_s"] is not None
 
 
+# httpx.Client를 가짜로 바꿔, 동시 1·2 두 단계를 다 돈 뒤 /stats 요청에서 서비스가 사라진 상황을 만든다.
+# main은 예외로 끝나지만 --out 파일에는 끝난 두 단계의 결과가 이미 남아 있어야 한다(단계마다 저장).
 def test_finished_stages_are_saved_before_a_later_failure(tmp_path, monkeypatch):
     class Client:
         def __init__(self, **kw) -> None:
