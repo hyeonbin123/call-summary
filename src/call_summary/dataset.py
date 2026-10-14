@@ -1,9 +1,9 @@
-"""Dataset items on disk: one JSON object per line.
+"""디스크에 저장하는 데이터셋 항목: 한 줄에 JSON 객체 하나.
 
 {"item_id", "split", "domain", "spec": {...}, "turns": [{"speaker", "text"}], "summary": str | null,
  "source": "teacher:<model>" | "claude" | ..., "meta": {...}}
 
-The gold record is always rebuilt from the spec (`Item.gold`), never stored separately.
+정답 기록은 따로 저장하지 않고 늘 명세에서 다시 만든다(`Item.gold`).
 """
 
 # [파일 역할] 디스크에 있는 데이터셋 한 건(Item)의 형식과, JSONL을 읽고 쓰는 공용 함수를 모아 둔 모듈이다.
@@ -39,7 +39,7 @@ class Item:
     domain: str
     spec: Spec
     turns: list[dict]
-    summary: str | None = None  # reference summary (training target); scoring never uses it
+    summary: str | None = None  # 참고 요약(학습 목표). 채점에는 쓰지 않는다
     source: str = ""
     meta: dict = field(default_factory=dict)
 

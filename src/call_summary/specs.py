@@ -1,8 +1,8 @@
-"""Scenario specs: the ground truth of one call, drawn with a seeded RNG before any dialogue exists.
+"""시나리오 명세: 통화 한 건의 정답. 대화가 생기기 전에 seed를 고정한 난수로 뽑는다.
 
-A spec fixes the category, the entity values (and how they are said), what the agent did, how the call
-ended, the conversational events, and the facts a summary must contain. The gold after-call record is a
-pure function of the spec, so no LLM ever produces a structured label.
+명세는 문의 유형, 핵심 값(과 그 값을 말하는 말투), 상담원이 한 처리, 통화가 끝난 방식, 대화 사건, 요약에
+꼭 들어가야 할 사실을 정한다. 정답 상담 후처리 기록은 명세만으로 정해지는 순수 함수이므로, LLM이 구조화
+라벨을 만드는 일은 없다.
 """
 
 # [파일 역할] 통화 한 건의 정답(시나리오 명세)을 seed 고정 난수로 뽑는다. 명세에서 정답 기록(gold)이 함수로
@@ -33,8 +33,8 @@ from .values import normalize
 # 분할 이름. 분할 이름이 seed 문자열에 들어가므로 같은 번호라도 분할이 다르면 다른 명세가 나온다(train과
 # test의 명세 seed가 겹치지 않게, docs/plan.md "데이터 나누기").
 SPLITS = ("train", "dev", "test-a", "test-b", "test-c")
-# Which domains each generated split covers. test-b reuses test-b specs over the training domains but its
-# dialogues are written by a different model family; test-c is the held-out domain.
+# 분할마다 만들 업종. test-b는 학습 업종에 대해 자기 분할(test-b)의 명세를 쓰지만 대화는 다른 계열의 모델이
+# 쓴다. test-c는 학습에서 빼 둔 업종이다.
 SPLIT_DOMAINS: dict[str, tuple[str, ...]] = {
     "train": TRAIN_DOMAINS,
     "dev": TRAIN_DOMAINS,
@@ -45,15 +45,14 @@ SPLIT_DOMAINS: dict[str, tuple[str, ...]] = {
 
 # 대화 사건: 대화를 다양하게 만들고, 모델이 헷갈릴 만한 상황(말실수 뒤 정정, 대기, 잡담 등)을 넣는다. 대부분은
 # 교사에게 주는 지시일 뿐이고 정답을 바꾸는 것은 verify(처리 목록에 '본인 확인'이 더해짐)와 correction(틀린
-# 번호가 대화에 섞임)이다.
-# Conversational events. Each is an instruction to the dialogue writer; some also change the gold.
-EV_VERIFY = "verify"  # agent verifies identity (name + birth date), adds the 본인 확인 action
-EV_CORRECTION = "correction"  # caller first says a wrong value, then corrects it (distractor in the text)
-EV_COMPLAINT = "complaint"  # caller is upset, agent apologizes
-EV_HOLD = "hold"  # agent asks the caller to wait while checking
-EV_REPEAT = "repeat"  # caller asks the same thing twice
-EV_SMALLTALK = "smalltalk"  # caller chats briefly before the request
-EV_EXTRA_QUESTION = "extra_question"  # caller adds a small unrelated question at the end
+# 번호가 대화에 섞임)이다. 사건 하나하나는 대화를 쓰는 모델에게 주는 지시다.
+EV_VERIFY = "verify"  # 상담원이 본인 확인(이름 + 생년월일)을 하고, 처리에 '본인 확인'이 더해진다
+EV_CORRECTION = "correction"  # 고객이 틀린 값을 먼저 말했다가 고친다(대화에 말실수 값이 남는다)
+EV_COMPLAINT = "complaint"  # 고객이 화가 나 있고, 상담원이 사과한다
+EV_HOLD = "hold"  # 상담원이 확인하는 동안 기다려 달라고 한다
+EV_REPEAT = "repeat"  # 고객이 같은 것을 두 번 묻는다
+EV_SMALLTALK = "smalltalk"  # 고객이 용건 전에 잠깐 잡담을 한다
+EV_EXTRA_QUESTION = "extra_question"  # 고객이 끝에 상관없는 작은 질문을 덧붙인다
 
 # 사건마다 독립적으로 일어날 확률. 한 통화에 여러 사건이 함께 들어갈 수 있다.
 EVENT_PROBS: dict[str, float] = {
@@ -66,7 +65,7 @@ EVENT_PROBS: dict[str, float] = {
 }
 # 계정 정보가 필요한 시나리오(needs_verification)에서 본인 확인을 하는 비율. 하지 않는 통화도 생기므로 정답
 # 처리 목록의 '본인 확인'은 통화마다 다르다. gen.py가 대화의 본인 확인 여부가 명세와 같은지 검사한다.
-VERIFY_PROB = 0.7  # for scenarios that need account access
+VERIFY_PROB = 0.7
 
 
 # 슬롯 값 하나: 시나리오 틀의 자리 이름(slot), 핵심 값 유형(type), 대화에 글자 그대로 나와야 하는 말투(value).
@@ -75,7 +74,7 @@ VERIFY_PROB = 0.7  # for scenarios that need account access
 class SlotValue:
     slot: str
     type: str
-    value: str  # surface form, exactly as it must appear in the dialogue
+    value: str  # 말투(겉 형태). 대화에 글자 그대로 나와야 한다
 
 
 # 통화 한 건의 명세(정답). 구조 필드의 정답(유형, 결과, 핵심 값, 처리, 후속 조치)과 교사에게 줄 지시(사건,
@@ -93,7 +92,7 @@ class Spec:
     actions: tuple[str, ...]
     follow_up: tuple[str, ...]
     events: tuple[str, ...]
-    distractor: SlotValue | None  # wrong value the caller says first (EV_CORRECTION)
+    distractor: SlotValue | None  # 고객이 먼저 말하는 틀린 값(EV_CORRECTION)
     extra_question: str | None
     facts: tuple[str, ...]
     note: str
@@ -166,7 +165,7 @@ def _draw_slot(
 
 # 파일럿에서 배송 지연의 새 도착일과 기사 방문일이 처음 날짜보다 앞서는 명세가 나와 더한
 # 규칙이다(docs/experiments.md 1단계 파일럿, 커밋 56e691a).
-# Slot pairs whose dates must be in this order: a delay's new date and a visit come after the first date.
+# 날짜가 이 순서여야 하는 슬롯 쌍: 배송 지연의 새 날짜와 방문일은 처음 날짜보다 뒤에 온다.
 DATE_ORDER = (("date", "new_date"), ("date", "visit_date"))
 
 
@@ -189,7 +188,7 @@ def _order_dates(slots: list[SlotValue]) -> list[SlotValue]:
 # 시험한다.
 # 번호(id)만 다루고 그 밖의 종류는 예외를 낸다. 호출하는 곳(make_spec)은 번호로만 부른다.
 def _mutate(rng: random.Random, sv: SlotValue, kind: str) -> SlotValue:
-    """A plausible wrong value: one digit of an id changed. Other kinds raise ValueError (only ids used)."""
+    """그럴듯한 틀린 값: 번호의 숫자 하나를 바꾼다. 다른 종류는 ValueError를 낸다(번호만 쓴다)."""
     if kind == "id":
         digits = [i for i, ch in enumerate(sv.value) if ch.isdigit()]
         i = rng.choice(digits)
@@ -210,7 +209,7 @@ def _pick_outcome(rng: random.Random, scenario: Scenario) -> tuple[int, Outcome]
 # 나온다(test-b의 한 건이 이 때문에 바뀌어 다시 썼다, docs/experiments.md 1단계 진행 기록).
 # 호출 위치: make_specs, 테스트(tests/test_specs.py, tests/test_scoring.py 등).
 def make_spec(split: str, domain_key: str, index: int, category: str | None = None) -> Spec:
-    """Deterministic in (split, domain, index, category)."""
+    """(분할, 업종, 번호, 유형)이 같으면 늘 같은 명세가 나온다(결정적)."""
     if split not in SPLITS:
         raise ValueError(split)
     domain = DOMAINS[domain_key]
@@ -280,7 +279,7 @@ def make_spec(split: str, domain_key: str, index: int, category: str | None = No
 # 업종마다 n_per_domain건을 만든다. i번째 건에 유형 i mod (유형 수)를 지정해 모든 유형이 거의 같은 수로
 # 나온다. 호출 위치: build_specs.py.
 def make_specs(split: str, domain_keys: tuple[str, ...], n_per_domain: int) -> list[Spec]:
-    """Balanced over categories: index i of a domain gets category i mod (number of categories)."""
+    """유형을 고르게 나눈다: 업종의 i번째 건은 유형 i mod (유형 수)를 받는다."""
     out: list[Spec] = []
     for key in domain_keys:
         cats = DOMAINS[key].categories

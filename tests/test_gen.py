@@ -143,7 +143,7 @@ def test_accum_groups_never_cross_an_epoch():
     assert accum_plan(4, 2) == [(2, False), (2, True), (2, False), (2, True)]
     for n, accum, last in ((1500, 16, 12), (500, 16, 4)):
         plan = accum_plan(n, accum)
-        steps_per_epoch = math.ceil(n / accum)  # as in train.main
+        steps_per_epoch = math.ceil(n / accum)  # train.main과 같은 계산
         assert sum(step_now for _, step_now in plan) == steps_per_epoch
         assert plan[-1] == (last, True)
         step, group, seen, saved = 0, [], [], {}
@@ -231,7 +231,7 @@ def test_take_first_keeps_index_order_per_domain():
 
     specs = make_specs("dev", ("shop", "parcel"), 12)
     items = [Item(item_id=s.spec_id, split="dev", domain=s.domain, spec=s, turns=[]) for s in specs]
-    items = [it for it in items if not it.item_id.endswith("00003")]  # a rejected spec
+    items = [it for it in items if not it.item_id.endswith("00003")]  # 거절된 명세
     got = take_first(list(reversed(items)), 5)
     assert [it.item_id for it in got if it.domain == "shop"] == [f"dev-shop-{i:05d}" for i in (0, 1, 2, 4, 5)]
     assert len(got) == 10

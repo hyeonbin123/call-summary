@@ -1,15 +1,15 @@
-"""Identifiers that need confirmation before anyone acts on them.
+"""누군가 처리하기 전에 확인이 필요한 번호.
 
-An identifier in a record (order, tracking or receipt number, card last digits) is flagged when its
-normalized form (values.normalize) does not have the deployment format (domains.EntityType.id_format), or
-when it cannot be found in the transcript (values.occurs_in_transcript with spoken=True, so digits the
-recogniser split with commas or spaces still count). The record itself is never changed.
+기록 안의 번호(주문번호, 운송장번호, 접수번호, 카드 끝자리)는 정규화한 꼴(values.normalize)이 배포
+형식(domains.EntityType.id_format)과 맞지 않거나, 전사에서 찾을 수 없으면(values.occurs_in_transcript,
+spoken=True라 인식기가 쉼표나 공백으로 나눠 적은 숫자도 찾은 것으로 친다) 표시한다. 기록 자체는 절대
+바꾸지 않는다.
 
-A flag is not a correction and not an accuracy gain: a wrong number that has the right format and is in the
-transcript (the recogniser's error copied, a same-length digit confusion) passes both checks.
+표시는 정정도 아니고 정확도 이득도 아니다: 형식이 맞고 전사에 들어 있는 틀린 번호(인식기의 오류를 그대로
+옮긴 것, 길이가 같은 숫자 혼동)는 두 검사를 모두 통과한다.
 
-python -m call_summary.verify RUN...   applies the checks to recorded evaluation runs (reports/<run_id>)
-                                       and counts flagged correct and wrong identifiers (no model needed)
+python -m call_summary.verify RUN...   기록된 평가 실행(reports/<run_id>)에 검사를 대 보고, 표시된 맞은
+                                       번호와 틀린 번호를 센다(모델이 필요 없다)
 """
 
 # [파일 역할] 기록의 번호(주문번호, 운송장번호, 접수번호, 카드 끝자리)가 배포 형식에 맞는지와 전사에 있는지를
@@ -61,7 +61,7 @@ class IdentifierFlag(BaseModel):
 # 전사 포함: values.occurs_in_transcript(spoken=True). 서비스는 전사가 음성 인식 결과인지 알 수 없으므로 늘
 # 넓은 규칙을 쓴다(인식기가 쉼표·공백으로 나눠 적은 숫자도 찾은 것으로 본다).
 def check_identifier(et: EntityType, value: str, transcript: str) -> list[Reason]:
-    """Why this identifier needs confirmation (empty: it passes both checks)."""
+    """이 번호를 확인해야 하는 사유들(비어 있으면 두 검사를 모두 통과한 것)."""
     reasons: list[Reason] = []
     norm = normalize("id", value)
     if et.id_format is not None and (norm is None or re.fullmatch(et.id_format, norm) is None):
@@ -80,7 +80,7 @@ def _id_types(domain_key: str) -> dict[str, EntityType]:
 # 없는 유형은 건너뛴다. 기록 자체는 바꾸지 않는다.
 # 호출 위치: service.py /summarize(검증을 통과한 기록에만), tests/test_verify.py.
 def verify_entities(domain_key: str, record: AfterCallRecord, transcript: str) -> list[IdentifierFlag]:
-    """Flags for the record's identifiers, in record order. Other entity kinds are not checked."""
+    """기록의 번호들에 대한 표시(기록 순서대로). 번호가 아닌 종류의 핵심 값은 검사하지 않는다."""
     types = _id_types(domain_key)
     flags = []
     for e in record.entities:
@@ -94,14 +94,14 @@ def verify_entities(domain_key: str, record: AfterCallRecord, transcript: str) -
 
 
 # ---------------------------------------------------------------------------------------------------------
-# Applying the checks to recorded runs (docs/experiments.md "확인이 필요한 번호 표시").
+# 기록된 실행에 검사를 대 보기(docs/experiments.md "확인이 필요한 번호 표시").
 
 # 아래 WRITTEN_FORMATS와 _written_form_ok는 보고용이다. 처음 제안된 "값 그대로" 운송장번호
 # 형식(docs/experiments.md "브리프와 다른 점")이었다면 더 표시됐을 번호 수를 세어, 정규화한 값에서 형식을
 # 보기로 한 결정이 수치에 영향을 줬는지 보인다(결과: 모든 실행에서 0, docs/experiments.md "확인이 필요한 번호
 # 표시 결과").
-# The tracking format as the brief wrote it, on the value as written. Report only: it shows which correct
-# numbers a format rule on the raw string would flag (written without hyphens, or with spaces).
+# 운송장번호 형식은 브리프가 적은 그대로이고 값 그대로에 적용한다. 보고용일 뿐이며, 값 그대로에 형식 규칙을
+# 걸었다면 어떤 맞은 번호(하이픈 없이 쓰거나 공백을 넣은 것)가 표시됐을지 보여 준다.
 WRITTEN_FORMATS = {"운송장번호": r"\d{4}-\d{4}-\d{4}"}
 
 
@@ -117,8 +117,8 @@ def _written_form_ok(et: EntityType, value: str) -> bool:
 # 정답이 여럿이면 길이가 같은 정답 중 다른 글자 수가 가장 적은 것과 비교한다. 결과 절의 "1 → 2가 8개" 같은
 # 집계가 여기서 나온다.
 def _shape(norm: str | None, golds: list[str]) -> tuple[str, str]:
-    """How a wrong identifier differs from the item's gold values of its type, and for a one-character
-    difference which character became which ("1>2": the gold 1 came out as 2)."""
+    """틀린 번호가 그 건의 같은 유형 정답 값과 어떻게 다른지, 그리고 한 글자만 다르면 어느 글자가 어느
+    글자로 바뀌었는지("1>2": 정답의 1이 2로 나왔다)."""
     if not golds:
         return "no_gold_of_type", ""
     if norm is None:
@@ -143,7 +143,7 @@ def _empty_counts() -> dict:
 # 돌려주는 것: 전체·유형별 수, 표시된 틀린 번호의 사유별 수, 조용히 나가는 틀린 번호의 모양·바뀐 숫자, 값
 # 그대로 규칙이었다면 더 표시됐을 수, 답에 없는 정답 번호 수, 기록이 없는 행 수, 그리고 --show용 목록.
 def guard_report(run: str | Path, data: str | Path | None = None) -> dict:
-    """Flag counts of one evaluation run against its dataset (manifest `data` unless given)."""
+    """평가 실행 하나를 그 데이터셋에 대 본 표시 수(data를 주지 않으면 manifest의 `data`)."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(data or manifest["data"].replace("\\", "/"))}
@@ -159,7 +159,7 @@ def guard_report(run: str | Path, data: str | Path | None = None) -> dict:
     for row in read_jsonl(run / "items.jsonl"):
         # 스키마를 통과하지 못한 답은 서비스가 502로 거절해 번호가 나가지 않으므로 따로 센다("지표" 규칙).
         if not row.get("pred"):
-            no_record += 1  # the service answers 502: no identifier goes out
+            no_record += 1  # 서비스는 502로 답하므로 번호가 하나도 나가지 않는다
             continue
         it = items[row["item_id"]]
         types = _id_types(it.domain)
@@ -269,10 +269,10 @@ def guard_detail(got: dict[str, dict]) -> str:
 # 명령줄 입구: 실행 폴더 여럿을 받아 표와 세부를 찍는다. --show는 조용히 나간 틀린 번호와 오검출 목록을 건마다
 # 찍고, --json은 수치 전체를 파일로 남긴다(결과 절의 수치 출처).
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Apply the identifier checks to recorded evaluation runs.")
-    ap.add_argument("runs", nargs="+", help="reports/<run_id> directories")
-    ap.add_argument("--show", action="store_true", help="also list silent wrong ids and false flags")
-    ap.add_argument("--json", help="also write the numbers here")
+    ap = argparse.ArgumentParser(description="기록된 평가 실행에 번호 확인 검사를 대 본다(모델이 필요 없다).")
+    ap.add_argument("runs", nargs="+", help="reports/<run_id> 실행 폴더들")
+    ap.add_argument("--show", action="store_true", help="표시 없이 나간 틀린 번호와 오검출 목록도 찍는다")
+    ap.add_argument("--json", help="수치 전체를 이 파일에도 JSON으로 쓴다")
     args = ap.parse_args(argv)
     got = {str(r): guard_report(r) for r in args.runs}
     print(guard_table(got))

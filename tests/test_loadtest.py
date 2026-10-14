@@ -34,7 +34,7 @@ def test_run_load_against_offline_service():
 
 # 세 번째 요청만 시간 초과를 내는 가짜 클라이언트. 동시 요청 스레드가 순번을 같이 세므로 Lock으로 지킨다.
 class FlakyClient:
-    """The third request times out; every other one answers 200."""
+    """세 번째 요청은 시간 초과가 나고, 나머지 요청은 모두 200으로 답한다."""
 
     def __init__(self) -> None:
         self.n = 0

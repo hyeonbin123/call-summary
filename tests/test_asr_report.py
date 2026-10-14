@@ -31,16 +31,16 @@ def _pred(it, extra=()):
 # - 복원 + 지어낸 값의 합이 채점기의 환각 수(entity_hallucinated)와 같다. 두 지표가 같은 "전사에 없는 값"을
 #   나눈 것임을 보장한다.
 def test_unfound_values_split_into_restored_and_invented():
-    it = _item(0)  # shop: every gold value is said in the transcript
+    it = _item(0)  # shop: 정답 값이 모두 전사에 나온다
     gold = it.gold()
     invented = Entity(type="금액", value="999,900원")
-    unknown = Entity(type="좌석번호", value="12A")  # not a type of this domain
+    unknown = Entity(type="좌석번호", value="12A")  # 이 업종의 유형이 아니다
     pred = _pred(it, [invented, unknown])
 
     restored, made_up = unfound_split(it.domain, gold, pred, it.transcript)
     assert not restored and made_up == {"금액": 1, "좌석번호": 1}
 
-    silent = "상담원: 네 도토리마켓입니다."  # the values did not survive: copying gold back is a restoration
+    silent = "상담원: 네 도토리마켓입니다."  # 값이 남지 않았다: 정답을 그대로 옮기면 복원이다
     restored, made_up = unfound_split(it.domain, gold, pred, silent)
     assert sum(restored.values()) == len(gold.entities)
     assert made_up == {"금액": 1, "좌석번호": 1}
@@ -90,11 +90,10 @@ def test_unfound_report_of_a_run(tmp_path):
     assert "복원" in asr_report.unfound_table({"run": got})
 
 
-# 빈 값("", 공백만)은 지어낸 값으로 들어가면서 empty로도 따로 센다. 3단계가 환각을 빈 값 포함·제외 두 가지로
-# 보고했으므로(docs/experiments.md 3단계) 표에 빈 값을 뺀 비율이 함께 나와야 한다.
+# 빈 값("", 공백만)은 전사에 없는 지어낸 값으로 들어가면서 empty로도 따로 센다. 3단계가 환각을 빈 값(통화에서
+# 말하지 않은 유형에 ""를 채운 것) 포함·제외 두 가지로 보고했으므로(docs/experiments.md 3단계) 표에 빈 값을 뺀
+# 비율이 함께 나와야 한다.
 def test_unfound_report_counts_empty_values(tmp_path):
-    # Stage 3 reported hallucination with and without empty values ("" filled into a type the call never
-    # mentioned): empty values are unfound and invented, and the table gives the rate without them too.
     it = _item(0)
     data = tmp_path / "dev.jsonl"
     write_jsonl(data, [it.to_dict()])
@@ -119,10 +118,9 @@ def test_unfound_report_counts_empty_values(tmp_path):
 # "없음", "알 수 없음", "미정" 같은 자리 표시 낱말은 placeholder로 따로 센다(띄어쓰기·앞뒤 공백 무시, "알수
 # 없음"도 같음). 낱말 전체가 자리 표시일 때만이라 "없음 아님"은 그냥 지어낸 값이다. empty는 3단계와 같은
 # 셈으로 그대로 두고, 표에는 빈 값만 뺀 비율과 둘 다 뺀 비율을 함께 낸다(커밋 e9dc490).
+# 왜: 2026 비교 대상 모델들은 3단계의 14B가 ""를 쓴 자리에 "값 없음"을 뜻하는 낱말("없음", "알 수 없음")을
+# 썼다. 같은 실패가 글자 꼴로 나온 것이다.
 def test_unfound_report_counts_placeholder_values(tmp_path):
-    # The 2026 comparators wrote a word for "no value" ("없음", "알 수 없음") where stage 3's 14B wrote "":
-    # the same failure in text form. Placeholders are counted on their own so `empty` stays as stage 3
-    # counted it, and the table gives the rate without both.
     it = _item(0)
     data = tmp_path / "dev.jsonl"
     write_jsonl(data, [it.to_dict()])
@@ -135,7 +133,7 @@ def test_unfound_report_counts_placeholder_values(tmp_path):
         Entity(type="금액", value=" 미정 "),
         Entity(type="금액", value=""),
         Entity(type="금액", value="999,900원"),
-        Entity(type="금액", value="없음 아님"),  # not a placeholder word: an invented value
+        Entity(type="금액", value="없음 아님"),  # 자리 표시 낱말이 아니라 지어낸 값
     ]
     pred = _pred(it, extra)
     write_jsonl(run / "items.jsonl", [{"item_id": it.item_id, "pred": pred.model_dump()}])
@@ -147,8 +145,8 @@ def test_unfound_report_counts_placeholder_values(tmp_path):
     assert asr_report.is_placeholder("알수 없음") and not asr_report.is_placeholder("")
     table = asr_report.unfound_table({"run": got})
     assert "자리 표시 값" in table
-    assert f"{100 * 5 / n:.1f}% (5)" in table  # without empty values only, as before
-    assert f"{100 * 2 / n:.1f}% (2)" in table  # without empty and placeholder values
+    assert f"{100 * 5 / n:.1f}% (5)" in table  # 예전처럼 빈 값만 뺀 비율
+    assert f"{100 * 2 / n:.1f}% (2)" in table  # 빈 값과 자리 표시 값을 모두 뺀 비율
 
 
 # 운송장번호 하나가 든 쓴 글. 아래 테스트가 같은 문장을 인식기가 여러 꼴로 적은 경우를 흉내 낸다.
@@ -167,14 +165,14 @@ def test_tracking_form_classes():
     assert form(WRITTEN) == ("as_written", "6291-7877-5168")
     assert form("운송장 번호 6291, 7877, 5168로 받은 건이에요.")[0] == "split_found"
     assert form("운송장 번호 육이구일 칠팔칠칠 오일육팔로 받은 건이에요.")[0] == "hangul_digit_names"
-    # one digit heard as a Hangul syllable inside the number
+    # 번호 안의 숫자 하나가 한글 음절로 들린 경우
     assert form("운송장 번호 629일 7877 5168로 받은 건이에요.") == ("lost_hangul", "629일 7877 5168")
     assert form("운송장 번호 629-7877-5168로 받은 건이에요.")[0] == "lost_fewer"
-    # an inserted digit at the edge stays in the span; a date elsewhere in the utterance does not count
+    # 가장자리에 끼어든 숫자는 구간에 남고, 같은 발화의 다른 곳에 있는 날짜는 세지 않는다
     assert form("운송장 번호 6291-7877-52685로 받은 건이에요.") == ("lost_more", "6291-7877-52685")
     dated = "운송장 번호 6291-7877-5268로 10월 20일에 받은 건이에요."
     assert form(dated) == ("lost_changed", "6291-7877-5268")
-    # the v1 range reading has its own row: "에서" alone does not make the hangul class
+    # v1의 범위 읽기는 따로 센다: "에서"만으로는 한글 음절 꼴이 되지 않는다
     assert form("운송장 번호 6291 78717에서 5168로 받은 건이에요.") == ("lost_more", "6291 78717에서 5168")
 
 

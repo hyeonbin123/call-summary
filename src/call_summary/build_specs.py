@@ -1,4 +1,4 @@
-"""Write the spec JSONL of one split. Specs are deterministic, so this can be rerun at any time."""
+"""분할 하나의 명세 JSONL을 쓴다. 명세는 결정적이므로 언제 다시 실행해도 같은 파일이 나온다."""
 
 # [파일 역할] 데이터 만들기의 첫 단계(명세)를 실행하는 명령줄 진입점이다. 분할 하나(train, dev, test-a,
 # test-b, test-c)의 명세를 만들어 JSONL로 저장한다.

@@ -1,7 +1,7 @@
-"""Dialogue and reference-summary generation from specs, with code checks that throw bad dialogues away.
+"""명세로 대화와 참고 요약을 만들고, 코드 검사로 잘못된 대화를 버린다.
 
-The writer model only turns a spec into words. Every value the call must contain is in the spec, and
-`check_dialogue` rejects a dialogue that drops one of them or invents another number, date or time.
+대화를 쓰는 모델은 명세를 말로 옮기기만 한다. 통화에 들어가야 할 값은 모두 명세에 있고,
+`check_dialogue`는 그중 하나를 빠뜨리거나 다른 번호·날짜·시각을 지어낸 대화를 거절한다.
 """
 
 # [파일 역할] 데이터 만들기의 두 번째·세 번째 단계다. 명세를 교사 모델(Ollama qwen2.5 14B)에게 주어 상담
@@ -50,7 +50,7 @@ from .values import normalize, occurs_in_transcript, values_in_transcript
 # 판이다(2026-09-27, 커밋 f4d0efe). 생성 시점에 따라 w1과 w2가 섞이지만 finalize가 모든 분할에 같은 검사를
 # 다시 적용한다(docs/experiments.md 1단계).
 # SPEAKERS: 허용하는 화자 두 가지. 서비스 입력 검사도 같은 두 값만 받는다.
-WRITER_VERSION = "w2"  # w1: same, minus the explicit "no verification" line
+WRITER_VERSION = "w2"  # w1: 같은 지시문에서 "본인 확인 안 함" 줄만 없는 판
 SPEAKERS = ("상담원", "고객")
 
 # 명세의 대화 사건 → 교사에게 줄 지시 문장. 사건은 specs.py가 확률로 뽑는다(번호 말실수, 불만, 대기, 되묻기,
@@ -174,7 +174,7 @@ def summarizer_prompt(spec: Spec, transcript: str) -> str:
 # _ID_LIKE: 번호처럼 보이는 문자열(영문 대문자 + 5자리 이상 숫자, 또는 하이픈으로 이은 숫자 묶음). 명세에 없는
 # 번호를 찾는 데 쓴다. 앞뒤가 숫자·영문·하이픈이면 더 긴 문자열의 일부이므로 잡지 않는다.
 _VERIFY_WORDS = re.compile(r"생년월일|주민등록|주민번호|본인 ?확인|뒷자리|뒤 ?[네4] ?자리")
-# The writer model sometimes switches to Chinese mid-dialogue.
+# 대화를 쓰는 모델이 대화 도중 중국어로 바꿔 쓰는 일이 있다.
 _FOREIGN_SCRIPT = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 _ID_LIKE = re.compile(r"(?<![\dA-Za-z\-])(?:[A-Z]\d{5,}|\d{2,5}(?:-\d{2,5}){1,3})(?![\dA-Za-z\-])")
 
@@ -185,7 +185,7 @@ _ID_LIKE = re.compile(r"(?<![\dA-Za-z\-])(?:[A-Z]\d{5,}|\d{2,5}(?:-\d{2,5}){1,3}
 # 본인 확인 일치 → 명세 값이 글자 그대로 모두 있는지(말실수 값 포함) → 명세에 없는 금액·날짜·시각·번호가
 # 없는지.
 def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
-    """Problems that make a generated dialogue unusable. Empty list means it passes."""
+    """생성된 대화를 쓸 수 없게 만드는 문제들. 빈 목록이면 통과다."""
     problems: list[str] = []
     if not 8 <= len(turns) <= 40:
         problems.append(f"turn count {len(turns)}")
@@ -207,7 +207,7 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
     text = "\n".join(t["text"] for t in turns)
     if _FOREIGN_SCRIPT.search(text):
         problems.append("non-Korean script (Han/kana)")
-    # Identity verification happens exactly when the spec says so (it is a gold action).
+    # 본인 확인은 명세가 정한 경우에만, 그리고 그때는 반드시 해야 한다(정답 조치의 하나다).
     verified = bool(_VERIFY_WORDS.search(text))
     if verified and EV_VERIFY not in spec.events:
         problems.append("verification not in spec")
@@ -222,7 +222,7 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
     if spec.distractor is not None and spec.distractor.value not in text:
         problems.append(f"missing distractor {spec.distractor.value!r}")
 
-    # No numbers, dates or times beyond the spec's.
+    # 명세에 없는 번호·날짜·시각은 없어야 한다.
     # 허용 값 집합: 명세 값과 말실수 값을 종류별로 정규화해 둔다. 대화에서 읽어 낸 금액·날짜·시각 중 이 집합에
     # 없는 것은 교사가 지어낸 값이다.
     allowed: dict[str, set[str]] = {}
@@ -233,7 +233,7 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
             allowed.setdefault(kind, set()).add(norm)
     for kind in ("amount", "date", "time"):
         extra = values_in_transcript(kind, text) - allowed.get(kind, set())
-        # Amount suffix readings of an allowed amount ("2천" inside "3만 2천 원") are not new values.
+        # 허용 금액의 끝부분만 읽은 값("3만 2천 원" 안의 "2천")은 새 값이 아니다.
         if kind == "amount":
             extra = {v for v in extra if not any(a.endswith(v) for a in allowed.get("amount", set()))}
         if extra:
@@ -245,7 +245,7 @@ def check_dialogue(spec: Spec, turns: Sequence[dict]) -> list[str]:
         {normalize("id", spec.distractor.value)} if spec.distractor else set()
     )
     for m in _ID_LIKE.finditer(text):
-        # A shortened mention of an allowed number ("5891-6890 끝나는 거요") is not a new number.
+        # 허용 번호를 줄여 말한 것("5891-6890 끝나는 거요")은 새 번호가 아니다.
         norm = normalize("id", m.group(0)) or ""
         if not any(norm in a for a in allowed_ids if a):
             problems.append(f"extra id {m.group(0)!r}")
@@ -291,7 +291,7 @@ def _parse_json(text: str, key: str) -> object | None:
 # 없었다(dev 생성 중 발견, 커밋 386632f). dev 거절률(12.8%)이 test-a(5.0%)보다 높은 이유로 기록돼
 # 있다(docs/experiments.md 1단계).
 def _reseed(provider: Provider, seed: int | None, attempt: int) -> None:
-    """A different sampling seed per try, so a retry is not a replay of the rejected output."""
+    """시도마다 다른 샘플링 seed를 써서, 재시도가 거절된 출력을 그대로 되풀이하지 않게 한다."""
     if seed is not None and hasattr(provider, "seed"):
         provider.seed = seed + attempt  # type: ignore[attr-defined]
 
@@ -304,7 +304,7 @@ def _reseed(provider: Provider, seed: int | None, attempt: int) -> None:
 def generate_item(
     spec: Spec, writer: Provider, summarizer: Provider, max_tries: int = 3, seed: int | None = None
 ) -> tuple[Item | None, list[str], dict]:
-    """Returns (item or None, problems of the last try, stats)."""
+    """(Item 또는 None, 마지막 시도의 문제 목록, 통계)를 돌려준다."""
     stats: dict = {"dialogue_tries": 0, "summary_tries": 0, "seconds": 0.0}
     problems: list[str] = []
     turns: list[dict] | None = None
@@ -316,7 +316,7 @@ def generate_item(
                 [{"role": "user", "content": writer_prompt(spec)}], json_schema=TURNS_SCHEMA
             )
         # 요청이 멈추거나 실패하면(시간 초과 등) 생성 전체를 죽이지 않고 시도 한 번으로 센다(커밋 4eb3191).
-        except Exception as exc:  # noqa: BLE001 - a hung or failed request is one failed try
+        except Exception as exc:  # noqa: BLE001 - 멈추거나 실패한 요청은 실패한 시도 한 번이다
             problems = [f"request failed: {type(exc).__name__}"]
             stats["failed_requests"] = stats.get("failed_requests", 0) + 1
             continue
@@ -373,8 +373,8 @@ def generate_item(
 # 않는다).
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--specs", required=True, help="spec JSONL (from build_specs)")
-    ap.add_argument("--out", required=True, help="item JSONL; appended to, already-done spec ids are skipped")
+    ap.add_argument("--specs", required=True, help="명세 JSONL(build_specs 출력)")
+    ap.add_argument("--out", required=True, help="항목 JSONL. 이어 쓰며, 이미 끝난 명세 id는 건너뛴다")
     ap.add_argument("--model", default="qwen2.5:14b-instruct")
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--limit", type=int)
@@ -384,10 +384,10 @@ def main(argv: list[str] | None = None) -> int:
     # 남겼다(나중에 다른 GPU 앱을 닫고 47층).
     ap.add_argument("--num-ctx", type=int, default=4096)
     ap.add_argument(
-        "--num-gpu", type=int, help="GPU layers; leave VRAM headroom (44 of 49 for the 14B teacher on 11 GB)"
+        "--num-gpu", type=int, help="GPU 층 수. VRAM 여유를 남긴다(11 GB에서 14B 교사는 49층 중 44층)"
     )
     ap.add_argument(
-        "--timeout", type=float, default=300.0, help="seconds per request; a timeout counts as a failed try"
+        "--timeout", type=float, default=300.0, help="요청 하나의 시간 한도(초). 넘으면 실패한 시도로 센다"
     )
     args = ap.parse_args(argv)
 
@@ -413,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         open(rejects, "a", encoding="utf-8", newline="\n") as f_bad,
     ):
         for n, spec in enumerate(todo, 1):
-            # A different sampling seed per spec keeps runs reproducible yet varied.
+            # 명세마다 다른 샘플링 seed(명세 id의 crc32)를 써서, 실행은 재현되면서도 명세끼리는 다양해진다.
             item, problems, stats = generate_item(
                 spec, writer, summarizer, seed=zlib.crc32(spec.spec_id.encode())
             )

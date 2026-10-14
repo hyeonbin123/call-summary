@@ -1,15 +1,14 @@
-"""Serving efficiency of an Ollama model: dataset requests sent one at a time, built as the service does.
+"""Ollama 모델의 서빙 효율: 서비스와 같은 꼴로 만든 데이터셋 요청을 한 건씩 보내며 잰다.
 
     uv run --no-sync python -m call_summary.bench --data datasets/dev.jsonl --model call-summary-4b-dq:q8_0 \
-        --out reports/s5c-bench-q8_0.json --reference reports/<earlier evaluate run of the same model>
+        --out reports/s5c-bench-q8_0.json --reference reports/<같은 모델의 앞선 evaluate 실행>
 
-The provider is the service's (num_ctx 4096, num_gpu left to Ollama, temperature 0, seed 0, no schema; prompt
-p1, 0-shot). Per request it keeps the client round trip and Ollama's counters; generation tok/s is
-eval_count / eval_duration. The model is unloaded first; nvidia-smi (memory.used, utilization.gpu) and the
-system CPU are sampled before loading (baseline) and every 0.5 s during the run (peak); /api/ps gives the
-model's size and size_vram once it is loaded, and the Ollama server log its layer placement and GPU buffer
-sizes. --reference compares every reply with an earlier run of the
-same model (greedy decoding: identical text is expected). The run is descriptive and picks nothing.
+실행기는 서비스의 것과 같다(num_ctx 4096, num_gpu는 Ollama에 맡김, temperature 0, seed 0, 스키마 없음,
+프롬프트 p1, 0-shot). 요청마다 클라이언트 왕복 시간과 Ollama의 계수를 남긴다. 생성 tok/s는
+eval_count / eval_duration이다. 먼저 모델을 내리고, nvidia-smi(memory.used, utilization.gpu)와 시스템
+CPU를 적재 전(기준값)과 실행 중 0.5초마다(최대값) 표본으로 잰다. 모델이 올라가면 /api/ps가 모델의 size와
+size_vram을, Ollama 서버 로그가 층 배치와 GPU 버퍼 크기를 알려 준다. --reference는 모든 답을 같은 모델의
+앞선 실행과 비교한다(탐욕적 디코딩이라 같은 글이 나와야 한다). 이 실행은 기술용이며 아무것도 고르지 않는다.
 """
 
 # [파일 역할] 5단계 "효율 추가 측정"(2026-10-03) 도구다. 서빙 모델 하나에 dev 요청을 서비스와 같은 조건으로 한
@@ -54,9 +53,8 @@ from .service import NUM_CTX
 
 # 쉬는 상태 기준(효율 추가 측정 규칙): 1분 표본에서 시스템 CPU 평균 15% 미만, GPU 사용률 평균 50% 미만, 모델을
 # 올리기 전 다른 프로그램의 GPU 메모리 최대 2,560 MiB(2.5 GB) 미만. 배경화면 프로그램이 GPU 사용률 30~40%,
-# 메모리 약 1 GB를 늘 써서, 이것은 "사용 중"으로 치지 않도록 기준을 정했다(같은 규칙).
-# Idle rule (docs/experiments.md, stage 5 efficiency): system CPU and GPU utilization over a 60 s sample,
-# and GPU memory held by everything else before the model loads.
+# 메모리 약 1 GB를 늘 써서, 이것은 "사용 중"으로 치지 않도록 기준을 정했다(같은 규칙, docs/experiments.md
+# 5단계 효율 측정).
 IDLE_CPU = 15.0
 IDLE_GPU_UTIL = 50.0
 IDLE_OTHER_MIB = 2560
@@ -72,11 +70,11 @@ def _rate(tokens: int, ns: int) -> float | None:
 # 처리 시간 p50으로 적는다: 서버가 공통 앞부분(시스템 프롬프트)을 캐시에서 재사용하는데 Ollama는 전체 길이를
 # 세어 보고하므로, 나누면 속도가 부풀기 때문이다(docstring, 규칙).
 def summarize_rows(rows: Sequence[dict]) -> dict:
-    """Rows in request order. The first request loads the model and warms the GPU kernels (its prompt pass
-    took 40 s in a trial), so it is reported on its own and left out of every other figure.
+    """요청 순서대로의 기록 줄을 요약한다. 첫 요청은 모델을 올리고 GPU 커널을 데우므로(시험에서 프롬프트
+    처리에 40초가 걸렸다) 따로 보고하고 다른 모든 수치에서 뺀다.
 
-    Prompt figures are times, not rates: Ollama counts the whole prompt in prompt_eval_count while the
-    server reuses the cached shared prefix (the system prompt): tokens / prompt_eval_duration overstates."""
+    프롬프트 쪽 수치는 속도가 아니라 시간이다: 서버는 캐시된 공통 앞부분(시스템 프롬프트)을 재사용하는데
+    Ollama는 prompt_eval_count에 프롬프트 전체를 세므로, tokens / prompt_eval_duration은 부풀려진다."""
     warm_rows = list(rows[1:])
     warm = sorted(r["wall_s"] for r in warm_rows)
     gen_n = sum(r["eval_count"] or 0 for r in warm_rows)
@@ -130,7 +128,7 @@ LOG_PATTERNS = ("offloaded", "model buffer size", "KV buffer size", "compute buf
 # 측정 시작 때 기록해 둔 로그 크기(바이트 위치) 뒤에 새로 쓰인 줄만 읽어, 이번 모델 적재에 대한 줄만 고른다.
 # 로그가 없으면 빈 목록.
 def server_log_lines(path: Path | None, offset: int) -> list[str]:
-    """Lines about layer placement and GPU buffers that Ollama logged after `offset` (a byte position)."""
+    """Ollama가 `offset`(바이트 위치) 뒤에 남긴 층 배치·GPU 버퍼에 관한 로그 줄."""
     if path is None or not path.exists():
         return []
     with path.open("rb") as f:
@@ -141,7 +139,7 @@ def server_log_lines(path: Path | None, offset: int) -> list[str]:
 
 # nvidia-smi CSV 한 줄("사용 메모리 MiB, 사용률 %")을 숫자 쌍으로 바꾼다. 형식이 다른 줄은 None으로 버린다.
 def parse_smi_line(line: str) -> tuple[int, int] | None:
-    """'1005, 36' -> (memory.used MiB, utilization.gpu %); None for anything else."""
+    """'1005, 36' -> (memory.used MiB, utilization.gpu %). 다른 꼴은 None."""
     parts = [p.strip() for p in line.split(",")]
     if len(parts) != 2 or not all(p.isdigit() for p in parts):
         return None
@@ -160,7 +158,7 @@ def _stats(vals: Sequence[float]) -> dict | None:
 # Windows(WDDM)에서는 프로세스별 GPU 메모리가 나오지 않아 전체 사용량을 재고, 모델을 올리기 전 기준값을 빼서
 # 이 모델이 더한 양을 낸다(규칙 "최대 GPU 메모리").
 class Sampler:
-    """nvidia-smi in loop mode plus psutil's system CPU, one sample per nvidia-smi line."""
+    """반복 모드 nvidia-smi와 psutil의 시스템 CPU. nvidia-smi 한 줄마다 표본 하나."""
 
     def __init__(self, period_ms: int = 500) -> None:
         self.period_ms = period_ms
@@ -178,7 +176,7 @@ class Sampler:
 
             psutil.cpu_percent(None)
             cpu = psutil.cpu_percent
-        except ImportError:  # CPU is then not recorded
+        except ImportError:  # 이때는 CPU를 기록하지 않는다
             cpu = None
         self._proc = subprocess.Popen(
             [
@@ -246,7 +244,8 @@ def is_idle(sample: dict) -> bool:
 # 맞추지 못해 그대로 재고 조건을 문서에 적었다(docs/experiments.md "효율 추가 측정 결과").
 # 기본값은 규칙의 60분이고 --wait-idle로 바꿀 수 있다.
 def wait_idle(max_minutes: float, poll_s: float = 180.0, sample_s: float = 60.0) -> dict:
-    """Sample for a minute; repeat every `poll_s` until idle or `max_minutes` pass. Returns the last one."""
+    """1분 동안 표본을 잰다. 쉬는 상태가 되거나 `max_minutes`가 지날 때까지 `poll_s`마다 되풀이하고
+    마지막 표본을 돌려준다."""
     deadline = time.monotonic() + max_minutes * 60
     tries = 0
     while True:
@@ -284,16 +283,16 @@ def unload(base: str, model: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--data", required=True)
-    ap.add_argument("--model", required=True, help="Ollama model name")
+    ap.add_argument("--model", required=True, help="Ollama 모델 이름")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--reference", help="earlier evaluate run dir of the same model (items.jsonl)")
+    ap.add_argument("--reference", help="같은 모델의 앞선 evaluate 실행 폴더(items.jsonl)")
     ap.add_argument("--ollama", default="http://127.0.0.1:11434")
-    ap.add_argument("--wait-idle", type=float, default=60.0, help="minutes to wait for an idle GPU and CPU")
+    ap.add_argument("--wait-idle", type=float, default=60.0, help="GPU와 CPU가 쉬기를 기다릴 최대 분")
     ap.add_argument("--limit", type=int)
     ap.add_argument(
         "--server-log",
         default=str(Path(os.environ.get("LOCALAPPDATA", "")) / "Ollama" / "server.log"),
-        help="Ollama server log, read for layer placement and GPU buffer sizes",
+        help="Ollama 서버 로그. 층 배치와 GPU 버퍼 크기를 읽는다",
     )
     args = ap.parse_args(argv)
 
@@ -308,12 +307,12 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("a model was loaded in Ollama while waiting; not measuring next to another job")
     # 모델을 올리기 전 5초 표본이 기준값(다른 프로그램이 쓰는 GPU 메모리)이다. 서버 로그도 지금 크기를 기억해
     # 두어 이번 적재 뒤의 줄만 읽는다.
-    baseline = sample_for(5)  # nothing of ours is loaded yet
+    baseline = sample_for(5)  # 아직 이 측정의 모델은 올라가지 않았다
     log_offset = log_path.stat().st_size if log_path and log_path.exists() else 0
 
     # 서비스와 같은 실행기 설정: num_ctx 4,096, num_gpu는 Ollama가 정함, temperature 0, seed 0, 스키마 강제
     # 없음(use_schema 기본값 False라 아래에서 넘기는 schema는 쓰이지 않는다).
-    provider = OllamaProvider(model=args.model, base_url=args.ollama, num_ctx=NUM_CTX)  # as in the service
+    provider = OllamaProvider(model=args.model, base_url=args.ollama, num_ctx=NUM_CTX)  # 서비스와 같다
     schema = record_json_schema()
     rows: list[dict] = []
     ps: dict | None = None

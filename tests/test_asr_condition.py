@@ -1,7 +1,7 @@
-"""scripts/asr_condition.py: the verbalizer v2 rule and the cache plan. No speech models are loaded here.
+"""scripts/asr_condition.py 테스트: verbalizer v2 규칙과 캐시 계획. 여기서는 음성 모델을 올리지 않는다.
 
-The script runs in the sibling project's speech environment, but its text rules and the plan must be
-importable in this one (no numpy, scipy or support_agent at import time).
+이 스크립트는 옆 프로젝트(support-agent)의 음성 환경에서 돌지만, 글 규칙과 계획 부분은 이 프로젝트
+환경에서도 import할 수 있어야 한다(import할 때 numpy, scipy, support_agent를 쓰지 않는다).
 """
 
 # [테스트 묶음] 음성 조건 데이터를 만드는 scripts/asr_condition.py를 음성 모델 없이 검증한다. (1) 합성에 넘길
@@ -41,7 +41,7 @@ asr = _load("asr_condition", ROOT / "scripts" / "asr_condition.py")
 
 # 실제 verbalize 대신 공백만 정리하는 가짜. 그래서 아래 기대값은 이 스크립트가 더하는 규칙(운송장번호 읽기)만
 # 보여 준다.
-def squash(text: str) -> str:  # stands in for verbalize: only the whitespace clean-up
+def squash(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -53,7 +53,7 @@ def squash(text: str) -> str:  # stands in for verbalize: only the whitespace cl
         ("운송장 번호 6291-7877-5168로 조회할게요", "운송장 번호 육이구일, 칠팔칠칠, 오일육팔 로 조회할게요"),
         ("1000-0203-0040입니다.", "일공공공, 공이공삼, 공공사공 입니다."),
         ("운송장 6291-7877-5168", "운송장 육이구일, 칠팔칠칠, 오일육팔"),
-        ("６２９１-７８７７-５１６８요", "육이구일, 칠팔칠칠, 오일육팔 요"),  # full-width digits (NFKC)
+        ("６２９１-７８７７-５１６８요", "육이구일, 칠팔칠칠, 오일육팔 요"),  # 전각 숫자(NFKC)
     ],
 )
 def test_v2_reads_tracking_numbers_digit_by_digit(text, spoken):
@@ -66,11 +66,11 @@ def test_v2_reads_tracking_numbers_digit_by_digit(text, spoken):
 @pytest.mark.parametrize(
     "text",
     [
-        "환불은 3-5일 이내에 됩니다",  # a real range keeps the verbalizer's own reading
+        "환불은 3-5일 이내에 됩니다",  # 진짜 범위는 verbalizer가 읽는 그대로 둔다
         "보통 2~3일 걸립니다",
-        "010-1234-5678로 연락 주세요",  # phone numbers are the verbalizer's job
-        "1234-5678로",  # two groups
-        "1234-5678-9012-3456요",  # four groups: not the tracking-number shape, left whole
+        "010-1234-5678로 연락 주세요",  # 전화번호는 verbalizer가 맡는다
+        "1234-5678로",  # 묶음 둘
+        "1234-5678-9012-3456요",  # 묶음 넷: 운송장번호 꼴이 아니라 그대로 둔다
         "12345-6789-0123요",
         "주문번호 D3928174, 접수번호 R123456",
         "서울 강남구 역삼동 761-4 입니다",
@@ -94,10 +94,10 @@ def test_v1_is_the_verbalizer_alone():
 def test_v2_against_the_real_verbalizer():
     verbalize = _load("sa_verbalize", VERBALIZE_PY).verbalize
     v1 = asr.spoken_form("운송장 번호 6291-7877-5168로 조회", verbalize, "v1")
-    assert "에서" in v1 and "육천이백구십일" in v1  # the stage-4 artifact: cardinals and a range "에서"
+    assert "에서" in v1 and "육천이백구십일" in v1  # 4단계의 인공물: 기수와 범위 "에서"
     v2 = asr.spoken_form("운송장 번호 6291-7877-5168로 조회", verbalize, "v2")
     assert v2 == "운송장 번호 육이구일, 칠팔칠칠, 오일육팔 로 조회"
-    assert verbalize("010-1234-5678로") == "공일공, 일이삼사, 오육칠팔 로"  # the same comma pattern
+    assert verbalize("010-1234-5678로") == "공일공, 일이삼사, 오육칠팔 로"  # 같은 쉼표 꼴
     for same in ("환불은 3-5일 이내", "2~3일 내로", "주문번호 D3928174요", "38,900원입니다"):
         assert asr.spoken_form(same, verbalize, "v2") == verbalize(same)
 
@@ -110,7 +110,7 @@ def _items():
             "turns": [
                 {"speaker": "상담원", "text": "새싹택배입니다."},
                 {"speaker": "고객", "text": "운송장 6291-7877-5168로 조회해 주세요."},
-                {"speaker": "고객", "text": "..."},  # nothing to say: never synthesised
+                {"speaker": "고객", "text": "..."},  # 읽을 글이 없어 합성하지 않는다
             ],
         }
     ]
@@ -174,7 +174,7 @@ def test_a_run_refuses_to_resynthesise_unchanged_utterances(tmp_path, monkeypatc
     (data / "dev.jsonl").write_text(
         "".join(json.dumps(it, ensure_ascii=False) + "\n" for it in _items()), encoding="utf-8"
     )
-    ident = {"tts": "melotts/KR", "versions": {"torch": "2.12.0"}}  # not what the (empty) cache was made with
+    ident = {"tts": "melotts/KR", "versions": {"torch": "2.12.0"}}  # (빈) 캐시를 만든 음성 환경과 다르다
     monkeypatch.setattr(asr, "speech_identity", lambda whisper_model: ident)
     monkeypatch.setattr(asr, "load_verbalize", lambda: squash)
 
@@ -190,7 +190,7 @@ def test_a_run_refuses_to_resynthesise_unchanged_utterances(tmp_path, monkeypatc
     assert not (tmp_path / "out" / "dev.jsonl").exists()
 
 
-# --- speech condition v3: pass 1 keeps the audio, pass 2 recognises it again ---------------------------
+# --- 음성 조건 v3: 1패스는 소리를 남기고, 2패스는 남긴 소리를 다시 인식한다 ---------------------------
 
 
 # v3 싼 관문이 고르는 "번호 발화": 쓴 글에 주문번호(D+7자리)·접수번호(R+6자리)·운송장번호(4-4-4) 꼴이 있는
@@ -199,7 +199,7 @@ def test_identifier_turns_are_the_written_order_receipt_and_tracking_numbers():
     assert asr.says_identifier("주문번호는 D4477838입니다.")
     assert asr.says_identifier("접수번호 R123456요")
     assert asr.says_identifier("운송장 5891-6890-2287의 위치")
-    assert asr.says_identifier("６２９１-７８７７-５１６８요")  # NFKC
+    assert asr.says_identifier("６２９１-７８７７-５１６８요")  # 전각 숫자(NFKC)
     assert not asr.says_identifier("010-1234-5678로 연락 주세요")
     assert not asr.says_identifier("11월 29일에 도착합니다")
 
@@ -259,10 +259,10 @@ def test_pass_one_keeps_the_heard_audio_and_indexes_every_turn(tmp_path, monkeyp
     assert [(r["item_id"], r["turn"]) for r in rows] == [("dev-parcel-00001", i) for i in range(3)]
     assert rows[0]["key"] == key0 and rows[0]["cached_heard"] == "예전에 들림"
     assert rows[0]["heard"] == "들림:" + first and rows[0]["domain"] == "parcel"
-    assert (store.root / rows[0]["wav"]).read_bytes() == first.encode()  # the bytes the recogniser was given
+    assert (store.root / rows[0]["wav"]).read_bytes() == first.encode()  # 인식기가 받은 바이트
     assert rows[1]["spoken"] == "운송장 육이구일, 칠팔칠칠, 오일육팔 로 조회해 주세요."
     assert rows[2]["wav"] is None and rows[2]["heard"] == "" and rows[2]["audio_seconds"] == 0.0
-    # resumable: a second run synthesises nothing, and a reloaded store has the same rows
+    # 이어 하기: 두 번째 실행은 아무것도 합성하지 않고, 다시 읽은 저장소의 행도 같다
     assert asr.save_wavs(ch, items, store, "dev") == {"done": 3}
     assert asr.WavStore(tmp_path / "wav").split_rows("dev") == rows
 
@@ -275,7 +275,7 @@ def test_pass_one_can_keep_only_identifier_turns(tmp_path, monkeypatch):
     items = [{**it, "domain": "parcel"} for it in _items()]
     assert asr.save_wavs(ch, items, store, "dev", only_ids=True) == {"synthesised": 1}
     assert [r["turn"] for r in store.split_rows("dev")] == [1]
-    # the full run later adds the other turns and keeps the first one
+    # 나중에 전체를 돌리면 나머지 발화를 더하고 처음 남긴 발화는 그대로 둔다
     assert asr.save_wavs(ch, items, store, "dev") == {"done": 1, "synthesised": 1, "silent": 1}
 
 
@@ -304,7 +304,7 @@ def test_pass_two_recognises_each_kept_wav_once_with_the_domain_context(tmp_path
     assert rows[0]["heard"].endswith("|새싹택배, 전자레인지")
     assert asr.recognise(store, "dev", "Th", hyp, transcribe, context) == {"done": 2}
     assert asr.recognise(store, "dev", "L", tmp_path / "L.jsonl", transcribe, None) == {"recognised": 2}
-    assert calls[-1] is None  # only Th and Qc carry the context
+    assert calls[-1] is None  # 맥락을 싣는 팔은 Th와 Qc뿐이다
 
 
 # faster-whisper 팔의 모델과 hotwords 여부가 규칙 표(T: turbo, Th: turbo + 맥락, L: large-v3, N: whisper-ko-ft

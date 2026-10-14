@@ -1,7 +1,7 @@
-"""Scoring of structured fields. Code only: no judge model is involved here (summaries are scored elsewhere).
+"""구조 필드 채점. 코드로만 채점하며 판정 모델은 여기에 끼지 않는다(요약은 다른 곳에서 채점한다).
 
-A reply that does not validate as an AfterCallRecord scores zero on every field; `schema_ok`-only
-aggregates are reported separately so format failures and content errors can be told apart.
+AfterCallRecord로 검증을 통과하지 못한 답은 모든 필드에서 0점이다. `schema_ok`만 따로 모은 지표는
+별도로 보고해, 형식 실패와 내용 오류를 구분해 볼 수 있게 한다.
 """
 
 # [파일 역할] 모델이 낸 기록을 정답 기록(명세에서 나온 것)과 필드별로 비교해 건별 점수(ItemScore)를 만들고,
@@ -47,16 +47,15 @@ class ItemScore:
     entity_fp: int
     entity_fn: int
     entity_pred: int
-    entity_hallucinated: int  # predicted values not found anywhere in the transcript
+    entity_hallucinated: int  # 예측한 값 가운데 전사 어디에서도 찾지 못한 값의 수
     action_tp: int
     action_fp: int
     action_fn: int
     follow_required_ok: bool
     follow_codes_ok: bool
-    off_list: (
-        int  # labels outside the domain's allowed lists (category, actions, follow-up codes, entity types)
-    )
-    exact: bool  # every structured field right (summary not included)
+    # off_list: 업종의 허용 목록(문의 유형, 처리, 후속 조치 코드, 핵심 값 유형) 밖의 라벨 수.
+    off_list: int
+    exact: bool  # 구조 필드가 모두 맞았는지(요약은 포함하지 않는다)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -65,7 +64,7 @@ class ItemScore:
 # 기록의 핵심 값을 (유형, 정규화 값) 다중 집합으로 바꾼다. 유형이 업종 목록에 없거나 값을 그 종류로 읽을 수
 # 없으면(정규화가 None) 집합에 넣지 않고 bad로 센다. 예측 쪽의 bad는 score_item이 오답(fp)으로 더한다.
 def _entity_keys(domain_key: str, record: AfterCallRecord) -> tuple[Counter, int]:
-    """Normalized (type, value) multiset; returns also how many entities were unreadable/unknown type."""
+    """정규화한 (유형, 값) 다중 집합. 값을 읽을 수 없거나 유형을 모르는 핵심 값의 수도 함께 돌려준다."""
     d = DOMAINS[domain_key]
     kinds: dict[str, Kind] = {et.label: et.kind for et in d.entity_types}
     keys: Counter = Counter()
@@ -92,7 +91,7 @@ def score_item(
     transcript: str,
     spoken: bool = False,
 ) -> ItemScore:
-    """spoken=True for recognised-speech transcripts (stage 4): see values.occurs_in_transcript."""
+    """음성 인식 전사(4단계)이면 spoken=True로 부른다. 자세한 동작은 values.occurs_in_transcript를 본다."""
     d = DOMAINS[domain_key]
     # 정답 쪽 값은 명세에서 나와 늘 읽을 수 있으므로 bad 수는 버린다.
     gold_keys, _ = _entity_keys(domain_key, gold)
@@ -200,7 +199,7 @@ def score_item(
 
 
 # ---------------------------------------------------------------------------------------------------------
-# Aggregates. Each takes a list of ItemScore and returns a float (nan when undefined).
+# 지표 모음. 모두 ItemScore 목록을 받아 실수 하나를 돌려준다(정의되지 않으면 nan).
 
 # 지표 함수의 꼴: 건 점수 목록 → 실수. 분모가 0이면 0이 아니라 NaN을 돌려 "정의되지 않음"을 구분한다(예: 값을
 # 하나도 예측하지 않으면 환각률은 NaN).
@@ -234,7 +233,7 @@ def category_acc(items: Sequence[ItemScore]) -> float:
 # 문의 유형 macro-F1. 업종마다 유형 이름이 겹칠 수 있어 (업종, 유형)을 한 라벨로 보고, 정답에 나온 라벨마다
 # F1을 구해 평균한다. 드문 유형도 같은 무게로 보려는 지표다(계획의 "정확도, macro-F1").
 def category_macro_f1(items: Sequence[ItemScore]) -> float:
-    """Macro-F1 over (domain, gold category) labels that occur in the gold set."""
+    """정답 쪽에 나오는 (업종, 정답 문의 유형) 라벨들에 대한 Macro-F1."""
     labels = {(s.domain, s.gold_category) for s in items}
     if not labels:
         return NAN
@@ -273,7 +272,7 @@ def entity_f1(items: Sequence[ItemScore]) -> float:
 
 # 환각률 = 전사에 없는 예측 값 수 / 예측한 값 수. 분모가 예측 값이라 값을 적게 낼수록 분모가 작아진다.
 def hallucination_rate(items: Sequence[ItemScore]) -> float:
-    """Share of predicted entity values that appear nowhere in the transcript."""
+    """예측한 핵심 값 가운데 전사 어디에도 나오지 않는 값의 비율."""
     n = sum(s.entity_pred for s in items)
     return sum(s.entity_hallucinated for s in items) / n if n else NAN
 
@@ -326,7 +325,7 @@ def summarize(items: Sequence[ItemScore]) -> dict[str, float]:
 # v[int(0.95·n)]로 따로 계산해, 같은 목록에서 evaluate보다 한 순위 위의 p95를 냈다(docs/experiments.md "학습
 # epoch 경계와 지연 백분위 바로잡기"). 기록된 실행 대부분이 evaluate의 계산이라 그쪽으로 맞췄다.
 def pctl(sorted_vals: Sequence[float], q: float) -> float:
-    """Percentile of a sorted list, no interpolation: p50 = v[n // 2], otherwise v[int(q * (n - 1))]."""
+    """정렬한 목록의 백분위 값(보간 없음): p50 = v[n // 2], 그 밖에는 v[int(q * (n - 1))]."""
     n = len(sorted_vals)
     return sorted_vals[n // 2] if q == 0.5 else sorted_vals[int(q * (n - 1))]
 
@@ -339,7 +338,7 @@ def pctl(sorted_vals: Sequence[float], q: float) -> float:
 def bootstrap_ci(
     items: Sequence[ItemScore], metric: Metric, n_boot: int = 2000, seed: int = 0, alpha: float = 0.05
 ) -> tuple[float, float, float]:
-    """(point, low, high) with a percentile bootstrap over items."""
+    """건을 다시 뽑는 백분위 부트스트랩으로 (점 추정, 하한, 상한)을 낸다."""
     point = metric(items)
     if not items:
         return point, NAN, NAN
@@ -348,7 +347,7 @@ def bootstrap_ci(
     stats = []
     for _ in range(n_boot):
         v = metric([items[rng.randrange(k)] for _ in range(k)])
-        if v == v:  # skip nan
+        if v == v:  # nan은 자기 자신과 같지 않으므로 이 조건으로 건너뛴다
             stats.append(v)
     if not stats:
         return point, NAN, NAN
@@ -372,7 +371,7 @@ def paired_bootstrap_diff(
     seed: int = 0,
     alpha: float = 0.05,
 ) -> tuple[float, float, float]:
-    """metric(b) - metric(a) with a CI from resampling the same item ids for both sides."""
+    """metric(b) - metric(a)와, 양쪽에서 같은 건 id를 함께 다시 뽑아 얻은 신뢰 구간."""
     by_a = {s.item_id: s for s in a}
     by_b = {s.item_id: s for s in b}
     ids = sorted(by_a.keys() & by_b.keys())
@@ -402,7 +401,7 @@ def paired_bootstrap_diff(
 def value_survival(
     domain_key: str, gold: AfterCallRecord, transcript: str, spoken: bool = True
 ) -> dict[str, list[bool]]:
-    """Per entity type, whether each gold value can still be found in the transcript."""
+    """핵심 값 유형별로, 정답 값 하나하나를 전사에서 아직 찾을 수 있는지."""
     kinds: dict[str, Kind] = {et.label: et.kind for et in DOMAINS[domain_key].entity_types}
     out: dict[str, list[bool]] = {}
     for e in gold.entities:
@@ -417,8 +416,8 @@ def value_survival(
 def unfound_split(
     domain_key: str, gold: AfterCallRecord, pred: AfterCallRecord, transcript: str, spoken: bool = True
 ) -> tuple[Counter, Counter]:
-    """Predicted values not found in the transcript (what `entity_hallucinated` counts), per type: restored
-    (equal to a gold value after normalization, e.g. a misheard product name put right) or invented."""
+    """전사에서 찾지 못한 예측 값(`entity_hallucinated`가 세는 것)을 유형별로 나눠 센다: 복원(정규화 뒤
+    정답 값과 같음, 예: 잘못 들린 상품 이름을 바로잡은 경우)과 지어낸 값."""
     kinds: dict[str, Kind] = {et.label: et.kind for et in DOMAINS[domain_key].entity_types}
     gold_keys, _ = _entity_keys(domain_key, gold)
     restored: Counter = Counter()

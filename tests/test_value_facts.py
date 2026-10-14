@@ -102,7 +102,7 @@ def test_fact_slots_refuse_a_spec_whose_facts_were_edited():
 # 쇼핑몰 배송 문의(해결): 요청 사실의 주문번호(id)와 결과 사실의 날짜(date)만 값 사실로 고르고, 상품명(text)은
 # 판정 모델에 맡겨 고르지 않는다.
 def test_value_mentions_keep_numeric_kinds_only():
-    spec = _spec("shop", "배송 문의", "해결")  # request: order (id) + product (text); outcome: date
+    spec = _spec("shop", "배송 문의", "해결")  # 요청: 주문번호(id) + 상품(text). 결과: 날짜
     mentions = value_mentions(spec)
     assert [(m.fact, m.slot, m.kind) for m in mentions] == [(0, "order", "id"), (1, "date", "date")]
     assert mentions[0].value == _slots(spec)["order"]
@@ -111,7 +111,7 @@ def test_value_mentions_keep_numeric_kinds_only():
 # 요약이 날짜를 "10/5"처럼, 운송장번호를 하이픈 대신 공백으로 적어도 채점과 같은 정규화로 찾는다. 값이 하나도
 # 없는 요약은 두 사실 모두 False다.
 def test_values_are_found_in_their_normalized_forms():
-    spec = _spec("parcel", "배송 지연", "부분 해결")  # request: date + tracking; outcome: time
+    spec = _spec("parcel", "배송 지연", "부분 해결")  # 요청: 날짜 + 운송장번호. 결과: 시각
     by = _slots(spec)
     month, day = by["date"].removesuffix("일").split("월 ")
     tracking = by["tracking"].replace("-", " ")
@@ -139,7 +139,7 @@ def test_an_afternoon_time_without_its_period_is_not_the_same_time():
 # 금액은 말투와 상관없이 숫자로 비교한다: 정답 금액을 "32,000원" 꼴로 다시 적어도 찾고, 100원만 달라도 찾지
 # 못한다.
 def test_amounts_compare_as_numbers():
-    spec = _spec("shop", "주문 취소", "해결")  # the outcome fact has the refund amount
+    spec = _spec("shop", "주문 취소", "해결")  # 결과 사실에 환불 금액이 있다
     won = int(normalize("amount", _slots(spec)["amount"]) or 0)
     assert fact_value_ok(spec, f"주문 취소, {won:,}원 환불 접수")[1] is True
     assert fact_value_ok(spec, f"주문 취소, {won + 100:,}원 환불 접수")[1] is False
@@ -148,7 +148,7 @@ def test_amounts_compare_as_numbers():
 # 숫자 값이 없는 사실은 None(확인하지 않음)이다. 빈 요약이어도 False가 아니라 None이라, V+J에서는 판정 모델의
 # 판정이 그대로 남는다.
 def test_facts_without_numeric_values_are_not_checked():
-    spec = _spec("shop", "교환 신청", "해결")  # request has the order; the outcome fact has no slot
+    spec = _spec("shop", "교환 신청", "해결")  # 요청에는 주문번호가 있고 결과 사실에는 슬롯이 없다
     assert fact_value_ok(spec, "")[1] is None
 
 
@@ -157,7 +157,7 @@ def test_facts_without_numeric_values_are_not_checked():
 def test_hybrid_turns_value_misses_into_omissions_but_keeps_wrong():
     assert hybrid_verdicts(("포함", "포함", "포함"), [False, True, None]) == ("누락", "포함", "포함")
     assert hybrid_verdicts(("틀림", "누락"), [False, False]) == ("틀림", "누락")
-    # a failed judgement has no verdicts: the hybrid starts from 포함 so only the value check speaks
+    # 판정 실패면 판정이 비어 있다: V+J는 포함에서 시작하므로 값 확인 결과만 반영된다
     assert hybrid_verdicts((), [False, None]) == ("누락", "포함")
     with pytest.raises(ValueError):
         hybrid_verdicts(("포함",), [True, True])
@@ -166,14 +166,14 @@ def test_hybrid_turns_value_misses_into_omissions_but_keeps_wrong():
 # 두 건의 실행에서 지표를 손 계산과 맞춘다: 값 5개 중 3개(값 보존율 3/5), 값 사실 4개 중 2개, 모든 값을 찾은
 # 건 1/2, 종류별 [찾음, 전체](번호 2/2, 날짜 1/2, 시각 0/1). 부트스트랩 구간이 점 추정을 감싸는지도 본다.
 def test_run_table_counts_values_facts_and_items(tmp_path):
-    a = _spec("shop", "배송 문의", "해결")  # mentions: order | date
-    b = _spec("parcel", "배송 지연", "부분 해결")  # mentions: date, tracking | time
-    s_a = f"주문 {_slots(a)['order']} 배송 문의, {_slots(a)['date']} 도착 예정"  # all found
-    s_b = f"운송장 {_slots(b)['tracking']} 지연"  # 1 of 3 found
+    a = _spec("shop", "배송 문의", "해결")  # 값: 주문번호 | 날짜
+    b = _spec("parcel", "배송 지연", "부분 해결")  # 값: 날짜, 운송장번호 | 시각
+    s_a = f"주문 {_slots(a)['order']} 배송 문의, {_slots(a)['date']} 도착 예정"  # 모두 찾음
+    s_b = f"운송장 {_slots(b)['tracking']} 지연"  # 3개 중 1개 찾음
     t = run_value_table(_run(tmp_path, [(a, s_a), (b, s_b)]), n_boot=200)
     assert t["n_items"] == 2 and t["n_mentions"] == 5
     assert math.isclose(t["value_recall"], 3 / 5)
-    assert math.isclose(t["value_fact_recall"], 2 / 4)  # a: 2 of 2 value facts, b: 0 of 2
+    assert math.isclose(t["value_fact_recall"], 2 / 4)  # a: 값 사실 2개 중 2개, b: 2개 중 0개
     assert math.isclose(t["items_all_values"], 1 / 2)
     assert t["by_kind"]["id"] == [2, 2] and t["by_kind"]["date"] == [1, 2] and t["by_kind"]["time"] == [0, 1]
     lo, hi = t["value_recall_ci"]
@@ -202,7 +202,7 @@ def test_run_table_counts_a_distractor_written_into_the_summary(tmp_path):
 # V가 바로잡는 방식이다.
 def test_run_table_adds_raw_and_hybrid_judge_numbers(tmp_path):
     a = _spec("shop", "배송 문의", "해결")
-    summary = f"주문 {_slots(a)['order']} 배송 문의"  # the date is missing: fact 2 fails the value check
+    summary = f"주문 {_slots(a)['order']} 배송 문의"  # 날짜가 없어 둘째 사실이 값 확인에 실패한다
     judge = [{"item_id": a.spec_id, "verdicts": ["포함", "포함"], "wrong_statements": 0, "ok": True}]
     t = run_value_table(_run(tmp_path, [(a, summary)], judge=judge), judge_file="judge-x.jsonl", n_boot=50)
     assert t["judge"]["raw_fact_recall"] == 1.0

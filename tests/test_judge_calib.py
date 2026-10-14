@@ -27,11 +27,11 @@ from call_summary.specs import make_spec
 # kappa 약 0.32).
 def test_kappa_known_values():
     assert cohen_kappa([True, False, True, False], [True, False, True, False]) == 1.0
-    # 2x2 table a=8 (both yes), b=1, c=1, d=0: po 0.8, pe 0.9*0.9 + 0.1*0.1 = 0.82
+    # 2x2 표 a=8(둘 다 예), b=1, c=1, d=0: po 0.8, pe 0.9*0.9 + 0.1*0.1 = 0.82
     a = [True] * 8 + [True, False]
     b = [True] * 8 + [False, True]
     assert math.isclose(cohen_kappa(a, b), (0.8 - 0.82) / (1 - 0.82))
-    assert math.isnan(cohen_kappa([True, True], [True, True]))  # no variation on either side
+    assert math.isnan(cohen_kappa([True, True], [True, True]))  # 양쪽 모두 값이 하나뿐(변화 없음)
     with pytest.raises(ValueError):
         cohen_kappa([True], [True, False])
 
@@ -77,7 +77,7 @@ def _runs(tmp_path: Path, n: int = 30, empty: dict[str, set[int]] | None = None)
 # 섞는다(층별로 열쇠를 나눠 주지 않음). 같은 명령을 다시 부르면 같은 표본이 나온다(결정적).
 def test_sample_draws_disjoint_strata_skips_empty_summaries_and_hides_the_source(tmp_path):
     data, runs = _runs(tmp_path, empty={"B": {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}})
-    hand = runs["C"] / "hand.jsonl"  # hand labels lie in the run they label
+    hand = runs["C"] / "hand.jsonl"  # 손 라벨은 라벨을 단 실행 폴더 안에 있다
     hand_ids = [_item(i).item_id for i in (0, 1)]
     write_jsonl(hand, [{"item_id": i, "verdicts": ["포함"], "wrong_statements": 0} for i in hand_ids])
     sample = tmp_path / "out" / "sample.jsonl"
@@ -103,16 +103,16 @@ def test_sample_draws_disjoint_strata_skips_empty_summaries_and_hides_the_source
     assert [len(by[s]) for s in ("S1", "S2", "H")] == [5, 4, 2]
     new_ids = [r["item_id"] for r in by["S1"] + by["S2"]]
     assert len(set(new_ids)) == 9 and not set(new_ids) & set(hand_ids)
-    assert all(r["summary"].strip() for r in by["S2"])  # empty summaries were skipped
+    assert all(r["summary"].strip() for r in by["S2"])  # 빈 요약은 건너뛰었다
     assert [r["item_id"] for r in by["H"]] == hand_ids
     tpl = list(read_jsonl(template))
-    assert len(tpl) == 9  # hand rows are labelled already
+    assert len(tpl) == 9  # 손 라벨 행은 이미 라벨이 있다
     assert all(set(t) == {"key", "facts", "summary", "verdicts", "wrong_statements", "note"} for t in tpl)
     assert [t["key"] for t in tpl] == sorted(t["key"] for t in tpl)
-    # the label order mixes the strata (keys are not handed out stratum by stratum)
+    # 라벨 순서는 층을 섞는다(키를 층별로 차례차례 내주지 않는다)
     key_order = [next(r["stratum"] for r in rows if r["key"] == t["key"]) for t in tpl]
     assert key_order != sorted(key_order, key=["S1", "S2"].index)
-    # the same call again gives the same sample
+    # 같은 호출을 다시 하면 같은 표본이 나온다
     sample2 = tmp_path / "out2" / "sample.jsonl"
     args2 = args[:-4] + ["--out", str(sample2), "--template", str(tmp_path / "out2" / "t.jsonl")]
     assert judge_calib.main(args2) == 0
@@ -168,7 +168,7 @@ def test_judge_writes_one_row_per_key_with_token_counts_and_resumes(tmp_path, mo
     meta = json.loads(out.with_suffix(".meta.json").read_text(encoding="utf-8"))
     assert meta["model"] == "m" and meta["num_gpu"] == 99 and meta["run_checks"]["context_full"] == 0
     assert len(provider.calls) == 4
-    assert judge_calib.main(argv) == 0  # resume: nothing left to judge
+    assert judge_calib.main(argv) == 0  # 이어 하기: 판정할 것이 남지 않았다
     assert len(provider.calls) == 4 and len(list(read_jsonl(out))) == 4
 
 
@@ -217,13 +217,13 @@ def _stats(kappa, lb_vs_j0, vs_h0, failed=0, full=0, recall=0.8, thinking=0):
 def test_decide_applies_every_condition_in_order():
     ok = _stats(0.7, 0.1, 0.05)
     assert decide({"H1": ok, "H2": _stats(0.65, 0.05, 0.0)})["adopted"] == "H1"
-    assert decide({"H1": _stats(0.59, 0.1, 0.05)})["adopted"] is None  # kappa below 0.6
-    assert decide({"H1": _stats(0.7, 0.0, 0.05)})["adopted"] is None  # lower bound not above 0
-    assert decide({"H1": _stats(0.7, 0.1, -0.01)})["adopted"] is None  # worse than the old judge's hybrid
+    assert decide({"H1": _stats(0.59, 0.1, 0.05)})["adopted"] is None  # kappa가 0.6 미만
+    assert decide({"H1": _stats(0.7, 0.0, 0.05)})["adopted"] is None  # 하한이 0보다 크지 않다
+    assert decide({"H1": _stats(0.7, 0.1, -0.01)})["adopted"] is None  # 옛 판정의 V+J보다 낮다
     assert decide({"H1": _stats(0.7, 0.1, 0.05, failed=2)})["adopted"] is None
     assert decide({"H1": _stats(0.7, 0.1, 0.05, full=1)})["adopted"] is None
-    assert decide({"H1": _stats(0.7, 0.1, 0.05, thinking=1)})["adopted"] is None  # thinking was not off
-    # tie on kappa: higher error recall, then the later-registered (other family) candidate
+    assert decide({"H1": _stats(0.7, 0.1, 0.05, thinking=1)})["adopted"] is None  # 생각 모드가 꺼지지 않았다
+    # kappa가 같으면 오류 재현율이 높은 쪽, 그래도 같으면 나중에 등록한(다른 계열) 후보
     tie = decide({"H1": _stats(0.7, 0.1, 0.0, recall=0.8), "H2": _stats(0.7, 0.1, 0.0, recall=0.9)})
     assert tie["adopted"] == "H2"
     tie2 = decide({"H1": _stats(0.7, 0.1, 0.0), "H2": _stats(0.7, 0.1, 0.0)})
@@ -321,9 +321,9 @@ def test_report_decides_on_the_decision_strata_with_the_value_check(tmp_path):
     argv = ["sample", "--stratum", f"S={runs['A']}:6", "--stratum", f"C={runs['B']}:4", "--seed", "0"]
     assert judge_calib.main(argv + ["--out", str(sample), "--template", str(tmp_path / "t.jsonl")]) == 0
     rows = list(read_jsonl(sample))
-    _write_judge(tmp_path / "claude.jsonl", rows, first_wrong=True)  # Claude: every first fact is wrong
-    _write_judge(tmp_path / "j0.jsonl", rows, first_wrong=False)  # the old judge sees nothing
-    _write_judge(tmp_path / "j1.jsonl", rows, first_wrong=True)  # the new one agrees with Claude
+    _write_judge(tmp_path / "claude.jsonl", rows, first_wrong=True)  # Claude: 첫 사실은 모두 틀림
+    _write_judge(tmp_path / "j0.jsonl", rows, first_wrong=False)  # 옛 판정은 아무것도 잡지 못한다
+    _write_judge(tmp_path / "j1.jsonl", rows, first_wrong=True)  # 새 판정은 Claude와 같다
     out = tmp_path / "report.json"
     argv = ["report", "--sample", str(sample), "--labels", str(tmp_path / "claude.jsonl")]
     argv += ["--judge", f"J0={tmp_path / 'j0.jsonl'}", "--judge", f"J1={tmp_path / 'j1.jsonl'}"]
@@ -437,7 +437,7 @@ def test_judge_run_summary_records_the_commit_and_the_loaded_models(tmp_path, mo
 
 # /api/ps를 부를 수 없으면 None을 기록하고 실행을 실패시키지 않는다(기록용 값이다).
 def test_loaded_models_is_none_without_a_model_server():
-    assert judge_run.loaded_models(object()) is None  # no /api/ps: a record only, never a failure
+    assert judge_run.loaded_models(object()) is None  # /api/ps가 없어도 기록만 비고 실패하지 않는다
 
 
 # value_cells: 사실마다 V의 결과(값 찾음 / 값 없음 / 숫자 값이 없는 사실)와 Claude의 포함 여부로 여섯 칸을
@@ -455,7 +455,7 @@ def test_value_cells_count_the_value_check_against_claude():
         "noval_not": 1,
         "noval_incl": 0,
     }
-    assert c["v_miss_but_claude_included"] == ["k1/F1"]  # V's false misses
+    assert c["v_miss_but_claude_included"] == ["k1/F1"]  # V는 누락, Claude는 포함으로 본 것(V의 거짓 누락)
     assert c["v_found_but_claude_not"] == ["k1/F2:틀림"]
 
 
@@ -479,7 +479,7 @@ def test_cells_reports_strata_then_named_groups_in_their_strata_order(tmp_path):
     assert list(rep) == first_seen + ["S"]
     assert rep["S"]["kappa_table"]["n_items"] == 6
     assert sum(rep["S"]["cells"].values()) == rep["S"]["kappa_table"]["n_facts"]
-    # the group's bootstrap draws from its keys in the order of its strata (S2, then S1)
+    # 묶음의 부트스트랩은 층 순서(S2, 그다음 S1)대로 그 키들에서 뽑는다
     claude = judge_calib._load_labels(rows, tmp_path / "claude.jsonl", {})
     value_ok = judge_calib._value_ok(rows)
     v = Rater("V", {k: judge_calib.hybrid_verdicts((), ok) for k, ok in value_ok.items()})

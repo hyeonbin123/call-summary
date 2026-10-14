@@ -1,9 +1,9 @@
-"""Send dataset calls to a running service with N concurrent clients; report throughput, latency, errors.
+"""떠 있는 서비스에 데이터셋 통화를 동시 클라이언트 N개로 보내고 처리량·지연·오류를 보고한다.
 
     uv run python -m call_summary.loadtest --data datasets/dev.jsonl --concurrency 1 2 4
 
-Latency is measured by the client (the whole HTTP round trip). A request that fails in transport (timeout,
-dropped connection) counts as status "error:<exception>". Results go to --out as JSON after every stage.
+지연은 클라이언트에서 잰다(HTTP 왕복 전체). 전송 중에 실패한 요청(타임아웃, 연결 끊김)은 상태
+"error:<exception>"으로 센다. 결과는 단계가 끝날 때마다 --out에 JSON으로 쓴다.
 """
 
 # [파일 역할] 5단계(서빙)의 부하 시험 도구다. 떠 있는 FastAPI 서비스(/summarize)에 데이터셋 통화를 동시 요청
@@ -41,8 +41,8 @@ def request_body(item: Item) -> dict:
 # 서비스의 FastAPI TestClient나 일부러 예외를 내는 가짜 client를 넣어 같은 코드를 GPU 없이 확인한다.
 # 출력: 동시성, 건수, 상태별 개수, 전체 경과 시간, 처리량, 지연(p50, p95, 평균, 최대), 요청별 기록.
 def run_load(client, items: Sequence[Item], concurrency: int) -> dict:
-    """`client` is anything with .post(path, json=...) returning an object with .status_code (httpx.Client,
-    FastAPI TestClient)."""
+    """`client`는 .post(path, json=...)가 .status_code를 가진 객체를 돌려주는 것이면 무엇이든 된다
+    (httpx.Client, FastAPI TestClient)."""
 
     # 요청 하나를 보내고 (상태 문자열, 걸린 초)를 돌려준다. 지연은 클라이언트에서 잰 HTTP 왕복 전체다.
     def one(item: Item) -> tuple[str, float]:
@@ -51,7 +51,7 @@ def run_load(client, items: Sequence[Item], concurrency: int) -> dict:
             status = str(client.post("/summarize", json=request_body(item)).status_code)
         # 타임아웃이나 연결 끊김으로 측정 전체가 죽지 않게, 예외를 "error:<예외 이름>" 상태로 세어 결과에
         # 남긴다(커밋 6238213).
-        except Exception as exc:  # noqa: BLE001 - a timeout or dropped connection is a counted error, not a crash
+        except Exception as exc:  # noqa: BLE001 - 타임아웃·연결 끊김은 중단이 아니라 세는 오류다
             status = f"error:{type(exc).__name__}"
         return status, time.perf_counter() - t0
 
@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--data", required=True)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--concurrency", type=int, nargs="+", default=[1])
-    ap.add_argument("--out", help="JSON file for the results")
+    ap.add_argument("--out", help="결과를 쓸 JSON 파일(단계마다 덮어쓴다)")
     # 요청 하나의 시간 한도(초, 기본 300). 넘으면 위의 error 상태로 센다.
     ap.add_argument("--timeout", type=float, default=300.0)
     args = ap.parse_args(argv)
@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             res = run_load(client, items, c)
             print(json.dumps(res, ensure_ascii=False), flush=True)
             report["runs"].append(res)
-            save()  # finished stages survive a later failure
+            save()  # 나중 단계가 실패해도 끝난 단계는 남는다
         # 모든 단계가 끝난 뒤 서비스가 집계한 요청 수·지연 분포(/stats)를 함께 남겨, 클라이언트 쪽 지연과 서버
         # 쪽 지연을 견줄 수 있게 한다.
         report["service_stats"] = client.get("/stats").json()

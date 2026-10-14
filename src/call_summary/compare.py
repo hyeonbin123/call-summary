@@ -1,9 +1,9 @@
-"""Tables from evaluation runs.
+"""평가 실행들로 표를 만든다.
 
-compare RUN...            one row per run: headline metrics with 95% CIs, latency
-compare --paired A B      metric differences B - A with paired-bootstrap CIs (same items on both sides)
-compare --pick RUN...     runs ranked by the pick rule: exact, then entity F1, then lower hallucination
-compare --think-check RUN...  per run: thinking text, <think> tags, replies cut at num_predict, answer tokens
+compare RUN...            실행마다 한 줄: 대표 지표와 95% 구간, 지연
+compare --paired A B      지표 차이 B - A와 짝지은 부트스트랩 구간(양쪽이 같은 건)
+compare --pick RUN...     고르는 규칙 순서로 줄 세운 실행: exact, 다음 핵심 값 F1, 다음 낮은 환각
+compare --think-check RUN...  실행마다: 생각 글, <think> 태그, num_predict에서 잘린 답, 답 토큰 수
 """
 
 # [파일 역할] 기록된 평가 실행(outputs/runs/<id>/ 또는 reports/<id>/)을 읽어 docs/experiments.md에 붙일 표를
@@ -88,7 +88,6 @@ def paired_table(a: str, b: str, metrics: tuple[str, ...] = HEADLINE, n_boot: in
     lines = [
         # 제목 줄의 빼기 기호는 ASCII "-"로 쓴다. Windows 한국어 환경에서 출력을 파일로 돌리면 표준 출력이
         # cp949인데 cp949에는 유니코드 빼기(U+2212)가 없다. 돌린 출력도 동작하게 고친 것이다(커밋 0ea5791).
-        # ASCII minus: a redirected stdout is cp949 on Windows here, which has no U+2212
         f"B - A: `{run_name(mb)}` - `{run_name(ma)}` (n={len(sa)})",
         "",
         "| metric | A | B | diff [95% CI] |",
@@ -109,7 +108,7 @@ def _pick_key(point: dict) -> tuple[float, float, float]:
     def num(x: float | None, worst: float) -> float:
         return worst if x is None or (isinstance(x, float) and math.isnan(x)) else x
 
-    # undefined values (no entities predicted) rank last
+    # 정의되지 않은 값(예측한 핵심 값이 없음)은 맨 뒤로 간다.
     return (
         -num(point.get("exact"), -math.inf),
         -num(point.get("entity_f1"), -math.inf),
@@ -122,8 +121,8 @@ def _pick_key(point: dict) -> tuple[float, float, float]:
 # sorted는 안정 정렬이라 세 기준이 모두 같으면 넘긴 순서가 유지된다. 그래서 규칙의 마지막 동률 기준("등록
 # 순서가 앞선 것")을 맞추려면 등록 순서대로 넘겨야 한다.
 def pick_order(runs: list[str]) -> list[str]:
-    """Runs best first by dev exact, then entity F1, then lower hallucination; full ties keep the given
-    order (list the runs in their registered order)."""
+    """dev exact, 다음 핵심 값 F1, 다음 낮은 환각 순으로 좋은 실행부터 줄 세운다. 모두 같으면 넘긴
+    순서를 유지한다(실행을 등록 순서대로 넘긴다)."""
     points = {r: json.loads((Path(r) / "summary.json").read_text(encoding="utf-8"))["point"] for r in runs}
     return sorted(runs, key=lambda r: _pick_key(points[r]))
 
@@ -145,9 +144,8 @@ def pick_table(runs: list[str]) -> str:
 # 답(done_reason "length"), 스키마 통과 수, 답 토큰 수의 p50·최대. 생각 글이 남으면 답 상한(1,024토큰)에서
 # 잘려 JSON이 사라지므로, 이 값들로 측정 조건이 지켜졌는지 판단한다.
 def think_rows(runs: list[str]) -> list[dict]:
-    """Per run, what shows whether the thinking switch held: replies that came with thinking text
-    (Ollama's message.thinking), replies with <think> tags in the answer, replies cut at num_predict,
-    and the answer length in tokens (p50 as in evaluate, max)."""
+    """실행마다 생각 끄기가 지켜졌는지 보여 주는 값: 생각 글(Ollama의 message.thinking)이 붙어 온 답,
+    답 안에 <think> 태그가 있는 답, num_predict에서 잘린 답, 답 토큰 수(evaluate와 같은 p50, 최대)."""
     out = []
     for r in runs:
         manifest = json.loads((Path(r) / "manifest.json").read_text(encoding="utf-8"))
@@ -179,8 +177,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("runs", nargs="*")
     ap.add_argument("--paired", nargs=2, metavar=("A", "B"))
     ap.add_argument("--metrics", nargs="+", default=list(HEADLINE))
-    ap.add_argument("--pick", nargs="+", metavar="RUN", help="rank runs by the pick rule (first = pick)")
-    ap.add_argument("--think-check", nargs="+", metavar="RUN", help="thinking text, tags and cut replies")
+    ap.add_argument(
+        "--pick", nargs="+", metavar="RUN", help="고르는 규칙 순서로 실행을 줄 세운다(첫 번째 = 고른 것)"
+    )
+    ap.add_argument(
+        "--think-check", nargs="+", metavar="RUN", help="실행마다 생각 글, <think> 태그, 잘린 답 수를 센다"
+    )
     args = ap.parse_args(argv)
     metrics = tuple(args.metrics)
     if args.pick:

@@ -1,15 +1,15 @@
-"""Speech-condition reports that need no model.
+"""모델 없이 만드는 음성 조건 보고서.
 
-asr_report survival DATA...   per entity type, the share of gold values still findable in each transcript
-                              file (the input analysis: run it before any model sees the data)
-asr_report unfound RUN...     predicted values not found in the transcript, split into restored (equal to
-                              gold) and invented, per type (stage 4 rule); also the empty and placeholder
-                              ("없음", "알 수 없음" ...) values among them
+asr_report survival DATA...   값 유형별로, 전사 파일마다 아직 찾을 수 있는 정답 값의 비율
+                              (입력 분석: 어떤 모델도 데이터를 보기 전에 돌린다)
+asr_report unfound RUN...     전사에서 찾을 수 없는 예측 값을 복원(정답과 같음)과 지어낸 값으로 나눠
+                              유형별로 센다(4단계 규칙). 그중 빈 값과 자리 표시 값("없음", "알 수 없음" ...)도
+                              함께 센다
 asr_report tracking-forms DATA...
-                              how the recogniser wrote each tracking number of the written utterances
-                              (input analysis of the speech condition v2)
+                              쓴 발화의 운송장번호를 인식기가 각각 어떤 꼴로 적었는지
+                              (음성 조건 v2의 입력 분석)
 
-Values are found as in scoring: `values.occurs_in_transcript`, spoken=True for `*-asr` splits.
+값은 채점과 같은 방식으로 찾는다: `values.occurs_in_transcript`, `*-asr` 분할은 spoken=True.
 """
 
 # [파일 역할] 음성 조건(4단계, v2, v3)의 분석 가운데 모델 없이 돌릴 수 있는 세 가지를 모은 명령줄 도구다.
@@ -47,7 +47,7 @@ from .values import occurs_in_transcript
 # "모든 값이 남은 건"은 학생이 완벽히 맞힐 수 있는 상한에 가깝다. 예: test-d-v2 81.7%인데 서빙 학생 exact가
 # 79.3이라 학생이 인식기의 천장 가까이 있다는 근거가 됐다(docs/experiments.md "음성 조건 v3" 왜).
 def survival(paths: list[str | Path]) -> dict[str, dict]:
-    """{path: {"items", "all_found", "types": {type: [found, n]}}}."""
+    """파일 경로별 {path: {"items", "all_found", "types": {type: [found, n]}}}."""
     out: dict[str, dict] = {}
     for path in paths:
         types: dict[str, list[int]] = {}
@@ -90,8 +90,6 @@ def survival_table(got: dict[str, dict]) -> str:
 # 비교한다. 2026년 비교 대상이 빠진 값 자리에 "없음"을 적는 일이 있어, 빈 값과 함께 따로 셌다(커밋
 # afd83a2·e9dc490). 자리 표시 값은 빈 값을 채운 것의 글 형태다(3단계 14B는 빈 값을 채웠다). 둘 다 지어낸 값에
 # 들어가므로 따로 세어 보인다.
-# Words written in place of a value ("none", "unknown", "undecided" ...), compared with whitespace removed and
-# lowercased. Writing one is the text form of filling a type with "" (stage 3's 14B did that).
 PLACEHOLDERS = frozenset(
     {
         "없음",
@@ -125,7 +123,7 @@ def is_placeholder(value: str) -> bool:
 # 데이터는 실행 manifest에 적힌 파일을 쓴다(또는 data 인자). 스키마를 통과하지 못해 예측 기록이 없는 건은
 # 건너뛴다.
 def unfound(run: str | Path, data: str | Path | None = None) -> dict:
-    """Restored and invented values of one evaluation run (reports/<run_id>), against its dataset."""
+    """평가 실행 하나(reports/<run_id>)의 복원 값과 지어낸 값. 그 실행의 데이터셋에 대 본다."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     items = {it.item_id: it for it in load_items(data or manifest["data"])}
@@ -156,8 +154,8 @@ def unfound(run: str | Path, data: str | Path | None = None) -> dict:
         "predicted": predicted,
         "restored": dict(restored.most_common()),
         "invented": dict(invented.most_common()),
-        "empty": empty,  # unfound values that are empty strings (all invented), as stage 3 counted them
-        "placeholder": placeholder,  # unfound values that are a placeholder word (all invented)
+        "empty": empty,  # 찾지 못한 값 중 빈 문자열(모두 지어낸 값). 3단계와 같은 방식으로 센다
+        "placeholder": placeholder,  # 찾지 못한 값 중 자리 표시 낱말(모두 지어낸 값)
     }
 
 
@@ -194,15 +192,15 @@ def unfound_table(got: dict[str, dict]) -> str:
 _TRACKING = re.compile(r"\d{4}-\d{4}-\d{4}")
 _HANGUL_DIGIT_NAMES = re.compile(r"[공영일이삼사오육칠팔구]{4,}")
 _HANGUL = re.compile(r"[가-힣]")
-_RANGE_WORD = "에서"  # the v1 range reading ("A에서 B"), counted on its own row
+_RANGE_WORD = "에서"  # v1의 범위 읽기("A에서 B"). 표의 따로 된 행에서 센다
 
 
 # 쓴 글의 [start, end) 구간(번호)에 맞춰지는 들린 글의 부분을 찾는다. difflib의 편집 연산(opcodes)에서 시작·끝
 # 위치가 들어 있는 연산을 찾아 들린 글의 위치로 옮기고(같은 구간이면 오프셋 그대로, 다르면 연산 경계), 양 끝에
 # 붙은 숫자까지 넓혀 번호 가장자리에 더해진 숫자도 놓치지 않는다.
 def heard_span(written: str, heard: str, start: int, end: int) -> str:
-    """The part of `heard` lined up (difflib, by character) with written[start:end], widened over digits
-    that touch it on either side so inserted digits at its edges are kept."""
+    """written[start:end]에 (difflib로 글자 단위로) 맞춰지는 `heard`의 부분. 양쪽에 붙은 숫자까지
+    넓혀, 가장자리에 끼어든 숫자도 남긴다."""
     hs, he = 0, len(heard)
     found_start = found_end = False
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, written, heard, autojunk=False).get_opcodes():
@@ -223,12 +221,12 @@ def heard_span(written: str, heard: str, start: int, end: int) -> str:
 # 2026-10-04 검토에서 처음 표가 "651일 5502"처럼 일부만 한글로 적힌 번호를 세지 못한 것을 찾아, 이 세부 분류를
 # 커밋한 도구로 다시 셌다(docs/experiments.md 바로잡음).
 def tracking_form(number: str, written: str, heard: str, at: int = 0) -> tuple[str, str]:
-    """(form, heard span) of one tracking number said in `written` (at index `at`) and heard as `heard`.
+    """`written`(위치 `at`)에서 말하고 `heard`로 들린 운송장번호 하나의 (꼴, 들린 부분).
 
-    Forms: "as_written"; "split_found" (found by scoring's spoken rule, e.g. groups split by commas);
-    "hangul_digit_names" (not found, 4+ Hangul digit names in the heard utterance); else lost, by the heard
-    span lined up with the number: "lost_hangul" (a Hangul syllable in it, "에서" aside, e.g. "651일 5502"),
-    "lost_fewer" / "lost_more" (fewer / more than its digits) or "lost_changed" (as many digits).
+    꼴: "as_written"; "split_found"(채점의 spoken 규칙으로 찾음, 예: 쉼표로 나뉜 묶음);
+    "hangul_digit_names"(못 찾음, 들린 발화에 한글 숫자 이름 4자 이상); 그 밖은 못 찾음이며, 번호에
+    맞춰진 들린 부분으로 나눈다: "lost_hangul"(한글 음절이 있음, "에서"는 빼고 봄, 예: "651일 5502"),
+    "lost_fewer" / "lost_more"(번호보다 숫자가 적음 / 많음), "lost_changed"(숫자 수는 같음).
     """
     if number in heard:
         return "as_written", number
@@ -263,7 +261,7 @@ TRACKING_FORMS = (
 def tracking_forms(paths: list[str | Path]) -> dict[str, dict]:
     """{path: {"numbers", <form>: count..., "heard_has_에서", "lost": [[item_id, number, form, span]]}}.
 
-    Every tracking number in each utterance's written text (meta.asr.written), against what was heard."""
+    발화마다 쓴 글(meta.asr.written)의 모든 운송장번호를 들린 글과 견준다."""
     out: dict[str, dict] = {}
     for path in paths:
         n: Counter = Counter({f: 0 for f in TRACKING_FORMS})
@@ -313,15 +311,15 @@ def tracking_forms_table(got: dict[str, dict]) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("survival", help="gold values still findable in transcript files")
+    s = sub.add_parser("survival", help="전사 파일에 아직 찾을 수 있는 정답 값")
     s.add_argument("data", nargs="+")
-    u = sub.add_parser("unfound", help="restored vs invented values of evaluation runs")
+    u = sub.add_parser("unfound", help="평가 실행의 복원 값과 지어낸 값")
     u.add_argument("runs", nargs="+")
-    t = sub.add_parser("tracking-forms", help="how the recogniser wrote tracking numbers")
+    t = sub.add_parser("tracking-forms", help="인식기가 운송장번호를 적은 꼴")
     t.add_argument("data", nargs="+")
-    t.add_argument("--show-lost", action="store_true", help="also print every lost number and its heard span")
+    t.add_argument("--show-lost", action="store_true", help="못 찾은 번호와 그 들린 부분도 모두 찍는다")
     for p in (s, u, t):
-        p.add_argument("--json", help="also write the numbers here")
+        p.add_argument("--json", help="원래 숫자를 이 파일에도 쓴다")
     args = ap.parse_args(argv)
     if args.cmd == "survival":
         got = survival(args.data)

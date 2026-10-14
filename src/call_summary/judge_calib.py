@@ -1,18 +1,17 @@
-"""Summary-judge calibration against Claude's fact labels (docs/experiments.md "요약 판정 재보정").
+"""Claude의 사실 라벨로 요약 판정을 보정한다(docs/experiments.md "요약 판정 재보정").
 
-  sample  draw the strata from recorded runs and write the sample plus a blind labelling template
-  judge   run one judge model over the sample (resumable, one row per sample key)
-  report  agreement with Claude per stratum (raw, with the value check, value check alone) and the
-          adoption decision on the decision strata
-  cells   the value check alone against Claude, fact counts by cell and the facts where they part
+  sample  기록된 실행에서 층을 뽑아 표본과, 누구 것인지 가린 라벨 양식을 쓴다
+  judge   표본 전체에 판정 모델 하나를 돌린다(이어 하기 가능, 표본 열쇠마다 한 줄)
+  report  층마다 Claude와의 일치(판정 그대로, 값 확인을 더한 것, 값 확인 혼자)와 채택 층에서의
+          채택 판정
+  cells   값 확인 혼자를 Claude와 비교한 셀별 사실 수와, 둘이 갈리는 사실
 
-Sampling: one permutation (random.Random(seed)) of the first stratum run's item ids, without the ids of
-the hand-labelled strata; the strata take the next ids in their command-line order, skipping an id whose
-summary in that stratum's run is empty, so the strata are disjoint. The template rows carry only an opaque
-key, the facts and the summary, in an order that mixes the strata.
+표본 뽑기: 첫 층 실행의 건 id를 한 번 섞고(random.Random(seed)) 사람 라벨 층의 id는 뺀다. 층들은 명령줄
+순서대로 다음 id를 가져가되, 그 층 실행의 요약이 빈 id는 건너뛰므로 층끼리 겹치지 않는다. 양식 행에는
+속을 알 수 없는 열쇠, 사실 목록, 요약만 들어가고, 층이 섞인 순서로 놓인다.
 
-Agreement is binary per fact (포함 against 누락 or 틀림). A failed judgement counts as 포함 for every fact.
-Intervals resample sample items (all facts of an item together), paired for differences.
+일치는 사실마다 이진값이다(포함 대 누락 또는 틀림). 판정이 실패한 건은 모든 사실을 포함으로 친다.
+구간은 표본 건(한 건의 사실을 함께) 단위로 다시 뽑고, 차이는 짝지어 낸다.
 """
 
 # [파일 역할] 요약 판정 재보정(2026-10-08 규칙)의 도구다. 기록된 실행에서 보정 표본을 층별로 뽑고(sample),
@@ -61,11 +60,11 @@ from .value_facts import fact_value_ok, hybrid_verdicts
 # INCLUDED: '포함' 판정. 일치는 사실마다 포함 대 비포함(누락·틀림)의 이진값으로 본다.
 # KAPPA_MIN, MAX_FAILED: 채택 조건 (a) 채택 층 kappa ≥ 0.6, (d) 채택 층 판정 실패 1건 이하(규칙 4).
 INCLUDED = VERDICTS[0]
-KAPPA_MIN = 0.6  # adoption: kappa on the decision strata at least this
-MAX_FAILED = 1  # adoption: at most this many failed judgements on the decision strata
+KAPPA_MIN = 0.6  # 채택: 채택 층의 kappa가 이 값 이상
+MAX_FAILED = 1  # 채택: 채택 층의 판정 실패가 이 수 이하
 
 
-# --------------------------------------------------------------------------------------------- sampling
+# ------------------------------------------------------------------------------------------ 표본 뽑기(sample)
 # 실행의 건별 예측 요약(예측이 없으면 빈 문자열).
 def _summaries(run: Path) -> dict[str, str]:
     return {
@@ -76,7 +75,7 @@ def _summaries(run: Path) -> dict[str, str]:
 # 실행 manifest의 데이터 경로를 슬래시 꼴로 바꾼다. Windows에서 쓴 manifest에는 역슬래시가 들어 있어 표본
 # 파일의 경로를 한 가지 꼴로 통일한다.
 def _data_path(run: Path) -> str:
-    """The run's dataset path with forward slashes (manifests written on Windows hold backslashes)."""
+    """실행의 데이터셋 경로를 슬래시 꼴로(Windows에서 쓴 manifest에는 역슬래시가 들어 있다)."""
     data = json.loads((run / "manifest.json").read_text(encoding="utf-8"))["data"]
     return Path(data.replace("\\", "/")).as_posix()
 
@@ -94,7 +93,7 @@ def _parse_stratum(text: str) -> tuple[str, Path, int]:
 # --hand NAME=HANDFILE: 사람(2단계 Claude) 라벨 파일. 파일이 라벨을 매긴 실행 폴더 안에 있으므로 그 부모를
 # 실행으로 본다.
 def _parse_hand(text: str) -> tuple[str, Path, Path]:
-    """NAME=HANDFILE; the hand file lies in the run it labels (reports/<run>/hand50.jsonl)."""
+    """NAME=HANDFILE. 사람 라벨 파일은 그것이 라벨을 매긴 실행 안에 있다(reports/<run>/hand50.jsonl)."""
     name, sep, path = text.partition("=")
     if not (sep and name and path):
         raise argparse.ArgumentTypeError(f"expected NAME=HANDFILE, got {text!r}")
@@ -163,7 +162,7 @@ def build_sample(
 # 넣지 않아 누구의 요약인지 모른 채 채점하게 한다. 대화도 넣지 않는다(2단계 hand50과 같은 기준: 사실 목록과
 # 요약만 본다).
 def template_rows(sample: Sequence[dict]) -> list[dict]:
-    """Blind labelling rows (new strata only): no stratum, run or model."""
+    """누구 것인지 가린 라벨 양식 행(새 층만): 층, 실행, 모델을 넣지 않는다."""
     return [
         {
             "key": r["key"],
@@ -178,7 +177,7 @@ def template_rows(sample: Sequence[dict]) -> list[dict]:
     ]
 
 
-# --------------------------------------------------------------------------------------------- judging
+# --------------------------------------------------------------------------------------------- 판정(judge)
 # 판정 모델 하나를 표본 전체에 돌린다. 이어 하기가 되어 이미 판정한 열쇠는 건너뛰고, 한 건마다 한 줄 쓰고
 # flush한다. 끝나면 <출력>.meta.json에 모델·판·요청 설정(num_ctx, num_predict, temperature, seed), 모델 지문,
 # 커밋, 실패 수, run_checks, 판정 뒤 /api/ps를 남긴다. run_checks는 채택 조건 (d)(컨텍스트를 채운 판정 0, 생각
@@ -230,12 +229,12 @@ def judge_sample(
     return meta
 
 
-# --------------------------------------------------------------------------------------------- agreement
+# --------------------------------------------------------------------------------------------- 일치
 # 채점자 하나(Claude, 판정 모델, V, V+J). verdicts는 표본 열쇠 → 사실별 판정이고, 비어 있으면 판정 실패다.
 @dataclass(frozen=True)
 class Rater:
     name: str
-    verdicts: dict[str, tuple[str, ...]]  # sample key -> one verdict per fact; empty = failed judgement
+    verdicts: dict[str, tuple[str, ...]]  # 표본 열쇠 -> 사실마다 판정 하나. 비면 판정 실패
     failed: frozenset[str] = field(default_factory=frozenset)
 
     # 열쇠 하나의 판정을 포함(True) / 비포함(False) 목록으로. 판정 실패는 모든 사실을 포함으로 친다(규칙 4).
@@ -308,7 +307,7 @@ def kappa_table(claude: Rater, rater: Rater, keys: Sequence[str], n_boot: int = 
 def paired_kappa_diff(
     claude: Rater, a: Rater, b: Rater, keys: Sequence[str], n_boot: int = 2000, seed: int = 0
 ) -> tuple[float, float, float]:
-    """kappa(a) - kappa(b) against Claude, with a CI from resampling the same items for both."""
+    """Claude 기준 kappa(a) - kappa(b)와, 양쪽에 같은 건을 다시 뽑아 낸 구간."""
     pa, pb = _pairs(claude, a, keys), _pairs(claude, b, keys)
     rng = random.Random(seed)
     k = len(keys)
@@ -326,16 +325,15 @@ def paired_kappa_diff(
 # 여럿이 통과하면 (kappa, 오류 재현율, 등록 순서)가 가장 큰 것을 고른다. 등록 순서가 뒤인 J2(학생과 다른
 # 계열인 Gemma)가 끝까지 같을 때 이기도록 한 것이다(규칙 4).
 def decide(stats: dict[str, dict]) -> dict:
-    """The adoption rule over the candidates in registration order (later = other family on ties): kappa
-    at least KAPPA_MIN, the paired lower bound against the baseline judge above 0, not below the baseline
-    judge with the same value check, at most MAX_FAILED failed judgements, no judgement that filled the
-    context and none with thinking text."""
+    """등록 순서대로의 후보에 채택 규칙을 적용한다(동률이면 뒤의 것 = 다른 계열): kappa가 KAPPA_MIN
+    이상, 기준 판정 대비 짝지은 하한이 0보다 큼, 같은 값 확인을 붙인 기준 판정보다 낮지 않음, 판정 실패가
+    MAX_FAILED 이하, 컨텍스트를 채운 판정과 생각 글이 붙은 판정이 없음."""
     reasons: dict[str, list[str]] = {}
     passed = []
     for i, (name, s) in enumerate(stats.items()):
         why = []
         # not (x >= 기준) 꼴로 써서 NaN이면 비교가 False가 되어 조건에 걸리게 한다.
-        if not (s["kappa"] >= KAPPA_MIN):  # nan fails
+        if not (s["kappa"] >= KAPPA_MIN):  # nan이면 실패
             why.append(f"kappa {s['kappa']:.3f} < {KAPPA_MIN}")
         if not (s["diff_vs_baseline"][1] > 0):
             why.append(f"lower bound vs the baseline {s['diff_vs_baseline'][1]:.3f} <= 0")
@@ -357,7 +355,7 @@ def decide(stats: dict[str, dict]) -> dict:
     return {"adopted": max(passed)[1] if passed else None, "reasons": reasons}
 
 
-# --------------------------------------------------------------------------------------------- report
+# --------------------------------------------------------------------------------------------- 보고(report)
 # Claude 라벨을 모은다: 새 라벨 파일(열쇠 기준)과 사람 라벨 층 파일(건 id 기준, hand50)을 표본 열쇠로 맞춘다.
 # 모든 표본 행에 사실 수만큼 올바른 판정이 있어야 하며, 빠지면 바로 멈춘다(라벨이 덜 채워진 채 보고서가 나가지
 # 않게).
@@ -384,8 +382,8 @@ def _load_labels(sample: Sequence[dict], labels: Path | None, hand: dict[str, Pa
 # 층 열쇠에만 맞춰 읽는다. 2단계에 기록된 j1 판정(J0rec@H)을 같은 조건으로 다시 돈 J0와 견주는 데 썼다(규칙
 # 3).
 def _load_judge(name: str, path: Path, sample: Sequence[dict]) -> tuple[Rater, dict[str, dict]]:
-    """Judge rows keyed by sample key. NAME@STRATUM reads rows keyed by item id (a recorded judge.jsonl of
-    the stratum's run) for that stratum only."""
+    """표본 열쇠로 찾는 판정 행. NAME@STRATUM이면 건 id로 찾는 행(그 층 실행에 기록된 judge.jsonl)을
+    그 층에만 맞춰 읽는다."""
     name, _, stratum = name.partition("@")
     rows_in = list(read_jsonl(path))
     if stratum:
@@ -465,7 +463,7 @@ def report(
         t = kappa_table(claude, h, dkeys, n_boot, seed)
         # (d)의 컨텍스트·생각 글 검사는 채택 층만이 아니라 판정한 표본 행 전체로 센다(규칙: "보정 세트
         # 전체에서").
-        checks = run_checks(list(rows_of[name].values()), JUDGE_NUM_CTX)  # every judged sample row
+        checks = run_checks(list(rows_of[name].values()), JUDGE_NUM_CTX)  # 판정한 표본 행 전체
         stats[h.name] = {
             "kappa": t["kappa"],
             "kappa_ci": t["kappa_ci"],
@@ -483,12 +481,12 @@ def report(
     return {"tables": tables, "candidates": stats, "decision": decide(stats), "baseline": baseline}
 
 
-# --------------------------------------------------------------------------------------------- value cells
+# ------------------------------------------------------------------------------------------ 값 확인 셀(cells)
 # 값 확인 V와 Claude 라벨을 사실마다 견준 셀 수: 값을 찾음/빠짐/값 없음 × Claude 포함/비포함. 어긋난 사실(V는
 # 빠졌다는데 Claude는 포함 = V의 거짓 누락, V는 찾았는데 Claude는 비포함)을 "열쇠/F번호"로 남긴다.
 def value_cells(claude: Rater, value_ok: dict[str, list[bool | None]], keys: Sequence[str]) -> dict:
-    """The value check alone against Claude, fact by fact: values found, missing or none, by Claude's 포함
-    or not, with the facts where they part (key/F<n>)."""
+    """값 확인 혼자를 Claude와 사실마다 견준다: 값 찾음/빠짐/값 없음 × Claude 포함/비포함, 그리고 둘이
+    갈리는 사실(key/F<n>)."""
     cells = dict.fromkeys(("found_incl", "found_not", "miss_incl", "miss_not", "noval_not", "noval_incl"), 0)
     miss_incl: list[str] = []
     found_not: list[str] = []
@@ -520,8 +518,8 @@ def cells_report(
     n_boot: int = 2000,
     seed: int = 0,
 ) -> dict:
-    """Value check V against Claude per stratum (in the order the sample first shows them), then per named
-    group, whose keys follow its strata in the given order (the bootstrap draws in that order)."""
+    """값 확인 V를 층마다(표본에 처음 나온 순서) Claude와 견주고, 이어서 이름 붙인 묶음마다 견준다.
+    묶음의 열쇠는 지정한 층 순서를 따른다(부트스트랩이 그 순서로 뽑는다)."""
     sample = list(read_jsonl(sample_path))
     claude = _load_labels(sample, labels, hand)
     value_ok = _value_ok(sample)
@@ -586,42 +584,42 @@ def _named_paths(values: Sequence[str]) -> dict[str, Path]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("sample", help="draw the strata and write the sample and the labelling template")
+    s = sub.add_parser("sample", help="층을 뽑아 표본과 라벨 양식을 쓴다")
     s.add_argument("--stratum", type=_parse_stratum, action="append", required=True, help="NAME=RUN:N")
     s.add_argument(
-        "--hand", type=_parse_hand, action="append", default=[], help="NAME=reports/<run>/<hand labels>.jsonl"
+        "--hand", type=_parse_hand, action="append", default=[], help="NAME=reports/<run>/<사람 라벨>.jsonl"
     )
     s.add_argument("--seed", type=int, default=0)
     s.add_argument("--out", required=True)
     s.add_argument("--template", required=True)
-    j = sub.add_parser("judge", help="run one judge model over the sample")
+    j = sub.add_parser("judge", help="표본 전체에 판정 모델 하나를 돌린다")
     j.add_argument("--sample", required=True)
     j.add_argument("--model", required=True)
     j.add_argument("--out", required=True)
     j.add_argument("--num-gpu", type=int)
     j.add_argument("--think", choices=sorted(THINK), default="off")
     j.add_argument("--option", type=parse_option, action="append", default=[], metavar="KEY=VALUE")
-    r = sub.add_parser("report", help="agreement tables and the adoption decision")
+    r = sub.add_parser("report", help="일치 표와 채택 판정")
     r.add_argument("--sample", required=True)
-    r.add_argument("--labels", help="Claude labels by sample key (the filled template)")
-    r.add_argument("--hand-labels", action="append", default=[], help="STRATUM=FILE, labels by item id")
+    r.add_argument("--labels", help="표본 열쇠 기준 Claude 라벨(채운 양식)")
+    r.add_argument("--hand-labels", action="append", default=[], help="STRATUM=FILE, 건 id 기준 라벨")
     r.add_argument(
         "--judge",
         action="append",
         default=[],
-        help="NAME=FILE (judge rows by sample key); NAME@STRATUM=FILE for rows by item id of that stratum",
+        help="NAME=FILE(표본 열쇠 기준 판정 행). 그 층의 건 id 기준 행이면 NAME@STRATUM=FILE",
     )
-    r.add_argument("--baseline", required=True, help="the judge name the candidates must beat")
-    r.add_argument("--candidates", required=True, help="comma-separated judge names, in registration order")
-    r.add_argument("--decide-on", required=True, help="comma-separated strata the decision uses")
+    r.add_argument("--baseline", required=True, help="후보가 넘어야 할 기준 판정 이름")
+    r.add_argument("--candidates", required=True, help="쉼표로 이은 판정 이름, 등록 순서대로")
+    r.add_argument("--decide-on", required=True, help="채택 판정에 쓰는 층, 쉼표로 이음")
     r.add_argument("--n-boot", type=int, default=2000)
     r.add_argument("--json")
-    c = sub.add_parser("cells", help="the value check alone against Claude, by cell")
+    c = sub.add_parser("cells", help="값 확인 혼자를 Claude와 셀별로 비교")
     c.add_argument("--sample", required=True)
-    c.add_argument("--labels", help="Claude labels by sample key (the filled template)")
-    c.add_argument("--hand-labels", action="append", default=[], help="STRATUM=FILE, labels by item id")
+    c.add_argument("--labels", help="표본 열쇠 기준 Claude 라벨(채운 양식)")
+    c.add_argument("--hand-labels", action="append", default=[], help="STRATUM=FILE, 건 id 기준 라벨")
     c.add_argument(
-        "--group", action="append", default=[], help="NAME=STRATUM,STRATUM... (keys in this strata order)"
+        "--group", action="append", default=[], help="NAME=STRATUM,STRATUM...(열쇠는 이 층 순서대로)"
     )
     c.add_argument("--n-boot", type=int, default=2000)
     c.add_argument("--json")

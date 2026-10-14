@@ -1,1 +1,1 @@
-"""Korean call-center after-call records with a fine-tuned small LLM."""
+"""파인튜닝한 소형 LLM으로 만드는 한국어 콜센터 상담 후처리 기록."""

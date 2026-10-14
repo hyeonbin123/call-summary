@@ -1,7 +1,7 @@
-"""Turn raw generated files into the fixed dataset splits.
+"""생성 원본 파일을 확정 데이터셋 분할로 바꾼다.
 
-Per domain, keep the first N accepted items in spec-index order (docs/experiments.md, stage 1), drop test
-items whose numbers also occur in train, and report how many specs were rejected, per category.
+업종마다 명세 번호 순서로 통과한 건 중 앞의 N건만 남기고(docs/experiments.md 1단계), 번호가 train에도
+나오는 test 건을 빼며, 거절된 명세 수를 유형별로 보고한다.
 """
 
 # [파일 역할] 데이터 만들기의 마지막 단계다. 교사가 생성한 원본(data/raw/<분할>.jsonl)을 읽어, 지금의 자동
@@ -61,7 +61,7 @@ def take_first(items: list[Item], per_domain: int) -> list[Item]:
 # 한 건의 명세에서 번호 유형(주문번호, 운송장번호, 접수번호, 카드 끝자리) 값만 정규화해 모은다. 1단계 규칙이
 # 겹침을 번호로 정했으므로 금액·날짜·이름은 보지 않는다.
 def id_values(item: Item) -> set[str]:
-    """Normalized id-kind values of an item (order, tracking, receipt numbers, card digits)."""
+    """한 건의 정규화한 번호 유형 값(주문번호, 운송장번호, 접수번호, 카드 끝자리)."""
     d = DOMAINS[item.domain]
     out = set()
     for sv in item.spec.slots:
@@ -108,7 +108,7 @@ def rejection_report(raw_dir: Path, split: str, specs_dir: Path = Path("data/spe
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--raw", default="data/raw")
-    ap.add_argument("--specs", default="data/specs", help="spec files (build_specs output) per split")
+    ap.add_argument("--specs", default="data/specs", help="분할별 명세 파일 폴더(build_specs 출력)")
     ap.add_argument("--out", default="data")
     ap.add_argument("--splits", nargs="+", default=list(TARGETS))
     args = ap.parse_args(argv)
@@ -123,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             train_ids |= id_values(it)
     for split in args.splits:
         items = load_items(raw / f"{split}.jsonl")
-        # The checks may have grown since a split was generated; apply the current ones to every split.
+        # 분할을 생성한 뒤에 검사가 늘었을 수 있으므로, 지금의 검사를 모든 분할에 다시 적용한다.
         # check_dialogue는 문제 목록을 돌려주므로, 목록이 비어 있지 않은 건만 recheck에 남겨 빼고, 뺀 이유는
         # 보고서에 그대로 적는다(dev 3건, test-a 2건이 이렇게 빠졌다, docs/experiments.md 1단계 표).
         failed = {it.item_id: check_dialogue(it.spec, it.turns) for it in items}

@@ -45,10 +45,9 @@ def _fake_post(sent: list, payload: dict):
 
 # --official은 깨끗한 작업 트리에서만 돈다. 예전에는 git을 부르지 못하면(git 없음, 저장소 아님, "dubious
 # ownership" 오류) 출력이 비어 깨끗한 트리로 통과했다(커밋 6d9defc). 이제는 git 실패 두 종류 모두에서 argparse
-# 오류(종료 코드 2)로 멈추고, 모델을 만들기 전에 멈추는지도 본다.
+# 오류(종료 코드 2)로 멈추고, 모델을 만들기 전에 멈추는지도 본다. 깨끗한 트리 보호가 조용히 통과하면 안 된다.
 @pytest.mark.parametrize("failure", [FileNotFoundError("git"), subprocess.CalledProcessError(128, ["git"])])
 def test_official_run_stops_when_git_cannot_check_the_tree(tmp_path, monkeypatch, failure):
-    # No git, not a repository or "dubious ownership": the clean-tree guard must not pass silently.
     monkeypatch.chdir(tmp_path)
     data = tmp_path / "dev.jsonl"
     write_jsonl(data, [_item(0).to_dict()])
@@ -173,10 +172,8 @@ def test_option_values_are_typed():
 # 가짜 OllamaProvider로 evaluate.main을 끝까지 돌려, 넘긴 --num-ctx·--option·think off가 provider와 manifest에
 # 남는지, 건별 기록에 done_reason과 생각 글 길이가 남는지, summary.json의 run_checks가 잘린 답 1·생각 글
 # 1·컨텍스트를 채운 답 1(프롬프트 7000 + 답 1192 = 8192)을 세는지 본다(2026 비교 대상 규칙: 이 수들을
-# summary에 적는다).
+# summary에 적는다). 생각 끄기나 컨텍스트 크기가 지켜지지 않은 실행이 summary.json에 드러나게 하려는 것이다.
 def test_run_records_context_options_and_run_checks(tmp_path, monkeypatch):
-    # A reply cut at num_predict, a reply with thinking text and one that filled the context are counted,
-    # so a run whose thinking switch or context size did not hold shows it in summary.json.
     monkeypatch.chdir(tmp_path)
     items = [_item(i) for i in range(3)]
     data = tmp_path / "dev.jsonl"
@@ -238,9 +235,8 @@ def test_default_run_keeps_the_earlier_ollama_settings(tmp_path, monkeypatch):
 
 
 # 예시 풀(train)에 데이터의 업종 예시가 모자라면 실행을 시작하지 않고 멈춘다. 예전에는 test-c(카드, train에
-# 없음)를 --shots 2로 돌리면 조용히 0-shot이 됐다(커밋 5741656).
+# 없음)를 --shots 2로 돌리면 2-shot 이름을 단 채 조용히 0-shot으로 돌았다(커밋 5741656).
 def test_shots_must_exist_for_every_domain_in_the_data(tmp_path, monkeypatch):
-    # test-c (card) has no examples in train: asking for shots must stop, not run 0-shot under a 2-shot label.
     monkeypatch.chdir(tmp_path)
     pool = tmp_path / "train.jsonl"
     cats = ["주문 취소", "환불 문의", "주문 취소", "환불 문의"]

@@ -1,7 +1,7 @@
-"""Run a model over a dataset file and score the structured fields.
+"""데이터셋 파일 전체에 모델을 돌리고 구조 필드를 채점한다.
 
-Output: <out>/<run_id>/manifest.json, items.jsonl (raw reply + parse + per-item score), summary.json.
-Official runs (--official) need a clean git tree and write under reports/ so they can be committed.
+출력: <out>/<run_id>/manifest.json, items.jsonl(원 답 + 파싱 결과 + 건별 점수), summary.json.
+공식 실행(--official)은 깨끗한 git 작업 트리가 필요하고, 커밋할 수 있도록 reports/ 아래에 쓴다.
 """
 
 # [파일 역할] 이 프로젝트의 평가 실행기다. 데이터셋 파일의 모든 건을 한 모델(Ollama 또는 transformers)에 같은
@@ -55,14 +55,14 @@ HEADLINE = (
 
 # --think 값 → 요청의 think 필드. off는 생각 모드를 끄고(기본, 공통 규칙 "Qwen3 계열은 생각 모드를 끈다"),
 # default는 요청에 넣지 않아 모델 기본값을 따른다.
-THINK = {"off": False, "on": True, "default": None}  # --think -> the request's `think` (None: not sent)
+THINK = {"off": False, "on": True, "default": None}  # --think -> 요청의 `think`(None: 보내지 않음)
 
 
 # --option KEY=VALUE를 (키, 값)으로 바꾼다. 값은 true/false면 bool, 정수·실수로 읽히면 숫자로 바꾼다. 2026년
 # 비교 대상의 태그 기본 벌점을 끄는 데(presence_penalty=0, repeat_penalty=1) 썼다(docs/experiments.md). 형식이
 # 틀리면 argparse 오류로 바로 알린다.
 def parse_option(text: str) -> tuple[str, object]:
-    """KEY=VALUE for an extra Ollama option; the value becomes an int, float or bool when it reads as one."""
+    """더할 Ollama 옵션 KEY=VALUE. 값이 int, float, bool로 읽히면 그 형으로 바꾼다."""
     key, sep, raw = text.partition("=")
     if not sep or not key.strip() or not raw.strip():
         raise argparse.ArgumentTypeError(f"expected KEY=VALUE, got {text!r}")
@@ -85,8 +85,8 @@ def parse_option(text: str) -> tuple[str, object]:
 # 수만 summary.json에 적는다(docs/experiments.md 2026 비교 대상 규칙). 판정 도구들(judge_run, judge_calib)도
 # 같은 함수로 센다.
 def run_checks(rows: Sequence[dict], num_ctx: int | None) -> dict:
-    """Counts that show a run whose settings did not hold: replies cut at num_predict, replies that came
-    with thinking text, and (Ollama) replies whose prompt plus answer filled the context window."""
+    """설정이 지켜지지 않은 실행을 드러내는 개수: num_predict에서 잘린 답, 생각 글이 붙어 온 답,
+    (Ollama) 프롬프트와 답이 컨텍스트 창을 다 채운 답."""
     full = None
     if num_ctx is not None:
         full = sum(
@@ -108,7 +108,7 @@ def run_checks(rows: Sequence[dict], num_ctx: int | None) -> dict:
 # 2단계 기준선의 2-shot과 2026년 비교 대상이 모두 datasets/train.jsonl에서 seed 0으로 고른 같은 예시를
 # 썼다(docs/experiments.md 2단계). 예시 정답에도 summary가 들어가야 하므로 요약이 없는 건은 후보에서 뺀다.
 def pick_shots(pool: Sequence[Item], domain: str, k: int, seed: int = 0) -> list[tuple[str, AfterCallRecord]]:
-    """k fixed examples of one domain, different categories where possible. Needs reference summaries."""
+    """한 업종의 고정된 예시 k건. 되도록 유형이 서로 다르게 고른다. 참고 요약이 있어야 한다."""
     cands = [it for it in pool if it.domain == domain and it.summary]
     rng = random.Random(f"shots:{domain}:{seed}")
     rng.shuffle(cands)
@@ -134,8 +134,8 @@ def run_items(
     batch_size: int = 1,
     prompt_version: str = PROMPT_VERSION,
 ) -> tuple[list[dict], list[ItemScore]]:
-    """Rows and scores in the order of `items`. With batch_size > 1 (providers with generate_batch),
-    items are grouped by transcript length to cut padding."""
+    """`items` 순서대로의 기록 줄과 점수. batch_size > 1이면(generate_batch가 있는 실행기) 패딩을
+    줄이려고 전사 길이로 건을 묶는다."""
     # 스키마는 Ollama 실행기가 use_schema=True일 때만 쓴다(--schema). 기본은 끈 채 자유 생성한 답을 파싱해
     # 채점한다.
     schema = record_json_schema()
@@ -222,7 +222,7 @@ def _file_hash(path: Path) -> str:
 # PEFT 어댑터 가중치 파일의 해시. export.py가 export.json에 같은 값을 남기므로, GGUF 서빙 실행과 transformers
 # 실행이 같은 어댑터에서 나왔는지 맞춰 볼 수 있다.
 def adapter_hash(adapter: str | Path) -> str | None:
-    """Hash of a PEFT adapter's weights (export.json records the same value); None without a weights file."""
+    """PEFT 어댑터 가중치의 해시(export.json도 같은 값을 기록한다). 가중치 파일이 없으면 None."""
     for name in ("adapter_model.safetensors", "adapter_model.bin"):
         if (Path(adapter) / name).exists():
             return _file_hash(Path(adapter) / name)
@@ -234,8 +234,8 @@ def adapter_hash(adapter: str | Path) -> str | None:
 # transformers: 어댑터 해시, 학습 설정 해시, 바탕 모델의 HF 스냅샷 커밋. Ollama: 모델 digest와 서버 버전(같은
 # 가중치라도 실행기 버전이 다르면 조건이 다르다). 값을 못 구해도 None으로 두고 실행은 멈추지 않는다.
 def model_fingerprint(provider: Provider) -> dict:
-    """What identifies the measured weights beyond a path or tag, which retraining or re-export reuses.
-    Missing pieces are None; a run never stops for them."""
+    """잰 가중치를 경로나 태그 이상으로 식별하는 값(경로·태그는 다시 학습하거나 다시 내보내면 재사용된다).
+    구하지 못한 값은 None이고, 그 때문에 실행이 멈추지는 않는다."""
     fp: dict = {}
     if isinstance(provider, HFProvider):
         if provider.adapter:
@@ -245,12 +245,11 @@ def model_fingerprint(provider: Provider) -> dict:
         try:
             from huggingface_hub import try_to_load_from_cache
 
-            # 캐시된 config.json 경로의 부모 폴더 이름이 스냅샷 커밋이다. snapshot_download는 일부만 받은
-            # 스냅샷을 거부해 None이 나와서 이 방법을 쓴다(아래 영어 주석).
-            # The snapshot commit the cached config resolves to (snapshot_download refuses partial snapshots).
+            # 캐시된 config.json이 가리키는 스냅샷 커밋, 즉 그 경로의 부모 폴더 이름을 기록한다.
+            # snapshot_download는 일부만 받은 스냅샷을 거부해 None이 나와서 이 방법을 쓴다.
             cfg_path = try_to_load_from_cache(provider.model_id, "config.json")
             fp["base_revision"] = Path(cfg_path).parent.name if isinstance(cfg_path, str) else None
-        except Exception:  # noqa: BLE001 - a local path or no hub install
+        except Exception:  # noqa: BLE001 - 로컬 경로이거나 hub가 설치되지 않음
             fp["base_revision"] = None
     elif isinstance(provider, OllamaProvider):
         import httpx
@@ -261,9 +260,9 @@ def model_fingerprint(provider: Provider) -> dict:
             fp["ollama_digest"] = next(
                 (m.get("digest") for m in tags if m.get("name") in names or m.get("model") in names), None
             )
-        except Exception:  # noqa: BLE001 - no model server: the run fails later with the real error
+        except Exception:  # noqa: BLE001 - 모델 서버 없음: 실행이 뒤에서 실제 오류로 실패한다
             fp["ollama_digest"] = None
-        try:  # the server version is part of the condition (same weights, different runtime)
+        try:  # 서버 버전도 측정 조건이다(같은 가중치라도 실행기가 다름)
             got = httpx.get(f"{provider.base_url}/api/version", timeout=10).json()
             fp["ollama_version"] = got.get("version")
         except Exception:  # noqa: BLE001
@@ -274,10 +273,10 @@ def model_fingerprint(provider: Provider) -> dict:
 # Ollama /api/ps 결과(모델이 GPU에 다 올라갔는지, 컨텍스트 길이)를 기록용으로 가져온다. 실패해도 결과는 이미
 # 써 두었으므로 None으로 넘긴다. judge_run·judge_calib가 쓴다.
 def loaded_models(provider) -> list[dict] | None:
-    """Ollama /api/ps after a run (size_vram against size, context_length); None when there is none."""
+    """실행 뒤의 Ollama /api/ps(size 대비 size_vram, context_length). 없으면 None."""
     try:
         return provider.loaded_models()
-    except Exception:  # noqa: BLE001 - only a record; the results are already written
+    except Exception:  # noqa: BLE001 - 기록일 뿐이고 결과는 이미 써 두었다
         return None
 
 
@@ -304,42 +303,42 @@ def summary_table(scores: Sequence[ItemScore], n_boot: int = 2000) -> dict:
 # --num-gpu·--num-ctx·--option·--think(Ollama 요청 설정), --official, --allow-test.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--data", required=True, help="dataset JSONL")
+    ap.add_argument("--data", required=True, help="데이터셋 JSONL")
     ap.add_argument("--backend", choices=["ollama", "hf"], default="ollama")
-    ap.add_argument("--model", required=True, help="Ollama model name or HF model id/path")
-    ap.add_argument("--adapter", help="PEFT adapter dir (hf backend)")
+    ap.add_argument("--model", required=True, help="Ollama 모델 이름 또는 HF 모델 id/경로")
+    ap.add_argument("--adapter", help="PEFT 어댑터 폴더(hf 백엔드)")
     ap.add_argument("--load-4bit", action="store_true")
-    ap.add_argument("--schema", action="store_true", help="constrained JSON decoding (ollama backend)")
+    ap.add_argument("--schema", action="store_true", help="스키마 강제 JSON 디코딩(ollama 백엔드)")
     ap.add_argument("--shots", type=int, default=0)
-    ap.add_argument("--shot-pool", help="JSONL to draw few-shot examples from (needs summaries)")
-    ap.add_argument("--batch", type=int, default=1, help="batch size (hf backend)")
+    ap.add_argument("--shot-pool", help="few-shot 예시를 뽑을 JSONL(참고 요약이 있어야 한다)")
+    ap.add_argument("--batch", type=int, default=1, help="배치 크기(hf 백엔드)")
     ap.add_argument("--prompt", choices=PROMPT_VERSIONS, default=PROMPT_VERSION)
     ap.add_argument(
         "--num-gpu",
         type=int,
-        help="GPU layers (ollama backend); 44 keeps the 14B model from overfilling VRAM",
+        help="GPU 층 수(ollama 백엔드). 44면 14B 모델이 VRAM을 넘치게 채우지 않는다",
     )
     # 기본 컨텍스트 4,096은 서빙 조건과 같다. 2026년 비교 대상은 p2 2-shot 프롬프트가 길어 8,192로
     # 쟀다(docs/experiments.md).
-    ap.add_argument("--num-ctx", type=int, default=4096, help="context window (ollama backend)")
+    ap.add_argument("--num-ctx", type=int, default=4096, help="컨텍스트 창 크기(ollama 백엔드)")
     ap.add_argument(
         "--option",
         type=parse_option,
         action="append",
         default=[],
         metavar="KEY=VALUE",
-        help="extra Ollama option, repeatable (e.g. presence_penalty=0)",
+        help="더할 Ollama 옵션, 여러 번 줄 수 있다(예: presence_penalty=0)",
     )
     ap.add_argument(
         "--think",
         choices=sorted(THINK),
         default="off",
-        help="thinking switch sent to the model (default off; 'default' leaves it to the model)",
+        help="모델에 보내는 생각 모드 설정(기본 off. 'default'는 모델 기본값에 맡긴다)",
     )
     ap.add_argument("--limit", type=int)
     ap.add_argument("--label", default="")
-    ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
-    ap.add_argument("--allow-test", action="store_true", help="needed for test-* splits")
+    ap.add_argument("--official", action="store_true", help="깨끗한 작업 트리가 필요하다. reports/에 쓴다")
+    ap.add_argument("--allow-test", action="store_true", help="test-* 분할을 돌릴 때 필요하다")
     args = ap.parse_args(argv)
 
     data_path = Path(args.data)
@@ -361,7 +360,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.official:
         if args.limit:
             ap.error("--official runs use the whole file")
-        try:  # fail closed: an unreadable tree is not a clean one
+        try:  # fail closed: 읽지 못한 트리는 깨끗한 트리가 아니다
             dirty = _git_strict("status", "--porcelain", "--untracked-files=no")
             _git_strict("rev-parse", "HEAD")
         except (OSError, subprocess.CalledProcessError) as exc:
@@ -379,7 +378,7 @@ def main(argv: list[str] | None = None) -> int:
         pool = load_items(args.shot_pool)
         shots = {dom: pick_shots(pool, dom, args.shots) for dom in sorted({it.domain for it in items})}
         short = {dom: len(got) for dom, got in shots.items() if len(got) < args.shots}
-        if short:  # e.g. test-c (card): train has no card calls, so the run would silently be 0-shot
+        if short:  # 예: test-c(카드). train에 카드 통화가 없어 조용히 0-shot이 된다
             ap.error(f"{args.shot_pool} has fewer than {args.shots} examples for {short}")
         shots_for = shots.__getitem__
 

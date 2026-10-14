@@ -35,7 +35,7 @@ def test_tail_loss_matches_full_sequence_loss():
     labels = ids.clone()
     labels[0, :12] = IGNORE
     labels[1, :9] = IGNORE
-    labels[1, 17:] = IGNORE  # right padding
+    labels[1, 17:] = IGNORE  # 오른쪽 패딩
     with torch.no_grad():
         full = model(input_ids=ids, labels=labels).loss
         k = tail_len(labels)

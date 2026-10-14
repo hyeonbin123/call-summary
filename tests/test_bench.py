@@ -42,7 +42,7 @@ def test_summary_reports_the_loading_request_on_its_own():
     s = summarize_rows(rows)
     assert s["first_request"] == {"wall_s": 105.0, "load_s": 62.0, "prompt_eval_s": 40.0}
     assert s["latency_s"]["n"] == 10 and s["latency_s"]["max"] == 2.09
-    # the 10 warm requests: 200 tokens in 2 s each; the slow first request does not count
+    # 모델이 올라간 뒤의 요청 10개: 각각 2초에 200토큰. 느린 첫 요청은 세지 않는다
     assert s["gen_tok_s"] == 100.0 and s["gen_tok_s_per_request_p50"] == 100.0
     assert s["prompt_eval_ms_p50"] == 300.0 and s["completion_tokens"]["mean"] == 200.0
     assert s["missing_counters"] == 0
@@ -86,9 +86,9 @@ def test_idle_rule():
         return {"cpu_pct": {"mean": cpu}, "gpu_util_pct": {"mean": util}, "gpu_mem_used_mib": {"max": mem}}
 
     assert is_idle(sample(10.0, 35.0, 1000))
-    assert not is_idle(sample(20.0, 35.0, 1000))  # busy CPU
-    assert not is_idle(sample(10.0, 90.0, 1000))  # another GPU job or a game
-    assert not is_idle(sample(10.0, 35.0, 3000))  # memory held by other processes
+    assert not is_idle(sample(20.0, 35.0, 1000))  # CPU가 바쁨
+    assert not is_idle(sample(10.0, 90.0, 1000))  # 다른 프로그램이 GPU를 쓰는 중
+    assert not is_idle(sample(10.0, 35.0, 3000))  # 다른 프로세스가 GPU 메모리를 잡고 있음
     assert not is_idle({"cpu_pct": None, "gpu_util_pct": None, "gpu_mem_used_mib": None})
 
 

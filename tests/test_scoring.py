@@ -89,7 +89,7 @@ def test_equivalent_amount_surface_matches():
     pred = gold.model_copy(deep=True)
     for e in pred.entities:
         if e.type == "금액":
-            # rewrite in the other surface style
+            # 다른 말투로 바꿔 쓴다
             from call_summary.values import normalize
 
             e.value = f"{int(normalize('amount', e.value)):,}원"
@@ -103,7 +103,7 @@ def test_wrong_and_invented_entities():
     it = _item()
     gold = it.gold()
     pred = gold.model_copy(deep=True)
-    pred.entities[0].value = "999-9999-99"  # wrong order id, not in the transcript
+    pred.entities[0].value = "999-9999-99"  # 틀린 주문번호, 전사에 없음
     pred.entities.append(type(pred.entities[0])(type="날짜", value="11월 30일"))
     s = score_item(it.item_id, it.domain, gold, parse_reply(record_to_json(pred)), it.transcript)
     assert s.entity_tp == len(gold.entities) - 1
@@ -144,7 +144,7 @@ def test_bootstrap_and_paired_diff():
     assert lo < p < hi
     summary = summarize(bad)
     assert set(summary) == set(METRICS)
-    assert math.isnan(summary["hallucination"])  # nothing predicted
+    assert math.isnan(summary["hallucination"])  # 예측한 값이 없다
 
 
 # 시스템 프롬프트에 그 업종의 회사 이름, 유형, 핵심 값 유형이 들어가고 다른 업종의 회사 이름은 없는지
@@ -172,7 +172,7 @@ def test_run_items_with_scripted_provider():
     rows, scores = run_items(provider, items, lambda d: pick_shots(pool, d, 2))
     assert all(s.exact for s in scores)
     assert len(rows) == 6
-    # 1 system + 2 shots * 2 + 1 user
+    # system 1 + 예시 2개 * 2 + user 1
     assert len(provider.calls[0]) == 6
     assert provider.calls[0] == build_messages("shop", items[0].transcript, pick_shots(pool, "shop", 2))
 
@@ -224,9 +224,9 @@ def test_spoken_ids_match_digit_runs():
     heard = "운송장 번호는 5,816, 9,659에서 8,958입니다. 10월 19일 오후 4시요."
     assert "581696598958" in digit_runs(heard)
     assert occurs_in_transcript("id", "5816-9659-8958", heard, spoken=True)
-    assert not occurs_in_transcript("id", "5816-9659-8958", heard)  # written transcripts stay strict
+    assert not occurs_in_transcript("id", "5816-9659-8958", heard)  # 쓴 글 전사에는 엄격한 규칙 그대로
     assert not occurs_in_transcript("id", "5816-9659-8959", heard, spoken=True)
-    assert not occurs_in_transcript("id", "123", "번호 1,2,3", spoken=True)  # too short to count
+    assert not occurs_in_transcript("id", "123", "번호 1,2,3", spoken=True)  # 너무 짧아 세지 않는다
     assert occurs_in_transcript("id", "D3928174", "주문번호 디 3,928,174요", spoken=True)
 
 

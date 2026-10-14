@@ -1,7 +1,7 @@
-"""LoRA / QLoRA fine-tuning of a student on (transcript -> after-call record JSON).
+"""학생 모델을 (전사 -> 상담 후처리 기록 JSON)으로 LoRA / QLoRA 미세 조정한다.
 
-The prompt is exactly the evaluation prompt (0-shot, `prompts.build_messages`), and the loss covers only the
-answer tokens. fp16 AMP: the RTX 2080 Ti has no bf16. LoRA weights are kept in fp32.
+프롬프트는 평가 프롬프트와 똑같고(0-shot, `prompts.build_messages`), 손실은 답 토큰에만 준다. RTX 2080 Ti에는
+bf16이 없어 fp16 AMP로 학습한다. LoRA 가중치는 fp32로 둔다.
 """
 
 # [파일 역할] 3·4단계 학습 스크립트. 학생 모델(Qwen3-1.7B는 LoRA, Qwen3-4B는 QLoRA 4bit)을 "전사 → 상담 기록
@@ -53,7 +53,7 @@ TRAIN_LOOP_VERSION = 2
 # n이 없거나 전체 이상이면 전체를 쓴다.
 # 쓰는 곳: --n-train(데이터 크기 곡선: train 500건 대 1,500건, docs/experiments.md 3단계).
 def take_balanced(items: list[Item], n: int | None) -> list[Item]:
-    """First n items spread evenly over domains, in file order (deterministic)."""
+    """업종마다 고르게 나눠 파일 순서대로 앞에서 n건을 고른다(결정적)."""
     if n is None or n >= len(items):
         return list(items)
     by_dom: dict[str, list[Item]] = defaultdict(list)
@@ -80,7 +80,7 @@ def take_balanced(items: list[Item], n: int | None) -> list[Item]:
 # IGNORE라 손실은 답에서만 생긴다. 끝 토큰까지 배워야 추론 때 JSON 뒤에서 멈춘다.
 # max_len을 넘으면 None을 돌려 그 예시를 뺀다(main이 뺀 수를 기록).
 def encode(tok, item: Item, max_len: int, enable_thinking: bool = False) -> dict | None:
-    """Token ids with the prompt masked out. None if the example does not fit in max_len."""
+    """프롬프트 부분을 가린 토큰 id와 라벨. 예시가 max_len에 들어가지 않으면 None."""
     messages = build_messages(item.domain, item.transcript)
     prompt = tok.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True, enable_thinking=enable_thinking
@@ -97,12 +97,12 @@ def encode(tok, item: Item, max_len: int, enable_thinking: bool = False) -> dict
 # 배치에서 로짓이 필요한 마지막 위치 수 K를 구한다. 배치 안에서 가장 먼저 시작하는 답 토큰 위치를 찾아, 그
 # 바로 앞 위치(첫 답 토큰을 예측하는 위치)부터 끝까지를 센다. model(..., logits_to_keep=K)에 넘긴다.
 def tail_len(labels) -> int:
-    """How many final positions need logits: from the position before the first target token to the end."""
+    """로짓이 필요한 마지막 위치 수: 첫 목표 토큰 바로 앞 위치부터 끝까지."""
     import torch
 
     is_target = labels != IGNORE
     # argmax는 행마다 처음 참인 위치를 준다(답 토큰이 있는 행이라고 가정). 그중 가장 이른 위치를 쓴다.
-    first = int(torch.argmax(is_target.int(), dim=1).min())  # earliest target position in the batch
+    first = int(torch.argmax(is_target.int(), dim=1).min())
     return labels.shape[1] - first + 1
 
 
@@ -111,10 +111,10 @@ def tail_len(labels) -> int:
 # 왜: 어휘 약 15만 개 × 대화 전체 길이의 로짓이 학습에서 가장 큰 텐서였다. 답 구간만 계산해 메모리를
 # 줄였다(docs/experiments.md 3단계 진행 기록: 할당 상한과 함께 넣은 뒤 스텝당 283초 → 21.6초).
 def tail_loss(logits, labels):
-    """Mean cross-entropy over target tokens when `logits` cover only the last K positions.
+    """`logits`가 마지막 K 위치만 덮을 때 목표 토큰들의 평균 교차 엔트로피.
 
-    logits[:, j] belongs to position L-K+j and predicts token L-K+j+1, so logits[:, :-1] line up with
-    labels[:, L-K+1:]. Equal to the full-sequence loss when all target tokens lie in that window.
+    logits[:, j]는 위치 L-K+j의 것이고 토큰 L-K+j+1을 예측하므로, logits[:, :-1]은 labels[:, L-K+1:]과
+    줄이 맞는다. 목표 토큰이 모두 그 창 안에 있으면 전체 길이 손실과 값이 같다.
     """
     import torch.nn.functional as F
 
@@ -131,8 +131,8 @@ def tail_loss(logits, labels):
 # 느려지는 대신 메모리 부족 오류가 나므로 문제를 바로 알 수 있다. 학습 기본값 8.5 GB, 추론은 providers.py가
 # 9.5 GB로 부른다(docs/experiments.md 3단계 진행 기록). 0이나 None이면 끈다.
 def cap_vram(max_gb: float | None) -> None:
-    """Keep PyTorch's allocator under max_gb of this GPU. On Windows, going past the card's memory does
-    not fail: the driver spills to system RAM and everything runs many times slower."""
+    """PyTorch 할당기가 이 GPU에서 max_gb 아래로만 쓰게 한다. Windows에서는 카드 메모리를 넘겨도 실패하지
+    않는다: 드라이버가 시스템 RAM으로 넘겨 모든 것이 몇 배나 느려진다."""
     if not max_gb:
         return
     import torch
@@ -149,8 +149,8 @@ def cap_vram(max_gb: float | None) -> None:
 # 미니배치와 한 스텝으로 합쳐졌다(1,500건이면 epoch1 저장에 둘째 epoch 4건, 마지막 저장에 셋째 epoch 8건이
 # 들어감, docs/experiments.md "학습 epoch 경계와 지연 백분위 바로잡기").
 def accum_plan(n_micro: int, grad_accum: int) -> list[tuple[int, bool]]:
-    """(size of the micro-batch's accumulation group, whether the optimizer steps after it), for each
-    micro-batch of one epoch. Groups never cross an epoch: the last one takes the remaining micro-batches."""
+    """한 epoch의 미니배치마다 (그 미니배치가 속한 누적 묶음의 크기, 그 뒤에 optimizer 스텝을 하는지).
+    묶음은 epoch를 넘지 않는다: 마지막 묶음은 남은 미니배치를 모두 갖는다."""
     plan = []
     for i in range(n_micro):
         start = i - i % grad_accum
@@ -163,11 +163,11 @@ def accum_plan(n_micro: int, grad_accum: int) -> list[tuple[int, bool]]:
 # 코사인, 2 epoch(docs/experiments.md 3단계). 배치 1 × 기울기 누적 16이 한 optimizer 스텝이다.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--model", required=True, help="HF model id or local path")
+    ap.add_argument("--model", required=True, help="HF 모델 id 또는 로컬 경로")
     ap.add_argument("--train", default="data/train.jsonl")
-    ap.add_argument("--n-train", type=int, help="use only this many training items (balanced over domains)")
-    ap.add_argument("--out", required=True, help="output dir (adapter, logs)")
-    ap.add_argument("--qlora", action="store_true", help="load the base model in 4-bit (nf4)")
+    ap.add_argument("--n-train", type=int, help="학습 건을 이만큼만 쓴다(업종마다 고르게)")
+    ap.add_argument("--out", required=True, help="출력 폴더(어댑터, 로그)")
+    ap.add_argument("--qlora", action="store_true", help="바탕 모델을 4bit(nf4)로 올린다(QLoRA)")
     ap.add_argument("--rank", type=int, default=16)
     ap.add_argument("--alpha", type=int, default=32)
     ap.add_argument("--dropout", type=float, default=0.05)
@@ -179,8 +179,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--warmup", type=float, default=0.03)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--log-every", type=int, default=10)
-    ap.add_argument("--max-steps", type=int, help="stop after this many optimizer steps (smoke tests)")
-    ap.add_argument("--max-vram-gb", type=float, default=8.5, help="allocator cap; 0 disables")
+    ap.add_argument("--max-steps", type=int, help="optimizer 스텝을 이만큼 하고 멈춘다(빠른 점검용)")
+    ap.add_argument("--max-vram-gb", type=float, default=8.5, help="PyTorch 할당 상한(GB). 0이면 끈다")
     args = ap.parse_args(argv)
 
     # 학습 라이브러리는 여기서 불러온다. peft: LoRA 어댑터와 4bit 학습 준비, transformers: 바탕
@@ -253,8 +253,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     model = get_peft_model(model, lora)
     # 학습하는 파라미터(LoRA 가중치)를 fp32로 올린다. fp16 AMP에서 GradScaler는 fp16 파라미터의 기울기를
-    # unscale하지 못하고, 작은 업데이트가 fp16에서 사라지는 것도 막는다(docstring: LoRA weights are kept in
-    # fp32).
+    # unscale하지 못하고, 작은 업데이트가 fp16에서 사라지는 것도 막는다(docstring: LoRA 가중치는 fp32로
+    # 둔다).
     for p in model.parameters():
         if p.requires_grad:
             p.data = p.data.float()
@@ -319,10 +319,9 @@ def main(argv: list[str] | None = None) -> int:
         epoch += 1
         # 미니배치마다 누적 묶음의 크기와 스텝 여부를 함께 받는다. 묶음은 epoch마다 새로 시작한다.
         for (ids, labels, mask), (group, step_now) in zip(batches(), plan, strict=True):
-            # 순전파는 fp16 autocast로, 로짓은 답 구간만(tail_len) 받는다.
+            # 순전파는 fp16 autocast로 하고, 로짓은 답 구간만(tail_len) 받는다. 15만 토큰 어휘 × 프롬프트 전체
+            # 길이의 로짓이 학습에서 가장 큰 텐서였고, 프로세스가 카드 메모리를 넘게 만들었기 때문이다.
             with torch.autocast("cuda", dtype=torch.float16):
-                # Logits only for the answer span: a 150k-token vocabulary over the whole prompt is the
-                # largest tensor in training and pushed the process past the card's memory.
                 logits = model(input_ids=ids, attention_mask=mask, logits_to_keep=tail_len(labels)).logits
             # 기울기를 묶음 크기(보통 grad_accum, epoch 끝 묶음은 남은 수)만큼 모아 한 스텝으로 쓰므로 손실을
             # 미리 그 크기로 나눈다. 유한하지 않은 손실은 기록만 하고 넘어간다(GradScaler가 그 스텝을

@@ -54,11 +54,11 @@ def test_every_identifier_type_has_a_format_its_values_pass():
 def test_format_and_transcript_checks():
     transcript = "고객: 주문번호 D2031905요. 아니 D795268이요.\n상담원: 3만 2천 원 환불됩니다."
     rec = _record(
-        ("주문번호", "D2031905"),  # right format, said in the call
-        ("주문번호", "D795268"),  # copied from the transcript, one digit short
-        ("주문번호", "D1111111"),  # right format, never said
-        ("주문번호", "B7952681"),  # D heard as B and not in the call
-        ("금액", "9만 원"),  # not an identifier: never checked
+        ("주문번호", "D2031905"),  # 형식이 맞고 통화에서 말함
+        ("주문번호", "D795268"),  # 전사에서 옮겼지만 한 자리 모자람
+        ("주문번호", "D1111111"),  # 형식은 맞지만 말한 적 없음
+        ("주문번호", "B7952681"),  # D를 B로 잘못 들었고 통화에도 없음
+        ("금액", "9만 원"),  # 번호가 아니라 검사하지 않음
     )
     before = rec.model_dump()
     assert _reasons("shop", rec, transcript) == [
@@ -66,19 +66,17 @@ def test_format_and_transcript_checks():
         ("주문번호", "D1111111", ["not_in_transcript"]),
         ("주문번호", "B7952681", ["format", "not_in_transcript"]),
     ]
-    assert rec.model_dump() == before  # the record is never changed
+    assert rec.model_dump() == before  # 기록은 절대 바뀌지 않는다
 
 
 # 띄어 쓰거나 하이픈으로 적거나 소문자로 적은 맞은 번호는 표시하지 않는다(채점과 같은 정규화). 쉼표로 나뉘어
 # 들린 전사에서도 넓은 번호 규칙으로 찾는다. 숫자가 하나 많은 운송장번호는 전사에 있어도 형식 오류로
 # 표시한다(docs/experiments.md "브리프와 다른 점": 형식은 정규화한 값에서 본다).
 def test_format_is_checked_on_the_normalized_value():
-    # Written with spaces or in lower case, the number is the same one (scoring compares normalized values).
     transcript = "고객: 운송장 번호는 6759, 9785, 4536이에요."
     rec = _record(("운송장번호", "6759 9785 4536"), ("운송장번호", "6759-9785-4536"))
     assert _reasons("parcel", rec, transcript) == []
     assert _reasons("shop", _record(("주문번호", "d2031905")), "주문번호 D2031905") == []
-    # Twelve digits found in the transcript but with a digit too many is still a format problem.
     got = _reasons("parcel", _record(("운송장번호", "6936-8635-34496")), "6936 8635 34496")
     assert got == [("운송장번호", "6936-8635-34496", ["format"])]
 
@@ -124,20 +122,20 @@ def test_guard_report_counts(tmp_path):
     shop_pred = shop.gold().model_copy(
         update={
             "entities": [
-                Entity(type="주문번호", value="D2031905"),  # correct
-                Entity(type="주문번호", value="D2031906"),  # wrong, in the transcript: silent
-                Entity(type="주문번호", value="D203190"),  # wrong, format: flagged
-                Entity(type="상품명", value="아무거나"),  # not an identifier
+                Entity(type="주문번호", value="D2031905"),  # 맞음
+                Entity(type="주문번호", value="D2031906"),  # 틀렸지만 전사에 있음: 표시 없이 나감
+                Entity(type="주문번호", value="D203190"),  # 틀림, 형식 오류: 표시됨
+                Entity(type="상품명", value="아무거나"),  # 번호가 아님
             ]
         }
     )
     parcel_pred = parcel.gold().model_copy(
-        update={"entities": [Entity(type="운송장번호", value="5213707914366")]}  # wrong, both reasons
+        update={"entities": [Entity(type="운송장번호", value="5213707914366")]}  # 틀림, 두 사유 모두
     )
     rows = [
         {"item_id": shop.item_id, "pred": shop_pred.model_dump()},
         {"item_id": parcel.item_id, "pred": parcel_pred.model_dump()},
-        {"item_id": "dev-shop-99999", "pred": None},  # rejected reply: nothing goes out
+        {"item_id": "dev-shop-99999", "pred": None},  # 거절된 답: 아무것도 나가지 않음
     ]
     write_jsonl(run / "items.jsonl", rows)
 
@@ -159,7 +157,6 @@ def test_guard_report_counts(tmp_path):
 # 오검출(맞은 번호를 표시)로 세고 목록에 남긴다. 하이픈 없이 적은 이 번호는 값 그대로 형식 규칙이었다면 형식
 # 오류로도 걸렸을 것이라 그 수(맞음 1)도 센다.
 def test_guard_report_false_flags_and_written_rule(tmp_path):
-    # A correct number the recogniser lost (the model restored it) is flagged: a false flag by the metric.
     parcel = _item("parcel", 3, None, [{"speaker": "고객", "text": "운송장 오이일삼 칠공칠구 1436이요."}])
     data = tmp_path / "d.jsonl"
     write_jsonl(data, [parcel.to_dict()])
@@ -171,5 +168,4 @@ def test_guard_report_false_flags_and_written_rule(tmp_path):
     got = verify.guard_report(run, data=data)
     assert (got["correct"], got["flagged_correct"]) == (1, 1)
     assert got["false_flags"] == [[parcel.item_id, "운송장번호", "521370791436", ["not_in_transcript"]]]
-    # Written without hyphens: the brief's raw-string rule would also have flagged its format.
     assert got["written_format_rule_would_also_flag"] == {"correct": 1, "wrong": 0}

@@ -1,21 +1,21 @@
-"""Speech condition v3, pass 2 for the Qwen3-ASR arms: Qwen3-ASR-1.7B on the WAVs kept by pass 1.
+"""음성 조건 v3, Qwen3-ASR 팔의 2패스: 1패스가 남긴 WAV에 Qwen3-ASR-1.7B를 돌린다.
 
-It runs in this project's own environment (transformers 5.17 has the model class; numpy and torch from the
-`train` group), on the audio scripts/asr_condition.py --keep-audio kept:
+이 프로젝트 자체 환경에서 돈다(transformers 5.17에 모델 클래스가 있고, numpy와 torch는 `train` 그룹에서
+온다). 입력은 scripts/asr_condition.py --keep-audio가 남긴 소리다:
 
     uv run --no-sync python scripts/asr_qwen.py --arm Q --split dev
     uv run --no-sync python scripts/asr_qwen.py --arm Qc --split dev --context outputs/asr3/context.json
 
-Decoding follows whisper-ko-ft stage 9 (`whisper_ko_ft.evaluate_qwen`): the Transformers classes at a pinned
-revision, fp16, SDPA attention, greedy, the language forced through the official prompt
-(`apply_transcription_request(..., language="Korean")`), at most 256 new tokens, left padding. Qc passes the
-domain's context (`python -m call_summary.asr_arms context`) as the official `prompt` (the system message).
-Batch 8 and a per-process GPU memory cap (default 9.5 GB) keep it inside the 11 GB card.
+디코딩은 whisper-ko-ft 9단계(`whisper_ko_ft.evaluate_qwen`)를 따른다: 고정 revision의 Transformers 클래스,
+fp16, SDPA attention, 탐욕적 디코딩, 공식 프롬프트로 언어 강제
+(`apply_transcription_request(..., language="Korean")`), 새 토큰 최대 256, 왼쪽 패딩. Qc는 업종 맥락
+(`python -m call_summary.asr_arms context`)을 공식 `prompt`(시스템 메시지)로 넘긴다.
+배치 8과 프로세스별 GPU 메모리 상한(기본 9.5 GB)으로 11 GB 카드 안에 들어가게 한다.
 
-Output rows are those of asr_condition's pass 2 ({key, split, item_id, turn, arm, heard}) plus the official
-parse with its repetition fix (`fixed`), the generated token count, whether the token limit was hit, and
-whether any logit of the utterance was not finite (fp16 overflow). `heard` is the raw text after "<asr_text>";
-the student gets it after the identifier rule (call_summary.id_itn), not the fixed one.
+출력 행은 asr_condition 2패스의 행({key, split, item_id, turn, arm, heard})에 반복 제거까지 한 공식 파싱
+결과(`fixed`), 생성 토큰 수, 토큰 상한에 닿았는지, 발화의 로짓 중 유한하지 않은 값이 있었는지(fp16 넘침)를
+더한 것이다. `heard`는 "<asr_text>" 뒤의 원 글이며, 학생은 fixed가 아니라 이 글에 식별자 규칙
+(call_summary.id_itn)을 씌운 것을 받는다.
 """
 
 # [파일 역할] 음성 조건 v3(인식기 바꾸기)의 2패스 가운데 Qwen3-ASR 팔(Q, Qc)을 돌리는 스크립트다.
@@ -65,18 +65,18 @@ from asr_condition import (  # noqa: E402
 # GENERATE: 탐욕적 디코딩(샘플링 없음, 빔 1), 새 토큰 최대 256. ARMS: 팔 이름 → 업종 맥락을 프롬프트로
 # 줄지(Qc만).
 MODEL = "Qwen/Qwen3-ASR-1.7B-hf"
-REVISION = "bcd2b5b7f32b480ab5790554cfa8347f246a14f3"  # downloaded 2026-10-04 (whisper-ko-ft stage 9)
+REVISION = "bcd2b5b7f32b480ab5790554cfa8347f246a14f3"  # 2026-10-04에 받음(whisper-ko-ft 9단계)
 LANGUAGE = "Korean"
 MARKER = "<asr_text>"
 GENERATE = {"do_sample": False, "num_beams": 1, "max_new_tokens": 256}
-ARMS = {"Q": False, "Qc": True}  # arm -> the domain context as the prompt
+ARMS = {"Q": False, "Qc": True}  # 팔 -> 업종 맥락을 프롬프트로 주는지
 
 
 # 디코딩한 글에서 공식 파서처럼 assistant 응답과 <asr_text> 뒤만 꺼내되, 반복 제거는 하지 않은 글(raw)을
 # 돌려준다. 규칙이 학생에게 raw를 주고 반복 제거한 글(fixed)은 기록만 하기로 정했다(docs/experiments.md 음성
 # 조건 v3).
 def raw_transcription(text: str) -> str:
-    """The official parse of one decoded output without its repetition fix (as whisper-ko-ft stage 9)."""
+    """디코딩 출력 하나의 공식 파싱에서 반복 제거만 뺀 결과(whisper-ko-ft 9단계와 같음)."""
     text = text.strip()
     if "assistant\n" in text:
         text = text.split("assistant\n", 1)[-1]
@@ -89,7 +89,7 @@ def raw_transcription(text: str) -> str:
 # 같음을 확인했으므로 모든 팔이 같은 소리를 듣는다(docs/experiments.md 음성 조건 v3 "소리"). 형식이 다르면
 # 멈춘다.
 def read_wav(path: Path):
-    """16-bit mono 16 kHz WAV -> float32 in [-1, 1), as faster-whisper's decode_audio gives it."""
+    """16비트 모노 16 kHz WAV -> [-1, 1)의 float32. faster-whisper의 decode_audio가 내는 값과 같다."""
     import numpy as np
 
     with wave.open(str(path), "rb") as w:
@@ -115,7 +115,7 @@ def batched(rows: list[dict], size: int) -> Iterator[list[dict]]:
 # 생성한 토큰 행마다 (첫 끝 토큰 앞까지의 토큰 수, 끝 토큰 없이 상한에 닿았는지). 토큰 상한에 닿은 발화는 반복
 # 등으로 잘렸을 수 있어 2차 지표로 센다(결과: 0개).
 def generated_lengths(generated, eos_token_id) -> list[tuple[int, bool]]:
-    """(tokens before the first end token, ran into the token limit) for each row."""
+    """행마다 (첫 끝 토큰 앞까지의 토큰 수, 토큰 상한에 닿았는지)."""
     import torch
 
     eos = torch.tensor(eos_token_id if isinstance(eos_token_id, list | tuple) else [eos_token_id])
@@ -130,7 +130,7 @@ def generated_lengths(generated, eos_token_id) -> list[tuple[int, bool]]:
 # fp16 넘침 감시: lm_head에 forward hook을 걸어, 생성 중 한 번이라도 로짓에 inf/NaN이 나온 배치 행을 표시한다.
 # fp16만 되는 GPU(RTX 2080 Ti, bf16 없음)라 넘침이 생기면 출력이 망가질 수 있어 발화마다 기록한다(결과: 0개).
 class NonFiniteWatch:
-    """Flags the rows of a batch whose logits were ever not finite (an fp16 overflow), through a hook."""
+    """hook으로, 로짓이 한 번이라도 유한하지 않았던(fp16 넘침) 배치 행을 표시한다."""
 
     def __init__(self, head) -> None:
         self.rows = None
@@ -201,13 +201,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--arm", choices=list(ARMS), required=True)
     ap.add_argument("--split", required=True)
     ap.add_argument("--audio", default=DEFAULT_AUDIO)
-    ap.add_argument("--hyp", help="output (default <audio>/hyp/<ARM>.jsonl)")
-    ap.add_argument("--context", help="per-domain context JSON (needed by Qc)")
+    ap.add_argument("--hyp", help="출력 파일(기본 <audio>/hyp/<ARM>.jsonl)")
+    ap.add_argument("--context", help="업종별 맥락 JSON(Qc에 필요)")
     ap.add_argument("--batch-size", type=int, default=8)
-    ap.add_argument("--max-memory-gb", type=float, default=9.5, help="per-process GPU memory cap")
+    ap.add_argument("--max-memory-gb", type=float, default=9.5, help="프로세스별 GPU 메모리 상한")
     ap.add_argument("--precision", choices=["fp16", "fp32", "bf16"], default="fp16")
     ap.add_argument("--device", choices=["cuda", "cpu"], default="cuda")
-    ap.add_argument("--limit", type=int, help="only the first N utterances to do (smoke)")
+    ap.add_argument("--limit", type=int, help="할 발화 중 앞의 N개만(스모크)")
     args = ap.parse_args(argv)
 
     if ARMS[args.arm] and not args.context:

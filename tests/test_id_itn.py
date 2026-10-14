@@ -1,7 +1,7 @@
-"""call_summary.id_itn: identifiers read digit by digit, written back as digits (speech condition v3).
+"""call_summary.id_itn 테스트: 숫자 하나씩 읽은 번호를 숫자로 되돌려 적는다(음성 조건 v3).
 
-The forms below are written by hand from how the v2 verbalizer reads identifiers (digit names, a "디"/"알"
-letter name in front, a space before the particle). They were fixed before any Qwen3-ASR output was seen.
+아래 꼴들은 v2 verbalizer가 번호를 읽는 방식(숫자 이름, 앞에 붙는 "디"/"알" 글자 이름, 조사 앞의 공백)을
+보고 손으로 쓴 것이다. Qwen3-ASR 출력을 하나도 보기 전에 고정했다.
 """
 
 # [테스트 묶음] 음성 조건 v3의 식별자 규칙 id-itn-1(call_summary.id_itn)을 검증한다. 인식기가 숫자 하나씩 읽은
@@ -26,17 +26,17 @@ from call_summary.values import occurs_in_transcript
 @pytest.mark.parametrize(
     "heard,want",
     [
-        # order numbers: D + 7 digits
+        # 주문번호: D + 7자리
         ("주문번호는 디 사사칠칠팔삼팔 입니다.", "주문번호는 D4477838 입니다."),
         ("주문번호는 디사사칠칠팔삼팔입니다.", "주문번호는 D4477838입니다."),
         ("주문번호가 디 사사칠칠팔일팔이에요.", "주문번호가 D4477818이에요."),
         ("디 사사칠칠팔일팔 번 주문한 전기 그릴 팬", "D4477818 번 주문한 전기 그릴 팬"),
         ("주문 번호 D 사삼칠육팔공오 인 등산화", "주문 번호 D4376805 인 등산화"),
-        ("디 사삼칠 육팔공오요", "D4376805요"),  # separators inside a prefixed number go
-        ("디 4477838 맞으시죠?", "D4477838 맞으시죠?"),  # the letter name alone
-        # receipt numbers: R + 6 digits
+        ("디 사삼칠 육팔공오요", "D4376805요"),  # 글자가 붙은 번호 안의 구분자는 없앤다
+        ("디 4477838 맞으시죠?", "D4477838 맞으시죠?"),  # 글자 이름만 바꾼다
+        # 접수번호: R + 6자리
         ("접수번호는 알 일이삼사오육 입니다", "접수번호는 R123456 입니다"),
-        # tracking numbers: 12 digits in three groups, separators kept
+        # 운송장번호: 세 묶음 12자리, 구분자는 그대로
         (
             "운송장 번호 육이구일, 칠팔칠칠, 오일육팔 로 받은 건이에요",
             "운송장 번호 6291, 7877, 5168 로 받은 건이에요",
@@ -45,32 +45,32 @@ from call_summary.values import occurs_in_transcript
             "운송장 번호 육이구일, 칠팔칠칠, 오일육팔로 받은 건이에요",
             "운송장 번호 6291, 7877, 5168로 받은 건이에요",
         ),
-        ("오팔구이 육팔구공 이이팔칠 이 맞습니다.", "5892 6890 2287 이 맞습니다."),  # the particle "이" stays
+        ("오팔구이 육팔구공 이이팔칠 이 맞습니다.", "5892 6890 2287 이 맞습니다."),  # 조사 "이"는 남는다
         (
             "오팔구이육팔구공이이팔칠이 맞습니다.",
             "589268902287이 맞습니다.",
-        ),  # 13 names: the 13th is the particle
+        ),  # 이름 13개: 13번째는 조사다
         ("오팔구이-육팔구공-이이팔칠이에요", "5892-6890-2287이에요"),
         ("일공공공, 공이공삼, 공공사공 입니다.", "1000, 0203, 0040 입니다."),
-        ("영일영 이삼사오", "010 2345"),  # 영 is 0 as well
-        # digits and digit names mixed (the base recogniser writes these)
+        ("영일영 이삼사오", "010 2345"),  # 영도 0이다
+        # 숫자와 숫자 이름이 섞인 꼴(기준 인식기가 이렇게 적는다)
         ("627일 8127 2631로 보냈어요", "6271 8127 2631로 보냈어요"),
         ("5874, 351일 2946 맞나요?", "5874, 3511 2946 맞나요?"),
         ("651일 5502-2932", "6511 5502-2932"),
-        ("6627, 6706, 518이 다 맞습니다.", "6627, 6706, 5182 다 맞습니다."),  # "5182가" heard as one "이"
+        ("6627, 6706, 518이 다 맞습니다.", "6627, 6706, 5182 다 맞습니다."),  # "5182가"가 "이" 하나로 들렸다
         ("운송장 번호가 623일 469일 534일이라고 들었는데", "운송장 번호가 6231 4691 5341이라고 들었는데"),
         ("생년월일은 94121일입니다.", "생년월일은 941211입니다."),
         ("주문번호가 D247814일이었어요.", "주문번호가 D2478141이었어요."),
-        # card last four digits
+        # 카드 끝 네 자리
         ("카드 끝자리는 일이삼사요", "카드 끝자리는 1234요"),
-        ("오일육칠이이에요", "51672이에요"),  # one particle comes off, not two
-        ("이 오팔구이, 육팔구공, 이이팔칠 번호로", "이 5892, 6890, 2287 번호로"),  # "이" = "this"
-        ("카드 끝자리 일 이 삼 사 입니다", "카드 끝자리 1 2 3 4 입니다"),  # a name per word
+        ("오일육칠이이에요", "51672이에요"),  # 조사는 둘이 아니라 하나만 뗀다
+        ("이 오팔구이, 육팔구공, 이이팔칠 번호로", "이 5892, 6890, 2287 번호로"),  # 앞 "이"는 "이것"
+        ("카드 끝자리 일 이 삼 사 입니다", "카드 끝자리 1 2 3 4 입니다"),  # 낱말마다 이름 하나
         (
             "육 이 구 일 칠 팔 칠 칠 오 일 육 이 맞습니다",
             "6 2 9 1 7 8 7 7 5 1 6 2 맞습니다",
-        ),  # 12 with the 이
-        ("육이구일, 칠팔칠칠, 오일육팔 3시에 도착", "6291, 7877, 5168 3시에 도착"),  # "3시" is a word
+        ),  # 이 포함 12자리
+        ("육이구일, 칠팔칠칠, 오일육팔 3시에 도착", "6291, 7877, 5168 3시에 도착"),  # "3시"는 낱말이다
     ],
 )
 # 위 표의 들린 글을 규칙에 넣으면 기대한 글이 정확히 나와야 한다.
@@ -86,10 +86,10 @@ def test_identifiers_read_digit_by_digit_become_digits(heard, want):
     "heard",
     [
         "11월 29일에 도착 예정이에요.",
-        "10월 15일 3시에 다시 연락드릴게요.",  # a date next to a time: 3 digit characters
-        "25일 100만 원이 청구됐어요.",  # a date, then an amount: the day blocks the run
+        "10월 15일 3시에 다시 연락드릴게요.",  # 날짜 옆에 시각: 숫자 글자 3개
+        "25일 100만 원이 청구됐어요.",  # 날짜 다음 금액: "일"이 덩어리를 끊는다
         "31일 2,500원이 빠져나갔어요",
-        "1월 2일 1234번 창구",  # "2일 1234": a day in front
+        "1월 2일 1234번 창구",  # "2일 1234": 앞에 날짜가 있다
         "사이즈가 안 맞아서 이사 가기 전에 반품할게요",
         "일일이 확인해 드릴게요. 오일 교환은 구매처에서 해요.",
         "일이 있어서 삼십 분 뒤에 전화할게요.",
@@ -97,12 +97,12 @@ def test_identifiers_read_digit_by_digit_become_digits(heard, want):
         "이천이십육년 시월 십사일",
         "어디 사세요? 알 수 없음",
         "D4477838입니다.",
-        "B4477838이라는 주문번호",  # a misheard letter is not this rule's business
+        "B4477838이라는 주문번호",  # 잘못 들은 글자는 이 규칙이 다루지 않는다
         "5891-6890-2287의 배송 위치",
-        "52이고 64675677",  # "이고": a particle after a number
-        "삼사일 걸려요",  # three digit names: too short for an identifier
-        "디 사사칠 번",  # three digits after 디: not an order number, and too short alone
-        # words after a number (written dev/train text and base-recogniser transcripts, 2026-10-05)
+        "52이고 64675677",  # "이고": 번호 뒤의 조사
+        "삼사일 걸려요",  # 숫자 이름 3개: 번호로 보기엔 너무 짧다
+        "디 사사칠 번",  # 디 뒤 숫자 3개: 주문번호가 아니고 홀로 보기에도 너무 짧다
+        # 번호 뒤에 붙은 낱말(쓴 글 dev/train과 기준 인식기 전사에서 나온 꼴, 2026-10-05)
         "운송장번호 6245-9828-3038이 오는데, 9월 10일에 받고 싶어요",
         "죄송합니다, 고객님. D8296280이 일치하지 않는 주문 번호인 것 같아요.",
         "운송장번호는 5978-1873-3477이구요, 주문하신 건 노트북이에요.",
@@ -121,7 +121,7 @@ def test_everything_else_is_left_alone(heard):
 # "디" 뒤 숫자가 8개면 주문번호(7자리)가 아니므로 "디"는 그대로 두고, 숫자 이름 8개는 숫자 하나씩 읽은 번호로
 # 따로 판단해 숫자로 바꾼다.
 def test_a_prefix_of_the_wrong_length_is_kept_and_the_digits_judged_alone():
-    # 디 + 8 names is not an order number; the 8 names are still a number read digit by digit
+    # 디 + 이름 8개는 주문번호가 아니지만, 이름 8개는 여전히 숫자 하나씩 읽은 번호다
     assert id_itn("디 사사칠칠팔삼팔구 요") == "디 44778389 요"
 
 

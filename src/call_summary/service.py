@@ -1,20 +1,19 @@
-"""HTTP service: POST /summarize turns a call transcript into an after-call record.
+"""HTTP 서비스: POST /summarize가 상담 전사를 상담 후처리 기록으로 바꾼다.
 
-The model reply must validate as an AfterCallRecord and use the domain's label lists; otherwise the
-service retries once, sampled (a greedy retry would replay the rejected reply), and then answers 502 with
-the reason, never a half-valid record. An unreachable model server gives 503.
+모델 답은 AfterCallRecord로 검증을 통과하고 업종의 라벨 목록 안의 값만 써야 한다. 그렇지 않으면 서비스는
+샘플링으로 한 번 다시 시도하고(탐욕 디코딩으로 다시 하면 거절한 답이 그대로 나온다), 그래도 안 되면 이유와
+함께 502로 답한다. 반쯤 맞는 기록은 절대 내보내지 않는다. 모델 서버에 닿지 못하면 503을 준다.
 
-Identifiers in the record (order, tracking and receipt numbers, card last digits) that lack the deployment
-format or cannot be found in the transcript are listed in `needs_confirmation` (verify.py); the record
-itself is unchanged.
+기록 안의 번호(주문번호, 운송장번호, 접수번호, 카드 끝자리) 가운데 운영 형식에 맞지 않거나 전사에서 찾을
+수 없는 것은 `needs_confirmation`에 나열한다(verify.py). 기록 자체는 바꾸지 않는다.
 
-Each /summarize call that reaches the handler logs one JSON line (logger `call_summary.service`, INFO):
-request id, domain, turn and character counts, outcome, HTTP status, attempts, latency, the prompt and
-completion tokens summed over attempts (null when the model server reports none) and how many identifiers
-need confirmation. Never the transcript, the record or the flagged values: they hold personal data.
+처리기에 닿은 /summarize 호출마다 JSON 한 줄을 로그로 남긴다(로거 `call_summary.service`, INFO):
+요청 id, 업종, 발화 수와 글자 수, 결과, HTTP 상태, 시도 횟수, 지연, 시도들을 합친 프롬프트·생성 토큰
+수(모델 서버가 알려 주지 않으면 null), 확인이 필요한 번호의 개수. 전사, 기록, 표시한 번호 값은 절대
+남기지 않는다: 개인정보가 들어 있다.
 
-Run with a model:   CALL_SUMMARY_MODEL=<ollama model> uvicorn call_summary.service:create_app --factory
-Run without one:    uvicorn call_summary.service:create_offline_app --factory   (canned replies, for scans)
+모델과 함께 실행:  CALL_SUMMARY_MODEL=<ollama 모델> uvicorn call_summary.service:create_app --factory
+모델 없이 실행:    uvicorn call_summary.service:create_offline_app --factory   (고정 답, 스캔용)
 """
 
 # [파일 역할] 5단계 서빙의 HTTP 서비스(FastAPI). 상담 전사를 받아 Ollama에 올린 학습 모델(GGUF q8_0)로 상담
@@ -63,12 +62,12 @@ from .verify import IdentifierFlag, verify_entities
 # 한 요청에 받는 발화 수의 상한(입력 크기 제한).
 MAX_TURNS = 200
 # Ollama에 요청하는 컨텍스트 길이. 모델을 내보낼 때 정한 num_ctx(README의 export --num-ctx 4096)와 같다.
-NUM_CTX = 4096  # Ollama context the service asks for
+NUM_CTX = 4096
 # MAX_CHARS는 처음 20,000자였다가 컨텍스트 4,096토큰에 프롬프트와 답이 함께 들어가도록 4,000자로 줄였다(커밋
 # fdc1b9c). 넘으면 413을 준다(README 서비스 문단).
-# Prompt tokens ~= 571 + 0.605 * transcript chars (dev runs, Qwen3 and qwen2.5 tokenizers). 4,000 chars is
-# ~3,000 prompt tokens, leaving ~1,000 for the reply; longer input would be truncated by the model server.
-# Dataset transcripts are at most 1,485 chars.
+# 프롬프트 토큰 수 ~= 571 + 0.605 * 전사 글자 수(dev 실행, Qwen3·qwen2.5 토크나이저로 잰 값). 4,000자는 약
+# 3,000 프롬프트 토큰이라 답에 약 1,000토큰이 남는다. 더 긴 입력은 모델 서버가 잘라 버린다.
+# 데이터셋 전사는 가장 긴 것이 1,485자다.
 MAX_CHARS = 4_000
 # 모든 응답에 붙이는 보안 헤더. 이 서비스는 JSON만 주므로 브라우저가 내용을 실행하거나 다른 페이지에 끼워 넣을
 # 일이 없게 막는다: MIME 추측 금지(nosniff), 프레임 금지(X-Frame-Options, frame-ancestors), 리퍼러 안 보냄,
@@ -91,8 +90,8 @@ log = logging.getLogger("call_summary.service")
 # 있으면(앱이나 pytest가 루트 로거를 설정한 경우) 건드리지 않아 줄이 두 번 찍히지 않게 한다. create_app이 앱을
 # 만들 때 한 번 부른다.
 def _ensure_log_handler() -> None:
-    """uvicorn configures only its own loggers, so without a handler these INFO lines would be dropped.
-    Left alone when the application (or pytest) already handles logging at the root."""
+    """uvicorn은 자기 로거만 설정하므로, 처리기가 없으면 이 모듈의 INFO 줄이 버려진다.
+    앱(또는 pytest)이 이미 루트 로거에서 로깅을 처리하면 건드리지 않는다."""
     if log.handlers or logging.getLogger().handlers:
         return
     handler = logging.StreamHandler(sys.stderr)
@@ -122,9 +121,9 @@ EXAMPLE_REQUEST = {
 
 # 발화 하나. speaker는 정확히 "상담원"·"고객"만 받는다. text는 2,000자 상한.
 class Turn(BaseModel):
-    # A Literal, not a regex: the OpenAPI enum tells clients and scanners which values pass.
+    # 정규식이 아니라 Literal로 둔다: OpenAPI의 enum으로 클라이언트와 스캐너가 어떤 값이 통과하는지 안다.
     speaker: Literal["상담원", "고객"]
-    # Empty text is allowed: a speech recogniser returns nothing for some turns (test-d has such turns).
+    # 빈 글도 받는다: 음성 인식기는 어떤 발화에서 아무것도 돌려주지 않는다(test-d에 그런 발화가 있다).
     text: str = Field(max_length=2000)
 
 
@@ -133,8 +132,8 @@ class Turn(BaseModel):
 class SummarizeRequest(BaseModel):
     model_config = ConfigDict(json_schema_extra={"examples": [EXAMPLE_REQUEST]})
 
-    # The enum is only documented here; the handler checks it, so an unknown domain keeps its own 422
-    # ("unknown domain") and its log line.
+    # enum은 여기서 문서(OpenAPI)에만 적고 검사는 처리기가 한다. 그래야 목록 밖 업종도 자기 422("unknown
+    # domain")와 로그 한 줄을 그대로 받는다.
     domain: str = Field(max_length=32, json_schema_extra={"enum": list(DOMAINS)})
     turns: list[Turn] = Field(min_length=1, max_length=MAX_TURNS)
 
@@ -145,7 +144,7 @@ class SummarizeRequest(BaseModel):
 class SummarizeResponse(BaseModel):
     request_id: str
     record: AfterCallRecord
-    # Identifiers to read back to the caller before acting on them: wrong format or not in the transcript.
+    # 처리하기 전에 고객에게 다시 읽어 확인할 번호: 형식이 틀렸거나 전사에 없는 것.
     needs_confirmation: list[IdentifierFlag] = Field(default_factory=list)
     model: str
     attempts: int
@@ -172,16 +171,16 @@ def off_list_labels(domain_key: str, record: AfterCallRecord) -> list[str]:
 # dataclasses.replace로 새 객체를 만들어 공유 provider를 바꾸지 않는다. num_ctx·num_gpu는 그대로 두어 Ollama가
 # 모델을 다시 올리지 않게 한다. Ollama가 아닌 provider(테스트용)는 그대로 돌려준다.
 def _retry_provider(p: Provider) -> Provider:
-    """The second try must not replay the rejected greedy decode: same model and context, sampled."""
+    """두 번째 시도는 거절한 탐욕 디코딩을 되풀이하면 안 된다: 같은 모델·컨텍스트로 샘플링한다."""
     if isinstance(p, OllamaProvider):
-        return dataclasses.replace(p, temperature=0.3, seed=p.seed + 1)  # keep num_ctx/num_gpu: no reload
+        return dataclasses.replace(p, temperature=0.3, seed=p.seed + 1)
     return p
 
 
 # 이 프로세스가 받은 /summarize의 결과별 수와 지연 목록(GET /stats). 메모리에만 있어 재시작하면 0부터 다시
 # 센다. FastAPI는 일반 def 처리기를 스레드 풀에서 동시에 돌리므로 Lock으로 읽기·쓰기를 지킨다.
 class Stats:
-    """Counts and latencies of this process's /summarize calls (reset on restart)."""
+    """이 프로세스가 받은 /summarize 호출의 결과별 수와 지연(재시작하면 처음부터 다시 센다)."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -232,15 +231,14 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     base: Provider = provider or OllamaProvider(
         model=os.environ.get("CALL_SUMMARY_MODEL", "qwen2.5:7b-instruct"),
         base_url=os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434"),
-        # Off by default. Ollama's schema grammar writes required keys first in alphabetical order, and the
-        # fine-tuned model, trained on one key order, then drops `actions_taken` (stage 5 in experiments.md).
+        # 기본은 끈다. Ollama의 스키마 문법은 필수 키를 알파벳 순서로 먼저 쓰게 하는데, 한 가지 키 순서로
+        # 학습한 모델은 그러면 `actions_taken`을 빠뜨린다(docs/experiments.md 5단계).
         use_schema=os.environ.get("CALL_SUMMARY_SCHEMA") == "1",
         num_ctx=NUM_CTX,
         num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"]) if os.environ.get("CALL_SUMMARY_NUM_GPU") else None,
     )
-    # 재시도 provider도 앱을 만들 때 한 번만 만든다. 요청마다 provider의 설정을 바꾸면 동시에 도는 다른 요청이
-    # 바뀐 설정을 쓸 수 있기 때문이다.
-    # Built once: requests run concurrently in a threadpool, so the shared provider is never mutated.
+    # 재시도 provider도 앱을 만들 때 한 번만 만든다. 요청은 스레드 풀에서 동시에 돌므로, 요청마다 provider의
+    # 설정을 바꾸면 동시에 도는 다른 요청이 바뀐 설정을 쓸 수 있다. 그래서 공유 provider는 절대 바꾸지 않는다.
     state: dict = {"provider": base, "retry_provider": _retry_provider(base)}
 
     # 모든 응답(오류 응답 포함)에 보안 헤더를 붙이는 미들웨어. setdefault라 처리기가 이미 정한 헤더는 덮어쓰지
@@ -338,7 +336,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             line["attempts"] = attempt
             try:
                 reply = gen.generate(messages, json_schema=record_json_schema())
-            except Exception as exc:  # noqa: BLE001 - any model-server failure is a 503, not a traceback
+            except Exception as exc:  # noqa: BLE001 - 모델 서버 실패는 무엇이든 추적 정보 대신 503
                 # 모델 서버 연결 실패·시간 초과 등 어떤 예외든 내부 추적 정보를 내보내지 않고 503으로 바꾼다.
                 # 재시도하지 않는다.
                 stats.add("model_unavailable")
@@ -385,10 +383,10 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
 # 이 번호는 스캔 요청의 전사에 없으므로 매번 needs_confirmation에 표시된다. 그래서 보안 스캔의 요청도 번호
 # 검사 코드를 지난다(docs/experiments.md "확인이 필요한 번호 표시" 규칙).
 class CannedProvider:
-    """No model: a valid record for whichever domain the system prompt names. For scans and demos.
+    """모델 없음: 시스템 프롬프트가 가리키는 업종에 맞는 유효한 기록을 돌려준다. 스캔과 시연용.
 
-    The record holds one fixed identifier of the domain, so every request also runs the identifier checks
-    on its transcript (it is listed in needs_confirmation unless the caller said it)."""
+    기록에 그 업종의 고정 번호 하나가 들어 있어, 모든 요청이 자기 전사로 번호 검사도 거친다(호출한 쪽이
+    그 번호를 말하지 않았다면 needs_confirmation에 나열된다)."""
 
     name = "offline:canned"
 

@@ -1,7 +1,7 @@
-"""Fictional call-center domains: the label sets a model chooses from and the scenario templates of specs.
+"""가상의 콜센터 업종: 모델이 고르는 라벨 목록과 명세의 시나리오 틀.
 
-Everything here is invented. Company names, products and plans are made up for this project.
-The card domain is held out of training (test-C): same record schema, different label sets.
+여기 있는 것은 모두 지어낸 것이다. 회사 이름, 상품, 요금제는 이 프로젝트를 위해 만들었다.
+카드 업종은 학습에서 뺀다(test-C): 기록 스키마는 같고 라벨 목록만 다르다.
 """
 
 # [파일 역할] 가상 업종 네 개(쇼핑몰, 통신사, 택배사, 카드사)의 정의를 담은 데이터 모듈이다. 업종마다 회사
@@ -26,8 +26,8 @@ from dataclasses import dataclass, field
 from .values import Kind
 
 # ---------------------------------------------------------------------------------------------------------
-# Value makers: (rng) -> surface form as it is said in the call. Gold values are these surface forms; scoring
-# normalizes both sides, so "32,000원" and "3만 2천 원" are the same amount.
+# 값 생성기: (rng) -> 통화에서 말하는 그대로의 겉꼴. 정답 값은 이 겉꼴이며, 채점은 양쪽을 정규화하므로
+# "32,000원"과 "3만 2천 원"은 같은 금액이다.
 
 
 # 금액 생성기를 만든다: [lo, hi] 범위에서 step 단위로 뽑고, 절반은 "32,000원", 절반은 "3만 2천 원"처럼 읽는
@@ -91,7 +91,7 @@ def _last4(rng: random.Random) -> str:
 # 만든다(docstring).
 @dataclass(frozen=True)
 class _Pick:
-    """A value maker that picks from a closed list (the catalog; speech condition v3 lists it as context)."""
+    """닫힌 목록(카탈로그)에서 고르는 값 생성기. 음성 조건 v3는 이 목록을 맥락으로 넘긴다."""
 
     options: tuple[str, ...]
 
@@ -113,8 +113,8 @@ class EntityType:
     label: str
     kind: Kind
     make: Callable[[random.Random], str]
-    # Identifiers only: the deployment format, a regex the whole normalized value (values.normalize) must
-    # match. A value outside it needs confirmation (verify.py). Deployment configuration: real schemes vary.
+    # 번호 유형에만 쓴다: 배포 형식. 정규화한 값(values.normalize) 전체가 맞아야 하는 정규식이다. 형식 밖
+    # 값은 확인이 필요하다(verify.py). 실제 번호 체계는 회사마다 달라 배포 설정에 해당한다.
     id_format: str | None = None
 
 
@@ -126,9 +126,9 @@ class Outcome:
     resolution: str
     actions: tuple[str, ...]
     follow_up: tuple[str, ...]
-    facts: tuple[str, ...]  # format strings over slot names
-    extra_slots: tuple[tuple[str, str], ...] = ()  # (slot, entity label) only this outcome needs
-    note: str = ""  # instruction to the dialogue writer about how the call ends
+    facts: tuple[str, ...]  # 슬롯 이름을 채우는 형식 문자열들
+    extra_slots: tuple[tuple[str, str], ...] = ()  # 이 결과에만 필요한 (슬롯, 값 유형 라벨)
+    note: str = ""  # 대화를 쓰는 모델에게 주는, 통화를 어떻게 끝낼지에 대한 지시
     weight: float = 1.0
 
 
@@ -138,10 +138,10 @@ class Outcome:
 @dataclass(frozen=True)
 class Scenario:
     category: str
-    slots: tuple[tuple[str, str], ...]  # (slot name, entity label); every slot's value appears in the call
-    request_fact: str  # what the customer wanted, format string over slot names
+    slots: tuple[tuple[str, str], ...]  # (슬롯 이름, 값 유형 라벨). 모든 슬롯 값이 통화에 나온다
+    request_fact: str  # 고객이 원한 것. 슬롯 이름을 채우는 형식 문자열
     outcomes: tuple[Outcome, ...]
-    needs_verification: bool = True  # account-level request: the agent may verify identity first
+    needs_verification: bool = True  # 계정 관련 요청: 상담원이 먼저 본인 확인을 할 수 있다
 
 
 # 업종 하나. held_out이면 학습 분할에서 뺀다. extra_questions는 고객이 끝에 덧붙이는 작은 질문(대화 사건),
@@ -154,12 +154,11 @@ class Domain:
     entity_types: tuple[EntityType, ...]
     scenarios: tuple[Scenario, ...]
     held_out: bool = False
-    extra_questions: tuple[str, ...] = field(default=())  # small unrelated questions a caller may add
+    extra_questions: tuple[str, ...] = field(default=())  # 고객이 덧붙일 수 있는 상관없는 작은 질문
     # slot_makers가 생긴 이유: 파일럿에서 택배비·데이터 충전·부가서비스 월 요금·적립금·카드 한도·연회비가 그
     # 유형의 넓은 금액 범위에서 뽑혀 "택배비 128만 원" 같은 어색한 값이 나왔다(docs/experiments.md 1단계
-    # 파일럿, 커밋 56e691a).
-    # Value makers for particular slot names whose plausible range differs from the entity type's
-    # (a parcel fee is not an item price, a data top-up is not a monthly bill).
+    # 파일럿, 커밋 56e691a). 그래서 그럴듯한 범위가 값 유형의 범위와 다른 슬롯 이름마다 값 생성기를 따로
+    # 둔다(택배비는 상품 가격이 아니고, 데이터 충전은 월 청구액이 아니다).
     slot_makers: dict[str, Callable[[random.Random], str]] = field(default_factory=dict)
 
     # 라벨로 값 유형을 찾는다. 없는 라벨이면 KeyError(목록 밖 유형).
@@ -203,7 +202,7 @@ TRANSFER = "전문 부서 이관"
 COMMON_ACTIONS = (VERIFY,)
 
 # ---------------------------------------------------------------------------------------------------------
-# 1. Online shop
+# 1. 온라인 쇼핑몰
 
 # 쇼핑몰 상품 카탈로그 12개(지어낸 이름). 음성 조건에서 인식기가 잘 깨뜨리는 값이다(상품명 보존율 55.6%,
 # docs/experiments.md 음성 조건 v3 단계 A).
@@ -433,7 +432,7 @@ SHOP = Domain(
 )
 
 # ---------------------------------------------------------------------------------------------------------
-# 2. Mobile carrier
+# 2. 이동통신사
 
 # 통신사 카탈로그: 요금제 6개, 기기 5개, 부가서비스 5개(모두 지어낸 이름). "은하 탭 9"는 음성 조건에서 학생이
 # "은하택구"를 바로잡은 예로 README에 나온다.
@@ -652,7 +651,7 @@ TELECOM = Domain(
 )
 
 # ---------------------------------------------------------------------------------------------------------
-# 3. Parcel delivery
+# 3. 택배사
 
 # 택배 물품 카탈로그 8개.
 _PARCEL_ITEMS = (
@@ -847,7 +846,7 @@ PARCEL = Domain(
 )
 
 # ---------------------------------------------------------------------------------------------------------
-# 4. Credit card (held out of training)
+# 4. 카드사(학습에서 뺌)
 
 # 카드 가맹점 카탈로그 6개.
 _MERCHANTS = ("솔바람 카페", "한결 마트", "푸른숲 주유소", "모래시계 서점", "달빛 호텔", "해오름 온라인몰")
@@ -1020,7 +1019,7 @@ DOMAINS: dict[str, Domain] = {d.key: d for d in (SHOP, TELECOM, PARCEL, CARD)}
 # 업종의 닫힌 목록 값(상품명, 요금제, 기기명, 부가서비스, 물품명, 가맹점명)을 값 유형 순서대로 중복 없이
 # 모은다. 음성 조건 v3의 업종 맥락 글(asr_arms.context_prompt)이 쓴다.
 def catalog(domain: Domain) -> tuple[str, ...]:
-    """Every value the domain's closed-list entity types can take, in entity-type order."""
+    """업종의 닫힌 목록 값 유형이 가질 수 있는 모든 값. 값 유형 순서대로."""
     out: dict[str, None] = {}
     for et in domain.entity_types:
         if isinstance(et.make, _Pick):

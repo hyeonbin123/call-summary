@@ -1,10 +1,10 @@
-"""The summarizer prompt: the same text for every model, trained or not. Changing it after measuring starts
-must be recorded in docs/experiments.md (its hash goes into every run manifest)."""
+"""요약 프롬프트: 학습했든 안 했든 모든 모델에 같은 글을 준다. 측정을 시작한 뒤에 바꾸면
+docs/experiments.md에 기록해야 한다(프롬프트 해시가 모든 실행 기록(manifest)에 들어간다)."""
 
 # [파일 역할] 상담 후처리 기록을 요청하는 프롬프트(시스템 지시문, 사용자 메시지, few-shot 예시)를 만드는
 # 모듈이다. 학습 전 모델, 비교용 큰 모델, 학습한 학생, 서비스가 모두 이 함수로 같은 메시지를 만든다.
 # [왜 필요한가] 측정이 공정하려면 모든 모델이 같은 지시문을 받아야 하고, 학습한 모델은 학습 때 본 프롬프트를
-# 서빙 때도 그대로 받아야 한다(train.py docstring "The prompt is exactly the evaluation prompt"). 그래서
+# 서빙 때도 그대로 받아야 한다(train.py docstring "프롬프트는 평가 프롬프트와 똑같고"). 그래서
 # 프롬프트를 한곳에 두고, 바뀌었는지는 prompt_hash로 실행 기록(manifest)에 남겨 확인한다.
 # [주요 구성] _SYSTEM(p1 지시문) / _GUIDE_P2(p2에 덧붙이는 기록 기준) → system_prompt(업종 라벨을 채움) →
 # format_transcript·user_prompt(대화 부분) → build_messages(채팅 메시지 목록) → record_to_json(학습 목표
@@ -25,9 +25,9 @@ from .schema import RESOLUTIONS, AfterCallRecord
 
 # PROMPT_VERSION: 기본 프롬프트. 모든 모델과 모든 학습이 p1을 쓴다.
 # PROMPT_VERSIONS: 고를 수 있는 판. p2는 3단계에서 "학습 이득이 기록 관례를 배운 것뿐인가"를 가르려고 14B에 준
-# 비교용 프롬프트이고(docs/experiments.md 2단계 오류 분석), 2026-10-05 비교 대상(qwen3.5:4b 등)의 후보로도
-# 쓰였다. evaluate.py의 --prompt 선택지가 이 튜플이다.
-PROMPT_VERSION = "p1"  # every model and all training use p1; p2 is a prompt-only comparison (stage 3)
+# 비교용 프롬프트로, 학습 없이 프롬프트만 바꾼 비교에만 쓴다(docs/experiments.md 2단계 오류 분석).
+# 2026-10-05 비교 대상(qwen3.5:4b 등)의 후보로도 쓰였다. evaluate.py의 --prompt 선택지가 이 튜플이다.
+PROMPT_VERSION = "p1"
 PROMPT_VERSIONS = ("p1", "p2")
 
 # p1 시스템 지시문. {company}·{categories} 같은 자리는 system_prompt가 업종 정보로 채운다. JSON 예시의
@@ -47,11 +47,10 @@ _SYSTEM = """당신은 {company}({label}) 고객센터의 상담 후처리 담�
 - follow_up: {{"required": 후속 조치가 필요한지 true/false, "codes": 후속 조치 목록}}. 목록은 다음 중에서: {follow_ups}
 - summary: 상담 내용을 3~5문장의 한국어로 요약. 고객의 요청, 상담원이 확인하거나 처리한 것, 결과와 후속 조치를 담으세요."""
 
-# _GUIDE_P2: 명세 생성기의 기록 관례(해결/부분 해결의 경계, 본인 확인을 처리에 넣는 것, 해결돼도 남은 일은
-# 후속 조치로 적는 것 등)를 사람이 쓰는 지침서처럼 요약한 글이다. 2단계에서 학습 전 모델이 틀린 것의 상당수가
-# 프롬프트에 적지 않은 관례였기 때문에 추가했다(README 3단계 결과 요약). 모든 경우를 담지는
+# _GUIDE_P2: p2 = p1 + 이 글이다. 명세 생성기의 기록 관례(해결/부분 해결의 경계, 본인 확인을 처리에 넣는 것,
+# 해결돼도 남은 일은 후속 조치로 적는 것 등)를 라벨링 지침서가 적듯이 풀어 쓴 글이다. 2단계에서 학습 전 모델이
+# 틀린 것의 상당수가 프롬프트에 적지 않은 관례였기 때문에 추가했다(README 3단계 결과 요약). 모든 경우를 담지는
 # 않는다(docs/experiments.md).
-# p2 = p1 + the labelling conventions written out, as an annotation guideline would state them.
 _GUIDE_P2 = """
 
 [기록 기준]
@@ -98,7 +97,7 @@ def system_prompt(domain_key: str, version: str = PROMPT_VERSION) -> str:
 # 발화 목록을 "상담원: ..." / "고객: ..." 줄로 잇는다. 데이터셋(Item.transcript), 서비스 요청, 음성 조건
 # 전사가 모두 이 꼴로 바뀌어 모델에 들어간다.
 def format_transcript(turns: list[dict]) -> str:
-    """turns: [{"speaker": "상담원"|"고객", "text": ...}]"""
+    """turns는 [{"speaker": "상담원"|"고객", "text": ...}] 꼴의 발화 목록이다."""
     return "\n".join(f"{t['speaker']}: {t['text']}" for t in turns)
 
 
@@ -118,7 +117,7 @@ def build_messages(
     shots: list[tuple[str, AfterCallRecord]] | None = None,
     version: str = PROMPT_VERSION,
 ) -> list[dict]:
-    """Chat messages for one call. `shots` are (transcript, record) examples from the same domain."""
+    """통화 하나의 채팅 메시지 목록. `shots`는 같은 업종의 (전사, 기록) 예시다."""
     msgs: list[dict] = [{"role": "system", "content": system_prompt(domain_key, version)}]
     for shot_transcript, shot_record in shots or []:
         msgs.append({"role": "user", "content": user_prompt(shot_transcript)})
@@ -133,7 +132,7 @@ def build_messages(
 # 순서를 바꾸자 학습한 모델이 필드를 빠뜨린 일이 있어(README 5단계), 학습 때의 키 순서는 이 함수가 정한 것이
 # 기준이다. ensure_ascii=False로 한글을 \u 이스케이프 없이 그대로 써 사람이 읽을 수 있게 한다(docstring).
 def record_to_json(record: AfterCallRecord) -> str:
-    """The training target text: compact but readable, keys in schema order, Hangul unescaped."""
+    """학습 목표 글: 짧지만 읽을 수 있게, 키는 스키마 순서대로, 한글은 이스케이프하지 않는다."""
     return json.dumps(record.model_dump(), ensure_ascii=False)
 
 
@@ -144,7 +143,7 @@ def record_to_json(record: AfterCallRecord) -> str:
 # p2가 생기기 전과 같은 순서로 p1을 계산해 예전 실행 기록의 지문이 그대로 맞는다(테스트가 p1 지문 값을 고정해
 # 확인한다).
 def prompt_hash(version: str = PROMPT_VERSION) -> str:
-    """p1's hash is computed exactly as before p2 existed, so earlier manifests still match."""
+    """p1의 해시는 p2가 생기기 전과 똑같이 계산하므로 예전 실행 기록(manifest)의 해시가 그대로 맞는다."""
     h = hashlib.sha256()
     h.update(version.encode())
     h.update(_SYSTEM.encode())

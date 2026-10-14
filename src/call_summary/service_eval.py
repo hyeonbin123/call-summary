@@ -1,9 +1,9 @@
-"""Measure quality through the running service: every item goes to POST /summarize and the returned record is
-scored like any evaluation run (same reports/ layout, so `compare` reads it).
+"""띄워 둔 서비스를 거쳐 품질을 잰다: 건마다 POST /summarize로 보내고, 돌아온 기록을 일반 평가 실행과 똑같이
+채점한다(reports/ 형식이 같아 `compare`가 그대로 읽는다).
 
     uv run python -m call_summary.service_eval --data datasets/dev.jsonl --official --label s5-svc
 
-A request the service rejects (502) or fails (other status) scores as a format failure.
+서비스가 거절한(502) 요청이나 실패한(그 밖의 상태) 요청은 형식 실패로 채점한다.
 """
 
 # [파일 역할] 띄워 둔 서비스에 데이터셋의 건을 하나씩 POST /summarize로 보내고, 돌아온 기록을 evaluate.py와
@@ -46,7 +46,7 @@ def run_service_items(
         try:
             r = client.post("/summarize", json={"domain": it.domain, "turns": it.turns})
             status, body = r.status_code, r.json()
-        except Exception as exc:  # noqa: BLE001 - a transport failure is a failed item, not a crashed run
+        except Exception as exc:  # noqa: BLE001 - 전송 실패는 실행 중단이 아니라 그 건의 실패다
             status, body = f"error:{type(exc).__name__}", {}
         # 클라이언트가 잰 왕복 시간. 서비스가 응답에 적은 자체 지연(service_latency_s)과 함께 남긴다.
         latency = time.perf_counter() - t0
@@ -105,7 +105,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--data", required=True)
     ap.add_argument("--label", default="service")
     ap.add_argument("--limit", type=int)
-    ap.add_argument("--official", action="store_true", help="clean tree required; writes to reports/")
+    ap.add_argument(
+        "--official", action="store_true", help="깨끗한 작업 트리에서만 돌고 결과를 reports/에 쓴다"
+    )
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--timeout", type=float, default=300.0)
     args = ap.parse_args(argv)

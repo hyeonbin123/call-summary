@@ -1,4 +1,4 @@
-"""The after-call record: the one output format every model is asked for and every score is computed on."""
+"""상담 후처리 기록: 모든 모델에 요청하는 단 하나의 출력 형식이자 모든 점수를 계산하는 대상이다."""
 
 # [파일 역할] 상담 후처리 기록(AfterCallRecord)의 형식을 pydantic 모델로 정의하고, 모델이 낸 글(답)에서 JSON을
 # 꺼내 이 형식으로 검증하는 함수를 둔다.
@@ -32,6 +32,9 @@ Resolution = Literal["해결", "부분 해결", "미해결", "이관"]
 class Entity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # 아래 두 필드 설명(description)은 record_json_schema()로 구조화 출력 스키마에 그대로 들어가 모델에
+    # 보내지므로 영어 원문을 유지한다: type은 "업종 목록에서 고른 핵심 값 유형 라벨(예: 주문번호)",
+    # value는 "통화에서 말한 그대로의 값"이라는 뜻이다.
     type: str = Field(description="Entity type label from the domain's list, e.g. 주문번호")
     value: str = Field(description="The value as it was said in the call")
 
@@ -63,17 +66,17 @@ class AfterCallRecord(BaseModel):
 # 호출 위치: evaluate.py(--schema), service.py(CALL_SUMMARY_SCHEMA=1일 때만), bench.py. 서비스는 이 강제가 키
 # 순서를 바꿔 학습한 모델이 필드를 빠뜨려 기본으로 끈다(docs/plan.md "계획과 달라진 것").
 def record_json_schema() -> dict:
-    """JSON Schema handed to constrained decoders (Ollama `format`)."""
+    """제약 디코더(Ollama `format`)에 넘기는 JSON Schema."""
     return AfterCallRecord.model_json_schema()
 
 
 # 답 하나를 읽은 결과. JSON이 있었는지와 스키마를 통과했는지를 나눠 둔다. 채점(scoring.score_item)은
 # schema_ok가 아니면 모든 필드를 오답으로 치고, 평가 기록에는 실패 이유(error)를 남긴다.
 class ParseResult(BaseModel):
-    """What came out of one raw model reply."""
+    """모델이 낸 답 글 하나를 읽은 결과."""
 
-    json_ok: bool  # the reply contained a JSON object
-    schema_ok: bool  # ...and it validated as an AfterCallRecord
+    json_ok: bool  # 답에 JSON 객체가 들어 있었다
+    schema_ok: bool  # ...그리고 그 객체가 AfterCallRecord로 검증을 통과했다
     record: AfterCallRecord | None = None
     error: str | None = None
 
@@ -83,7 +86,7 @@ class ParseResult(BaseModel):
 # 정규식 대신 한 글자씩 세는 이유: 요약 문자열 안의 중괄호("{괄호}")나 이스케이프된 따옴표를 괄호 깊이에 세지
 # 않아야 하기 때문이다(tests/test_scoring.py의 brace_in_string).
 def _first_json_object(text: str) -> str | None:
-    """Return the first balanced {...} span, ignoring braces inside strings. Tolerates ``` fences."""
+    """짝이 맞는 첫 {...} 구간을 돌려준다. 문자열 안의 중괄호는 세지 않고, ``` 울타리가 있어도 된다."""
     start = text.find("{")
     # 여는 중괄호 위치마다 시도한다. 그 위치에서 짝이 닫히지 않으면 다음 여는 중괄호부터 다시 센다.
     while start != -1:

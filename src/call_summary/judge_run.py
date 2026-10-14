@@ -1,11 +1,10 @@
-"""Score the summaries of one evaluation run with the judge model.
+"""평가 실행 하나의 요약들을 판정 모델로 채점한다.
 
-Reads <run>/items.jsonl (predicted records) and the dataset file named in <run>/manifest.json, writes
-<run>/judge.jsonl (one SummaryScore per item, plus the reply's token counts) and <run>/judge_summary.json.
---out names another output file (its summary goes next to it as <stem>_summary.json), so a second judge
-model never overwrites the recorded j1 judgements. With --hand <file>, a JSONL of hand scores
-({"item_id", "verdicts": [...], "wrong_statements": n}) is compared fact by fact and the agreement rate is
-added to the summary. The summary also records the code commit and Ollama /api/ps after the run.
+<run>/items.jsonl(예측 기록)과 <run>/manifest.json에 적힌 데이터셋 파일을 읽어, <run>/judge.jsonl(건마다
+SummaryScore 하나와 답의 토큰 수)과 <run>/judge_summary.json을 쓴다. --out으로 다른 출력 파일을 정할 수
+있고(요약은 그 옆에 <stem>_summary.json으로 간다), 그래서 두 번째 판정 모델이 기록된 j1 판정을 덮어쓰지
+않는다. --hand <file>을 주면 사람 채점 JSONL({"item_id", "verdicts": [...], "wrong_statements": n})과
+사실 단위로 비교해 일치율을 요약에 더한다. 요약에는 코드 커밋과 실행 뒤의 Ollama /api/ps도 기록한다.
 """
 
 # [파일 역할] 기록된 평가 실행 하나의 요약을 판정 모델로 채점하는 명령줄 도구다. 건마다 판정(SummaryScore)과
@@ -61,15 +60,15 @@ def load_scores(path: Path) -> list[SummaryScore]:
 # 3의 표).
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--run", required=True, help="evaluation run dir")
+    ap.add_argument("--run", required=True, help="평가 실행 폴더")
     ap.add_argument("--model", default="qwen2.5:14b-instruct")
-    ap.add_argument("--data", help="dataset JSONL (default: the run manifest's)")
-    ap.add_argument("--hand", help="hand-scored JSONL to measure agreement against")
+    ap.add_argument("--data", help="데이터셋 JSONL(기본: 실행 manifest에 적힌 파일)")
+    ap.add_argument("--hand", help="일치율을 잴 사람 채점 JSONL")
     # 14B 판정 모델의 층을 모두 GPU에 올리면 VRAM이 차서 Windows가 시스템 메모리로 밀어내 요청이 아주
     # 느려진다. 44층만 올려 여유를 남긴다(docs/experiments.md 1단계 진행 기록).
-    ap.add_argument("--num-gpu", type=int, default=44, help="GPU layers for the 14B judge (VRAM headroom)")
+    ap.add_argument("--num-gpu", type=int, default=44, help="14B 판정 모델의 GPU 층 수(VRAM 여유)")
     ap.add_argument(
-        "--think", choices=sorted(THINK), default="off", help="thinking switch sent to the judge (j1: off)"
+        "--think", choices=sorted(THINK), default="off", help="판정 모델에 보내는 생각 모드 설정(j1: off)"
     )
     ap.add_argument(
         "--option",
@@ -77,9 +76,9 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=[],
         metavar="KEY=VALUE",
-        help="extra Ollama option, repeatable (j1 sent none)",
+        help="더할 Ollama 옵션, 여러 번 줄 수 있다(j1은 보내지 않음)",
     )
-    ap.add_argument("--out", help="output JSONL (default <run>/judge.jsonl)")
+    ap.add_argument("--out", help="출력 JSONL(기본 <run>/judge.jsonl)")
     ap.add_argument("--limit", type=int)
     args = ap.parse_args(argv)
 
@@ -136,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         "fingerprint": model_fingerprint(judge),
         "git_commit": git_commit,
         "git_dirty": git_dirty,
-        "started": started,  # this invocation (a resumed file keeps the earlier rows)
+        "started": started,  # 이번 호출의 시작 시각(이어 쓴 파일은 앞선 줄을 그대로 둔다)
         "finished": time.strftime("%Y%m%d-%H%M%S"),
         "loaded_models_after": loaded_models(judge),
         "run_checks": run_checks([d for d in read_jsonl(out_path) if d["item_id"] in wanted], JUDGE_NUM_CTX),
@@ -162,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
 # docs/experiments.md 2단계).
 # __main__에서는 부르지 않으므로 README처럼 python -c로 이 함수를 직접 부른다.
 def hand_template_main(argv: list[str] | None = None) -> int:
-    """Write a hand-scoring template: item, facts, predicted summary, empty verdicts."""
+    """사람 채점 양식을 쓴다: 건, 사실 목록, 예측 요약, 빈 판정 칸."""
     ap = argparse.ArgumentParser(description=hand_template_main.__doc__)
     ap.add_argument("--run", required=True)
     ap.add_argument("--out", required=True)

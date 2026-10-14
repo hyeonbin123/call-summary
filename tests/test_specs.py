@@ -87,7 +87,7 @@ def test_every_outcome_is_reachable_and_valid(key):
         for e in gold.entities:
             kind = d.entity_type(e.type).kind
             assert normalize(kind, e.value) is not None, (e.type, e.value)
-        # same-type slots never share a value
+        # 유형이 같은 슬롯끼리는 값이 절대 겹치지 않는다
         per_type = Counter((sv.type, sv.value) for sv in s.slots)
         assert max(per_type.values()) == 1
         assert (VERIFY in s.actions) == (EV_VERIFY in s.events)
@@ -121,7 +121,7 @@ def test_splits_do_not_share_ids():
 def test_event_rates_roughly_match():
     specs = make_specs("train", TRAIN_DOMAINS, 400)
     rate = sum(EV_CORRECTION in s.events for s in specs) / len(specs)
-    # only specs with an id slot keep the correction event
+    # 번호 슬롯이 있는 명세만 correction 사건을 남긴다
     assert 0.1 < rate < 0.3
 
 

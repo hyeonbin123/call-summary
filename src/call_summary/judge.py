@@ -1,8 +1,7 @@
-"""Summary scoring with a judge model: each required fact of the spec is marked 포함 / 누락 / 틀림, and
-statements that contradict the call are counted.
+"""판정 모델로 요약을 채점한다: 명세의 필수 사실마다 포함 / 누락 / 틀림을 매기고, 대화와 어긋나는 문장
+수를 센다.
 
-The judge's own reliability is measured against hand scores on dev before its numbers are used
-(docs/experiments.md, stage 2).
+판정 모델 자체의 신뢰도는 그 수치를 쓰기 전에 dev에서 사람 채점과 비교해 잰다(docs/experiments.md 2단계).
 """
 
 # [파일 역할] 요약 채점의 핵심 모듈이다. 판정 모델(LLM)에게 대화, 명세의 필수 사실 목록, 채점할 요약을 주고
@@ -79,9 +78,9 @@ def judge_schema(n: int) -> dict:
 @dataclass(frozen=True)
 class SummaryScore:
     item_id: str
-    verdicts: tuple[str, ...]  # one per required fact; empty when the judge failed
+    verdicts: tuple[str, ...]  # 필수 사실마다 하나. 판정이 실패하면 비어 있다
     wrong_statements: int
-    ok: bool  # the judge reply was usable
+    ok: bool  # 판정 답을 쓸 수 있었는지
 
     # 이 건의 사실 재현율(포함 비율). 판정이 없으면 NaN으로 두어 평균에 섞이지 않게 한다.
     @property
@@ -121,10 +120,9 @@ def parse_judge(text: str, n: int) -> tuple[tuple[str, ...], int] | None:
     return tuple(facts), wrong
 
 
-# 판정 요청 설정: 컨텍스트 4,096토큰, 답 상한 256토큰(판정 답은 짧은 배열 하나다). 재보정 규칙은 판정 모델만
-# 바꾸고 이 요청 꼴은 그대로 두도록 정했으므로 상수로 고정해 둔다.
-# The judge request of j1 (stage 2): schema-constrained JSON, 4096 context, short answer. A judge model is
-# the only thing a recalibration changes (docs/experiments.md "요약 판정 재보정").
+# 판정 요청 설정(2단계 j1의 판정 요청): 스키마 강제 JSON, 컨텍스트 4,096토큰, 답 상한 256토큰(판정 답은
+# 짧은 배열 하나다). 재보정에서 바꾸는 것은 판정 모델뿐이고 이 요청 꼴은 그대로 두도록 정했으므로 상수로
+# 고정해 둔다(docs/experiments.md "요약 판정 재보정").
 JUDGE_NUM_CTX = 4096
 JUDGE_NUM_PREDICT = 256
 
@@ -154,7 +152,7 @@ def make_judge(*, model: str, num_gpu: int | None, think: bool | None, options: 
 def judge_reply(
     judge: Provider, item_id: str, spec: Spec, transcript: str, summary: str
 ) -> tuple[SummaryScore, Reply | None]:
-    """The score and the judge's raw reply (None when no call was made: an empty summary)."""
+    """점수와 판정 모델의 원 답(판정 모델을 부르지 않은 빈 요약이면 None)."""
     n = len(spec.facts)
     if not summary.strip():
         return SummaryScore(item_id, ("누락",) * n, 0, True), None
@@ -176,7 +174,7 @@ def judge_summary(judge: Provider, item_id: str, spec: Spec, transcript: str, su
 # 지연, 생각 글 글자 수. 재보정 채택 조건(d)이 "컨텍스트를 채운 판정 0건, 생각 글이 붙은 판정 0건"을 요구해 이
 # 값으로 확인한다. 판정 모델을 부르지 않은 건(빈 요약)은 None과 0으로 채운다.
 def reply_fields(reply: Reply | None) -> dict:
-    """Per-item counters kept next to a judgement (truncation and thinking checks)."""
+    """판정 한 건 옆에 남기는 건별 확인값(잘림·생각 글 확인용)."""
     if reply is None:
         return {
             "prompt_tokens": None,
@@ -197,7 +195,7 @@ def reply_fields(reply: Reply | None) -> dict:
 # 쓸 수 있는 판정 전체에 걸친 사실 재현율(마이크로 평균: 모든 사실을 한데 모아 포함 비율을 낸다). 판정 실패
 # 건은 빼고, 셀 사실이 없으면 NaN.
 def fact_recall(scores: Sequence[SummaryScore]) -> float:
-    """Micro recall over all required facts of the usable judgements."""
+    """쓸 수 있는 판정의 모든 필수 사실에 걸친 마이크로 재현율."""
     total = sum(len(s.verdicts) for s in scores if s.ok)
     return sum(s.verdicts.count("포함") for s in scores if s.ok) / total if total else float("nan")
 
@@ -205,7 +203,7 @@ def fact_recall(scores: Sequence[SummaryScore]) -> float:
 # 틀린 사실이 하나라도 있거나 대화와 어긋난 문장이 하나라도 있는 요약의 비율(요약 단위). 대화와 어긋난 문장
 # 수는 보정하지 않아 참고치로만 쓴다(재보정 규칙 5).
 def wrong_rate(scores: Sequence[SummaryScore]) -> float:
-    """Share of summaries with at least one wrong fact or contradicting statement."""
+    """틀린 사실이나 대화와 어긋난 문장이 하나라도 있는 요약의 비율."""
     usable = [s for s in scores if s.ok]
     if not usable:
         return float("nan")
@@ -215,7 +213,7 @@ def wrong_rate(scores: Sequence[SummaryScore]) -> float:
 # 두 채점자(예: 판정 모델과 사람 채점)가 같은 건에서 사실마다 같은 판정을 낸 비율. 한쪽에만 있는 건, 판정 실패
 # 건, 사실 수가 다른 건은 빼고 센다. 2단계 신뢰도 규칙(일치율 0.8 이상)에 쓰였다(judge_run의 hand_agreement).
 def agreement(a: Sequence[SummaryScore], b: Sequence[SummaryScore]) -> float:
-    """Fact-level agreement between two raters over the same items (e.g. judge vs hand scores)."""
+    """같은 건들에 대한 두 채점자(예: 판정 모델과 사람 채점)의 사실 단위 일치율."""
     by_b = {s.item_id: s for s in b}
     same = total = 0
     for s in a:
@@ -234,7 +232,7 @@ def agreement(a: Sequence[SummaryScore], b: Sequence[SummaryScore]) -> float:
 # 가지 답만 냄) 정의되지 않아 NaN을 돌려준다.
 # 호출 위치: judge_calib.py.
 def cohen_kappa(a: Sequence[bool], b: Sequence[bool]) -> float:
-    """Cohen's kappa of two binary raters over the same units; nan when chance agreement is 1."""
+    """같은 단위들에 대한 두 이진 채점자의 Cohen's kappa. 우연 일치가 1이면 nan."""
     if len(a) != len(b):
         raise ValueError("both raters must rate the same units")
     n = len(a)

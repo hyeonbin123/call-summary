@@ -1,11 +1,11 @@
-"""Merge a LoRA adapter into its base model and register it with Ollama as GGUF (F16 and quantized).
+"""LoRA 어댑터를 바탕 모델에 합치고 GGUF(F16과 양자화본)로 Ollama에 등록한다.
 
-Steps: merge (CPU, fp16) -> llama.cpp convert_hf_to_gguf.py (F16) -> llama-quantize (Q8_0, Q4_K_M, ...)
--> `ollama create` from each GGUF. Ollama 0.34 no longer quantizes GGUF imports, so the quantized files are
-made with llama.cpp's own tool (official release binaries in work/llama-bin, not committed).
-The llama.cpp checkout lives in work/llama.cpp (not committed); its commit is recorded in export.json.
-Merged weights and the F16 GGUF in --out are reused only for the same base and adapter weights
-(out/source.json); export.json carries the adapter hash that evaluate manifests record.
+단계: 합치기(CPU, fp16) -> llama.cpp convert_hf_to_gguf.py(F16) -> llama-quantize(Q8_0, Q4_K_M, ...)
+-> GGUF마다 `ollama create`. Ollama 0.34는 GGUF를 가져올 때 더는 양자화하지 않으므로 양자화 파일은
+llama.cpp 자체 도구(work/llama-bin의 공식 배포 바이너리, 커밋하지 않음)로 만든다.
+llama.cpp 체크아웃은 work/llama.cpp에 있고(커밋하지 않음) 그 커밋은 export.json에 기록한다.
+--out의 합친 가중치와 F16 GGUF는 바탕과 어댑터 가중치가 같을 때만 다시 쓴다(out/source.json).
+export.json에는 evaluate의 manifest가 기록하는 어댑터 해시가 들어간다.
 """
 
 # [파일 역할] 5단계(서빙)의 내보내기 도구다. 학습한 LoRA 어댑터를 바탕 모델에 합치고, llama.cpp로 GGUF(f16)를
@@ -43,7 +43,7 @@ LLAMA_QUANTIZE = Path("work/llama-bin/llama-quantize.exe")
 # 어댑터 옆의 train_config.json(train.py가 남김)에서 qlora 값을 읽어 4bit 바탕으로 학습한 어댑터인지 판단한다.
 # 이 값으로 합치는 방식을 자동으로 고르므로 사람이 옵션을 잊어도 잘못 합치지 않는다.
 def trained_on_4bit(adapter: str | None) -> bool:
-    """Whether the adapter was trained on a 4-bit base (QLoRA), read from train.py's train_config.json."""
+    """어댑터를 4bit 바탕(QLoRA)으로 학습했는지. train.py가 남긴 train_config.json에서 읽는다."""
     if not adapter:
         return False
     cfg = Path(adapter).parent / "train_config.json"
@@ -55,8 +55,8 @@ def trained_on_4bit(adapter: str | None) -> bool:
 # 모델에서는 252개, docs/experiments.md 5단계).
 # 이렇게 하면 합친 모델의 바탕 가중치가 학습 때 어댑터가 본 값과 같아진다.
 def load_dequantized_4bit_into(model, base: str) -> int:
-    """Load the base as QLoRA training did (nf4, double quant, fp16 compute) and write every quantized linear
-    layer's weight, expanded back to fp16, into `model` (fp16, on the CPU) as it goes. Returns the count."""
+    """QLoRA 학습 때처럼(nf4, double quant, fp16 계산) 바탕을 올리고, 양자화된 선형층마다 가중치를
+    fp16으로 풀어 그때그때 `model`(fp16, CPU)에 써 넣는다. 바꾼 층 수를 돌려준다."""
     import bitsandbytes as bnb
     import torch
     from transformers import AutoModelForCausalLM, BitsAndBytesConfig
@@ -93,16 +93,16 @@ def load_dequantized_4bit_into(model, base: str) -> int:
 # 한다.
 # 호출 위치: main(어댑터가 있고 merged/가 아직 없을 때).
 def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
-    """from_4bit: load the base exactly as QLoRA training did (nf4, double quant, fp16 compute), expand those
-    4-bit weights back to fp16, then merge. A QLoRA adapter merged into the original fp16 base gives a
-    different model (stage 5: dev exact 93 -> 86)."""
+    """from_4bit: QLoRA 학습 때와 똑같이(nf4, double quant, fp16 계산) 바탕을 올리고, 그 4bit 가중치를
+    fp16으로 풀어 낸 뒤 합친다. QLoRA 어댑터를 원래 fp16 바탕에 합치면 다른 모델이 된다(5단계: dev exact
+    93 -> 86)."""
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
     if from_4bit:
-        # One layer at a time: the whole model expanded on the GPU does not fit next to its 4-bit copy.
+        # 한 층씩 옮긴다: 모델 전체를 GPU에서 fp16으로 풀면 4bit 사본 옆에 들어가지 않는다.
         n = load_dequantized_4bit_into(model, base)
         print(f"{n} linear layers taken from the dequantized 4-bit base", file=sys.stderr)
     # merge_and_unload: LoRA의 저랭크 행렬 곱(B·A·scale)을 바탕 가중치에 더해 넣고 PEFT 껍데기를 벗긴다.
@@ -115,7 +115,7 @@ def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
 # Ollama Modelfile 글. GGUF 경로, temperature 0(탐욕적), 컨텍스트 크기만 정한다. 서빙 모델은 --num-ctx
 # 4096으로 만들었다(README: 4,096 토큰 안에 답까지 들어가도록 서비스가 4,000자 넘는 전사를 413으로 거절한다).
 def modelfile(gguf: Path, num_ctx: int) -> str:
-    # The chat template comes from the GGUF metadata; only runtime defaults are set here.
+    # 채팅 템플릿은 GGUF 메타데이터에서 오므로 여기서는 실행 기본값만 정한다.
     return f"FROM {gguf.resolve()}\nPARAMETER temperature 0\nPARAMETER num_ctx {num_ctx}\n"
 
 
@@ -124,25 +124,24 @@ def modelfile(gguf: Path, num_ctx: int) -> str:
 # --fp16-base는 예전 방식(QLoRA 어댑터를 원래 fp16 바탕에 합치기)을 비교용으로 다시 만들 때만 쓴다.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base", required=True, help="HF base model id")
-    ap.add_argument("--adapter", help="PEFT adapter dir; omit to export the base model as is")
-    ap.add_argument("--name", required=True, help="Ollama model name prefix, e.g. call-summary-qwen3-1.7b")
-    ap.add_argument("--out", required=True, help="work dir for merged weights and GGUF files")
+    ap.add_argument("--base", required=True, help="HF 바탕 모델 id")
+    ap.add_argument("--adapter", help="PEFT 어댑터 폴더. 빼면 바탕 모델을 그대로 내보낸다")
+    ap.add_argument("--name", required=True, help="Ollama 모델 이름 앞부분. 예: call-summary-qwen3-1.7b")
+    ap.add_argument("--out", required=True, help="합친 가중치와 GGUF 파일을 둘 작업 폴더")
     ap.add_argument("--quant", nargs="+", default=["q8_0", "q4_K_M"])
     ap.add_argument("--num-ctx", type=int, default=8192)
-    ap.add_argument("--llama-quantize", default=str(LLAMA_QUANTIZE), help="llama.cpp quantize tool")
+    ap.add_argument("--llama-quantize", default=str(LLAMA_QUANTIZE), help="llama.cpp 양자화 도구")
     ap.add_argument(
         "--fp16-base",
         action="store_true",
-        help="merge a QLoRA adapter into the fp16 base anyway (old behaviour)",
+        help="QLoRA 어댑터라도 fp16 바탕에 합친다(예전 방식)",
     )
     args = ap.parse_args(argv)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     # 합치기와 f16 변환은 오래 걸려 결과를 다시 쓴다. 다만 같은 바탕·같은 어댑터 가중치·같은 합치기 방식일
-    # 때만 다시 쓰도록 source.json 도장으로 확인한다(커밋 ed76ea6).
-    # merged/ and the F16 GGUF are reused only when they were built from the same weights.
+    # 때만 merged/와 F16 GGUF를 다시 쓰도록 source.json 도장으로 확인한다(커밋 ed76ea6).
     from_4bit = trained_on_4bit(args.adapter) and not args.fp16_base
     source = {
         "base": args.base,
@@ -162,11 +161,11 @@ def main(argv: list[str] | None = None) -> int:
     ):
         ap.error(f"{out} holds weights from another source; use a new --out or delete merged/ and {f16.name}")
     if not f16.exists() or (args.adapter and not (merged / "config.json").exists()):
-        # A build is about to start: drop an older stamp so an interrupted merge or convert is never
-        # taken for that older source's weights on the next run.
+        # 이제 새로 만든다: 예전 도장을 먼저 지워, 합치기나 변환이 중간에 끊겨도 다음 실행에서 그 결과를
+        # 예전 출처의 가중치로 잘못 보지 않게 한다.
         stamp.unlink(missing_ok=True)
         # 양자화 파일은 자기를 만든 f16에 딸린 것이므로, f16을 새로 만들 때는 예전 양자화 파일도 지운다.
-        for old in out.glob("model-*.gguf"):  # quantized files belong to the F16 they came from
+        for old in out.glob("model-*.gguf"):  # 양자화 파일은 자기를 만든 F16에 딸린다
             if old != f16:
                 old.unlink()
     if args.adapter:
@@ -198,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
             check=True,
             env=env,
         )
-    stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # only once merge and convert finished
+    stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # 합치기와 변환이 끝난 뒤에만 쓴다
     # 양자화마다: GGUF가 없으면 llama-quantize로 f16에서 만들고, Modelfile을 써서 ollama create로 등록한다.
     # 모델 이름과 파일 크기를 기록한다(README 5단계 표의 파일 크기 4.3 GB, 2.5 GB 등).
     created = {}

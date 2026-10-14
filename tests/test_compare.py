@@ -51,12 +51,10 @@ def test_tables(tmp_path):
     assert "| exact | 0.0 | 100.0 | 100.0 [100.0, 100.0] |" in paired
 
 
-# 이 Windows 환경에서 출력을 파일로 보내면 표준 출력이 cp949라, 머리줄의 U+2212(−)를 쓰지 못해 명령이 죽은
-# 적이 있다(커밋 0ea5791). 표준 출력을 cp949 스트림으로 바꿔 --paired가 끝까지 돌고 ASCII 하이픈 머리줄을
-# 쓰는지 확인한다.
+# 이 Windows 환경에서 출력을 파일로 보내면 표준 출력이 cp949라, 머리줄의 U+2212(−)를 쓰지 못해 명령이
+# UnicodeEncodeError로 죽은 적이 있다(커밋 0ea5791). 짝지은 표는 cp949로 인코딩될 수 있어야 한다. 표준 출력을
+# cp949 스트림으로 바꿔 --paired가 끝까지 돌고 ASCII 하이픈 머리줄을 쓰는지 확인한다.
 def test_paired_output_on_a_cp949_console(tmp_path, monkeypatch):
-    # On this Windows setup a redirected stdout is cp949: the paired table must encode there
-    # (the header once used U+2212 and the command crashed with UnicodeEncodeError).
     items = [_item(i, category=None) for i in range(4)]
     a = _write_run(tmp_path, "a", items, lambda m: "nope")
     b = _write_run(tmp_path, "b", items, lambda m: "nope")
@@ -92,8 +90,8 @@ def test_pick_orders_by_exact_then_entity_f1_then_lower_hallucination(tmp_path):
     b = run("b", 0.25, 0.70, 0.10)
     c = run("c", 0.25, 0.75, 0.10)
     d = run("d", 0.25, 0.75, 0.04)
-    e = run("e", 0.25, 0.75, float("nan"))  # no values predicted: hallucination undefined, ranks last
-    f = run("f", 0.25, 0.75, 0.04)  # full tie with d: the earlier one in the given order stays first
+    e = run("e", 0.25, 0.75, float("nan"))  # 예측한 값이 없어 환각이 정의되지 않으므로 맨 뒤
+    f = run("f", 0.25, 0.75, 0.04)  # d와 완전히 같으면 주어진 순서에서 앞선 쪽이 먼저
     assert pick_order([a, b, c, d, e, f]) == [d, f, c, e, b, a]
     table = pick_table([a, d])
     assert table.splitlines()[2].startswith("| 1 | d (`d`) | 25.0 | 75.0 | 4.0 |")

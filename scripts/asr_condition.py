@@ -1,32 +1,31 @@
-"""Stage 4 input condition: every turn of a dataset spoken by a TTS voice, passed through a narrowband
-telephone channel, and written down again by a speech recogniser.
+"""4단계 입력 조건: 데이터셋의 모든 발화를 TTS 목소리로 읽고, 좁은 대역의 전화 채널을 거친 뒤, 음성
+인식기로 다시 받아 적는다.
 
-It runs in the speech environment of the sibling project support-agent (MeloTTS needs transformers 4.27,
-this project uses 5.x), so it imports nothing from call_summary:
+형제 프로젝트 support-agent의 음성 환경에서 돌므로(MeloTTS는 transformers 4.27이 필요하고 이 프로젝트는
+5.x를 쓴다) call_summary에서 아무것도 가져오지 않는다:
 
-    set PYTHONPATH=D:/coding/support-agent/src
-    D:/coding/support-agent/.venv/Scripts/python.exe scripts/asr_condition.py --split test-a
+    set PYTHONPATH=../support-agent/src
+    ../support-agent/.venv/Scripts/python.exe scripts/asr_condition.py --split test-a
 
-Output: data/asr-<verbalizer>/<split>.jsonl (v1: data/asr/), the same items with recognised text in `turns`
-and the written text kept in meta["asr"]["written"]. Every utterance is cached (outputs/asr/cache.jsonl) by
-the speech setup and the spoken text, so a run can resume and a new verbalizer only re-synthesises the
-utterances it says differently. `--dry-run` reports that plan without loading a model.
+출력: data/asr-<verbalizer>/<split>.jsonl(v1: data/asr/). 같은 항목에서 `turns`를 인식된 글로 바꾸고 쓴
+글은 meta["asr"]["written"]에 남긴다. 모든 발화를 음성 설정과 발음형 글로 캐시하므로(outputs/asr/cache.jsonl)
+실행을 이어 할 수 있고, 새 verbalizer는 다르게 읽는 발화만 다시 합성한다. `--dry-run`은 모델을 올리지 않고
+그 계획만 보고한다.
 
-Verbalizer v1 = support-agent's verbalize() alone (stage 4). v2 (2026-10-03) first spells tracking numbers
-(\\d{4}-\\d{4}-\\d{4}) digit by digit with a pause between groups, as verbalize() already does for phone
-numbers; v1 read them as cardinals joined by a range "에서".
+Verbalizer v1 = support-agent의 verbalize()만 쓴다(4단계). v2(2026-10-03)는 먼저 운송장번호
+(\\d{4}-\\d{4}-\\d{4})를 묶음 사이에 쉼을 두고 숫자 하나씩 읽게 풀어 쓴다. verbalize()가 전화번호를 이미
+그렇게 읽는 것과 같다. v1은 운송장번호를 수사로 읽고 묶음을 범위 "에서"로 이었다.
 
-Speech condition v3 (2026-10-05) compares recognisers on the same audio, in two passes:
+음성 조건 v3(2026-10-05)는 같은 소리로 인식기를 비교하며, 두 패스로 돈다:
 
-    pass 1  --keep-audio [--only-ids]   synthesise every utterance again (the text cache keeps no audio),
-            keep the 16-bit 16 kHz WAV the base recogniser T (large-v3-turbo) is given, and T's text, in
-            outputs/asr3/audio/ (index.jsonl, one row per turn; --only-ids: only turns whose written text has
-            an order, receipt or tracking number, the cheap first gate)
-    pass 2  --recognise ARM             an arm on the kept WAVs: Th (T with the domain context as hotwords),
-            L (large-v3), N (whisper-ko-ft turbo-n, CTranslate2); same decoding as T. The Qwen3-ASR arms run
-            in this project's own environment (scripts/asr_qwen.py). Output outputs/asr3/audio/hyp/<ARM>.jsonl
+    1패스  --keep-audio [--only-ids]   모든 발화를 다시 합성하고(텍스트 캐시에는 소리가 없다), 기준 인식기
+           T(large-v3-turbo)에 주는 16비트 16 kHz WAV와 T의 글을 outputs/asr3/audio/에 남긴다(index.jsonl,
+           발화마다 한 줄. --only-ids: 쓴 글에 주문번호·접수번호·운송장번호가 있는 발화만, 싼 첫 관문)
+    2패스  --recognise ARM             남긴 WAV에 팔 하나를 돌린다: Th(업종 맥락을 hotwords로 준 T),
+           L(large-v3), N(whisper-ko-ft turbo-n, CTranslate2). 디코딩은 T와 같다. Qwen3-ASR 팔은 이
+           프로젝트 자체 환경에서 돈다(scripts/asr_qwen.py). 출력 outputs/asr3/audio/hyp/<ARM>.jsonl
 
-The datasets each arm gives the student are built by `python -m call_summary.asr_arms build`.
+각 팔이 학생에게 주는 데이터셋은 `python -m call_summary.asr_arms build`가 만든다.
 """
 
 # [파일 역할] 4단계 음성 조건 데이터를 만드는 스크립트다. 대화의 발화마다 발음형으로 풀어 쓰기 → MeloTTS
@@ -69,14 +68,14 @@ from pathlib import Path
 # "공"이다.
 LISTEN_RATE = 16_000
 MU = 255.0
-SPEEDS = {"상담원": 1.0, "고객": 1.1}  # one Korean voice; a different pace per side
+SPEEDS = {"상담원": 1.0, "고객": 1.1}  # 한국어 목소리 하나, 화자마다 다른 속도
 VERBALIZERS = ("v1", "v2")
-DIGIT_NAMES = "공일이삼사오육칠팔구"  # as support-agent's verbalize reads phone numbers ("공" for 0)
+DIGIT_NAMES = "공일이삼사오육칠팔구"  # support-agent의 verbalize가 전화번호를 읽는 대로(0은 "공")
 # _TRACKING: 운송장번호 꼴(4-4-4). 앞뒤에 숫자나 하이픈이 붙어 더 긴 수의 일부인 경우는 잡지 않는다. 이 꼴이
 # 아닌 하이픈 숫자(주소 "761-4" 등)는 v2 규칙의 범위 밖이다(docs/experiments.md 음성 조건 v2).
 # ID_PATTERN: 쓴 글의 주문번호(D+7), 접수번호(R+6), 운송장번호. v3 관문은 이 번호가 든 발화만 먼저 합성한다.
 _TRACKING = re.compile(r"(?<![\d-])(\d{4})-(\d{4})-(\d{4})(?![\d-])")
-ID_PATTERN = re.compile(r"D\d{7}|R\d{6}|\d{4}-\d{4}-\d{4}")  # order, receipt, tracking numbers as written
+ID_PATTERN = re.compile(r"D\d{7}|R\d{6}|\d{4}-\d{4}-\d{4}")  # 쓴 글의 주문번호, 접수번호, 운송장번호
 # DEFAULT_AUDIO: v3 1패스가 소리를 남기는 곳(커밋하지 않음). TURBO_N: 형제 저장소 whisper-ko-ft에서 학습해
 # CTranslate2로 바꾼 turbo-n(N 팔)의 위치를 이 저장소 기준 상대 경로로 찾는다.
 DEFAULT_AUDIO = "outputs/asr3/audio"
@@ -85,7 +84,6 @@ TURBO_N = Path(__file__).resolve().parents[2] / "whisper-ko-ft" / "outputs" / "t
 # T + 카탈로그 hotwords, L은 large-v3, N은 turbo-n. Qwen3-ASR 팔은 scripts/asr_qwen.py가 따로 돈다.
 # DECODING: 모든 팔이 같은 디코딩(한국어, beam 5, temperature 0, 이전 글 조건 끔, VAD 끔). v2의 T와 같아
 # 인식기만 바꾼 비교가 된다(docs/experiments.md 음성 조건 v3 팔 표).
-# Pass-2 arms in faster-whisper: arm -> (model, hotwords = the domain's context). Decoding is T's own.
 RECOGNISERS = {
     "T": ("large-v3-turbo", False),
     "Th": ("large-v3-turbo", True),
@@ -101,15 +99,15 @@ DECODING = {
 }
 
 
-# --- what is said --------------------------------------------------------------------------------------
+# --- 말하는 글(발음형) ---------------------------------------------------------------------------------
 
 
 # v2 규칙: 운송장번호를 숫자 하나씩, 묶음 사이에 쉼표를 두어 읽는 꼴로 바꾼다("6291-7877-5168로" → "육이구일,
 # 칠팔칠칠, 오일육팔 로"). verbalize가 처음에 하는 것과 같은 NFKC 정규화 뒤에 찾는다. 번호가 없는 글은 한
 # 글자도 바꾸지 않고 그대로 돌려줘 v1과 같은 소리·같은 캐시를 쓰게 한다(tests/test_asr_condition.py가 확인).
 def spell_tracking_ids(text: str) -> str:
-    """'6291-7877-5168로' -> ' 육이구일, 칠팔칠칠, 오일육팔 로'. Text without one is returned unchanged."""
-    norm = unicodedata.normalize("NFKC", text)  # verbalize() starts with the same step
+    """'6291-7877-5168로' -> ' 육이구일, 칠팔칠칠, 오일육팔 로'. 번호가 없는 글은 그대로 돌려준다."""
+    norm = unicodedata.normalize("NFKC", text)  # verbalize()도 같은 단계로 시작한다
     if not _TRACKING.search(norm):
         return text
     return _TRACKING.sub(
@@ -129,7 +127,7 @@ def spoken_form(text: str, verbalize: Callable[[str], str], verbalizer: str) -> 
 
 # 쓴 발화에 번호가 있는지(v3 관문에서 합성할 발화를 고른다).
 def says_identifier(text: str) -> bool:
-    """Whether a written turn has an order, receipt or tracking number (the cheap gate's turns)."""
+    """쓴 발화에 주문번호·접수번호·운송장번호가 있는지(싼 관문이 고르는 발화)."""
     return bool(ID_PATTERN.search(unicodedata.normalize("NFKC", text)))
 
 
@@ -173,8 +171,8 @@ def plan(
     cached: Container[str],
     verbalizer: str,
 ) -> dict[str, int]:
-    """What a run would synthesise, by cache state. `changed` = said differently from v1;
-    `unchanged_not_cached` > 0 means the speech setup no longer matches the cache."""
+    """실행이 무엇을 합성할지 캐시 상태별로 센다. `changed` = v1과 다르게 읽는 발화.
+    `unchanged_not_cached` > 0이면 음성 설정이 더는 캐시와 맞지 않는다는 뜻이다."""
     n: Counter = Counter()
     for item_id, i, speaker, text in utterances(items):
         n["utterances"] += 1
@@ -194,13 +192,13 @@ def plan(
     return {k: n[k] for k in keys}
 
 
-# --- the channel ----------------------------------------------------------------------------------------
+# --- 전화 채널 ------------------------------------------------------------------------------------------
 
 
 # 8비트 μ-law로 압축 → 256단계 양자화 → 복원을 한 번 거친 파형. whisper-ko-ft의 전화 채널과 같은 식이다(4단계
 # 규칙). numpy·scipy는 쓰는 함수 안에서 불러온다.
 def mu_law_roundtrip(samples):
-    """Compress to 8-bit mu-law codes and expand back (G.711 style). Same as whisper-ko-ft's channel."""
+    """8비트 mu-law 코드로 압축했다가 다시 펼친다(G.711 방식). whisper-ko-ft의 채널과 같다."""
     import numpy as np
 
     clipped = np.clip(samples, -1.0, 1.0)
@@ -222,7 +220,7 @@ def _band():
 # kHz로 되돌림. 인식기 입력을 16 kHz로 맞추되 소리는 좁은 대역 전화 음질이 된다. 너무 짧은 소리는 필터가 덧댈
 # 길이가 모자라 그대로 둔다.
 def telephone(samples):
-    """16 kHz audio after a 300-3400 Hz, 8 kHz, 8-bit mu-law channel, still at 16 kHz."""
+    """300-3400 Hz, 8 kHz, 8비트 mu-law 채널을 거친 16 kHz 소리(표본화율은 16 kHz 그대로)."""
     import numpy as np
     from scipy.signal import resample_poly, sosfiltfilt
 
@@ -251,7 +249,7 @@ def to_16k(samples, rate: int):
 # melotts·torch·faster-whisper·ctranslate2 버전. 이 dict가 캐시 키와 데이터의 meta.asr에 들어간다(4단계 규칙
 # "버전은 각 건의 meta.asr에 남긴다").
 def speech_identity(whisper_model: str) -> dict:
-    """The speech setup a cached utterance depends on (part of the cache key; the verbalizer is not)."""
+    """캐시된 발화가 의존하는 음성 설정(캐시 키의 일부. verbalizer는 들어가지 않는다)."""
     from support_agent.voice.speech import versions
 
     return {
@@ -274,7 +272,7 @@ def load_verbalize() -> Callable[[str], str]:
 # 발화 하나를 말하고(합성 + 전화 채널) 듣는(인식) 통로. 모델은 처음 캐시에 없는 발화를 만날 때 올리므로, 모두
 # 캐시에 있으면 GPU 없이 돈다. 캐시 파일(outputs/asr/cache.jsonl)을 처음에 전부 읽어 둔다.
 class Channel:
-    """Speaks and hears one utterance at a time. The models load at the first cache miss."""
+    """발화를 하나씩 말하고 듣는다. 모델은 처음 캐시에 없는 발화를 만날 때 올린다."""
 
     def __init__(
         self,
@@ -292,7 +290,7 @@ class Channel:
         self._id = identity_key(self.identity)
         self.speaker = self.listener = self.wav_bytes = None
         # 측정 조건은 cuda다. cpu는 스모크용이며 main이 별도 --audio를 요구해 측정 결과와 섞이지 않게 한다.
-        self.device = "cuda"  # the measured condition; "cpu" only for a smoke run (--device cpu)
+        self.device = "cuda"  # 측정 조건. "cpu"는 스모크 실행에만(--device cpu)
         self.cache_path = cache_path
         self.cache: dict[str, dict] = {}
         if cache_path.exists():
@@ -321,7 +319,7 @@ class Channel:
     # 무작위성을 발화마다 고정한다(다만 GPU 합성이 비트 단위로 같다는 보장은 없어, v3에서 다시 합성한 소리의 T
     # 글이 3,157발화 중 24개 달랐다).
     def _speak(self, spoken: str, speaker: str, seed: int):
-        """16 kHz audio of one utterance after the telephone channel (the models are loaded)."""
+        """전화 채널을 거친 발화 하나의 16 kHz 소리(모델이 올라가 있어야 한다)."""
         import torch
 
         torch.manual_seed(seed)
@@ -360,7 +358,7 @@ class Channel:
         return entry
 
 
-# --- speech condition v3 -------------------------------------------------------------------------------
+# --- 음성 조건 v3 -------------------------------------------------------------------------------------
 
 
 # JSONL 읽기(파일이 없으면 빈 목록). call_summary를 import하지 않으려고 이 스크립트 안에 따로 둔다.
@@ -382,9 +380,9 @@ def _append_jsonl(path: Path, row: dict) -> None:
 # 바이트를 들으므로 팔끼리 소리가 같은지 따질 일이 없다(docs/experiments.md 음성 조건 v3 "소리"). 8 kHz μ-law
 # 대신 16 kHz WAV로 둔 이유도 같은 절에 있다.
 class WavStore:
-    """Pass 1 output: the WAV bytes each utterance's base recogniser was given, and one index row per turn
+    """1패스 출력: 발화마다 기준 인식기에 준 WAV 바이트와, 발화마다 index 한 줄
     ({key, split, item_id, turn, domain, speaker, seed, spoken, cached_heard, audio_seconds, heard, wav,
-    wav_sha256}; `heard` is T's text, `cached_heard` the text cache's for the same key; wav None: silent).
+    wav_sha256}. `heard`는 T의 글, `cached_heard`는 같은 키의 텍스트 캐시 글, wav가 None이면 소리 없음).
     """
 
     def __init__(self, root: Path):
@@ -419,7 +417,7 @@ class WavStore:
     # 한 저장소에 다른 음성 환경에서 만든 소리가 섞이지 않게, 처음 만든 환경(identity.json)과 지금 환경이
     # 다르면 멈춘다. dry-run에서는 파일을 새로 쓰지 않는다.
     def check_identity(self, identity: dict, write: bool = True) -> None:
-        """Refuse to mix audio made in different speech setups in one store."""
+        """다른 음성 설정으로 만든 소리를 한 저장소에 섞지 않도록 거부한다."""
         path = self.root / "identity.json"
         if path.exists():
             kept = json.loads(path.read_text(encoding="utf-8"))
@@ -436,7 +434,7 @@ class WavStore:
 def turns_to_keep(
     channel: Channel, items: list[dict], only_ids: bool
 ) -> Iterator[tuple[dict, int, int, str, str]]:
-    """(item, turn index, seed, key, spoken text) of every turn pass 1 keeps."""
+    """1패스가 남길 모든 발화의 (건, 발화 번호, seed, 키, 읽을 글)."""
     for it in items:
         for i, t in enumerate(it["turns"]):
             if only_ids and not says_identifier(t["text"]):
@@ -449,8 +447,8 @@ def turns_to_keep(
 # 1패스 dry-run 계획: 이미 저장한 것, 소리 없는 것, 새로 합성할 것, 그중 v2 텍스트 캐시에 키가 있는 것. 음성
 # 환경이 캐시와 같다면 합성할 발화의 키가 모두 캐시에 있어야 한다(v3 규칙의 확인).
 def keep_plan(channel: Channel, items: list[dict], store: WavStore, only_ids: bool) -> dict[str, int]:
-    """What pass 1 would do; `in_text_cache` counts the turns to synthesise whose key the v2 text cache has
-    (all of them when the speech setup is the cached one)."""
+    """1패스가 할 일. `in_text_cache`는 합성할 발화 중 v2 텍스트 캐시에 키가 있는 수다(음성 설정이
+    캐시와 같으면 전부)."""
     n: Counter = Counter()
     for _it, _i, _seed, key, spoken in turns_to_keep(channel, items, only_ids):
         n["turns"] += 1
@@ -470,7 +468,7 @@ def keep_plan(channel: Channel, items: list[dict], store: WavStore, only_ids: bo
 def save_wavs(
     channel: Channel, items: list[dict], store: WavStore, split: str, only_ids: bool = False, every: int = 50
 ) -> Counter:
-    """Pass 1: synthesise each turn not yet in the store, keep its WAV and the base recogniser's text."""
+    """1패스: 저장소에 아직 없는 발화마다 합성하고, 그 WAV와 기준 인식기의 글을 남긴다."""
     n: Counter = Counter()
     t0 = time.time()
     for it, i, seed, key, spoken in turns_to_keep(channel, items, only_ids):
@@ -498,7 +496,7 @@ def save_wavs(
         audio = channel._speak(spoken, t["speaker"], seed)
         wav = channel.wav_bytes(audio, LISTEN_RATE).wav
         # 측정 조건 그대로의 호출로 T의 글을 얻는다(2패스 팔들은 이 WAV 바이트를 다시 듣는다).
-        heard = channel.listener.transcribe(wav)  # exactly the measured channel
+        heard = channel.listener.transcribe(wav)  # 측정한 채널 그대로
         store.add({**row, "audio_seconds": round(len(audio) / LISTEN_RATE, 3), "heard": heard}, wav)
         n["synthesised"] += 1
         if n["synthesised"] % every == 0:
@@ -518,7 +516,7 @@ def recognise(
     context: dict[str, str] | None,
     every: int = 100,
 ) -> Counter:
-    """Pass 2: one arm on every kept WAV of the split that is not yet in its output (resumable)."""
+    """2패스: 그 분할의 남긴 WAV 중 아직 출력에 없는 것마다 팔 하나를 돌린다(이어 하기 가능)."""
     done = {r["key"] for r in _read_jsonl(hyp_path)}
     n: Counter = Counter()
     t0 = time.time()
@@ -544,8 +542,8 @@ def recognise(
 # faster-whisper 팔의 인식 함수. hotwords가 없으면 T와 똑같이 WhisperListener.transcribe를 부르고, 있으면(Th)
 # 같은 디코딩(DECODING)에 hotwords만 더해 모델을 직접 부른다. 조각들의 글을 공백으로 잇는다.
 def whisper_transcriber(listener) -> Callable[[bytes, str | None], str]:
-    """T's own call without hotwords (support_agent WhisperListener.transcribe); with hotwords, the same
-    decoding plus faster-whisper's `hotwords`."""
+    """hotwords가 없으면 T와 같은 호출(support_agent WhisperListener.transcribe), 있으면 같은 디코딩에
+    faster-whisper의 `hotwords`를 더한다."""
 
     def run(wav: bytes, hotwords: str | None) -> str:
         if hotwords is None:
@@ -579,7 +577,7 @@ def _git_commit() -> str:
 # 모델 출처 기록: 로컬 폴더(turbo-n)면 model.bin의 sha256(16 MB씩 읽어 메모리를 아낌), 허브 모델이면 내려받지
 # 않고(local_files_only) 캐시된 스냅샷 경로.
 def _model_files(model: str) -> dict:
-    """Where the model came from: a local folder's model.bin hash, or the cached snapshot folder."""
+    """모델 출처: 로컬 폴더면 model.bin 해시, 아니면 캐시된 스냅샷 폴더."""
     if os.path.isdir(model):
         h = hashlib.sha256()
         with open(os.path.join(model, "model.bin"), "rb") as f:
@@ -594,7 +592,7 @@ def _model_files(model: str) -> dict:
 # hyp 옆의 .meta.json을 처음 한 번만 쓴다. 이어 돌릴 때 팔·모델·hotwords·디코딩이 다르면 다른 결과가 한 파일에
 # 섞이므로 멈춘다. asr_qwen.py도 이 함수를 쓴다.
 def write_hyp_meta(hyp_path: Path, meta: dict) -> None:
-    """<hyp>.meta.json: written once; a resumed run must be the same arm and model."""
+    """<hyp>.meta.json: 한 번만 쓴다. 이어 하는 실행은 같은 팔·같은 모델이어야 한다."""
     path = hyp_path.with_name(hyp_path.name + ".meta.json")
     if path.exists():
         kept = json.loads(path.read_text(encoding="utf-8"))
@@ -610,9 +608,9 @@ def write_hyp_meta(hyp_path: Path, meta: dict) -> None:
 # 하지 않고, N 팔이 도는 whisper-ko-ft 환경(tokenizers 버전 문제로 N은 그 환경에서 돈다, docs/experiments.md
 # 음성 조건 v3)에서는 torch에 든 lib 폴더를 DLL 경로에 더한다.
 def add_torch_cuda_dlls() -> None:
-    """CTranslate2 loads cuBLAS and cuDNN by name. support-agent's environment has them as nvidia-* wheels
-    (WhisperListener adds those folders); whisper-ko-ft's environment, where arm N runs, uses the ones that
-    ship with torch, as whisper_ko_ft.evaluate_ct2 does."""
+    """CTranslate2는 cuBLAS와 cuDNN을 이름으로 불러온다. support-agent 환경에는 nvidia-* 휠로 들어 있고
+    (WhisperListener가 그 폴더를 더한다), N 팔이 도는 whisper-ko-ft 환경은 whisper_ko_ft.evaluate_ct2처럼
+    torch에 딸려 온 것을 쓴다."""
     from importlib.util import find_spec
 
     if os.name != "nt" or find_spec("nvidia") is not None:
@@ -685,26 +683,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--split", required=True)
     ap.add_argument("--data", default="datasets")
     ap.add_argument("--verbalizer", choices=VERBALIZERS, default="v2")
-    ap.add_argument("--out", help="output dir (default data/asr for v1, data/asr-<verbalizer> otherwise)")
+    ap.add_argument("--out", help="출력 폴더(기본: v1은 data/asr, 그 밖은 data/asr-<verbalizer>)")
     ap.add_argument("--cache", default="outputs/asr/cache.jsonl")
     ap.add_argument("--limit", type=int)
-    ap.add_argument("--dry-run", action="store_true", help="print the cache plan and stop (no models)")
-    ap.add_argument("--audio", default=DEFAULT_AUDIO, help="v3: the kept audio (pass 1 writes, pass 2 reads)")
-    ap.add_argument("--keep-audio", action="store_true", help="v3 pass 1: synthesise again and keep the WAVs")
-    ap.add_argument(
-        "--only-ids", action="store_true", help="v3 pass 1: only turns with an identifier written"
-    )
-    ap.add_argument("--recognise", choices=list(RECOGNISERS), help="v3 pass 2: this arm on the kept WAVs")
-    ap.add_argument("--device", choices=["cuda", "cpu"], default="cuda", help="v3: cpu only for a smoke run")
-    ap.add_argument("--hyp", help="v3 pass 2 output (default <audio>/hyp/<ARM>.jsonl)")
-    ap.add_argument(
-        "--context", help="v3 pass 2: per-domain context JSON (python -m call_summary.asr_arms context)"
-    )
+    ap.add_argument("--dry-run", action="store_true", help="캐시 계획만 찍고 멈춘다(모델 없음)")
+    ap.add_argument("--audio", default=DEFAULT_AUDIO, help="v3: 남긴 소리 폴더(1패스가 쓰고 2패스가 읽음)")
+    ap.add_argument("--keep-audio", action="store_true", help="v3 1패스: 다시 합성하고 WAV를 남긴다")
+    ap.add_argument("--only-ids", action="store_true", help="v3 1패스: 쓴 글에 식별자가 있는 발화만")
+    ap.add_argument("--recognise", choices=list(RECOGNISERS), help="v3 2패스: 남긴 WAV에 이 팔을 돌린다")
+    ap.add_argument("--device", choices=["cuda", "cpu"], default="cuda", help="v3: cpu는 스모크 실행에만")
+    ap.add_argument("--hyp", help="v3 2패스 출력(기본 <audio>/hyp/<ARM>.jsonl)")
+    ap.add_argument("--context", help="v3 2패스: 업종별 맥락 JSON(python -m call_summary.asr_arms context)")
     ap.add_argument(
         "--allow-full-run",
         action="store_true",
-        help="synthesise utterances that v1 says the same way but the cache lacks "
-        "(a new split, or a changed speech setup that re-runs everything)",
+        help="v1과 같게 읽지만 캐시에 없는 발화도 합성한다"
+        "(새 분할이거나, 음성 설정이 바뀌어 전부 다시 도는 경우)",
     )
     args = ap.parse_args(argv)
     # CPU 실행은 측정 조건이 아니므로 기본 저장소에 섞이지 않게 별도 --audio를 요구한다.

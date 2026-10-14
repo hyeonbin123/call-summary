@@ -1,4 +1,4 @@
-"""call_summary.asr_arms: the CPU side of speech condition v3 (no model, no audio)."""
+"""call_summary.asr_arms 테스트: 음성 조건 v3의 CPU 쪽(모델도 소리도 쓰지 않는다)."""
 
 # [테스트 묶음] 음성 조건 v3(인식기 바꾸기, docs/experiments.md "음성 조건 v3")의 CPU 쪽 도구
 # call_summary.asr_arms를 모델·소리 없이 검증한다. 업종 맥락 글(context), 팔마다 학생이 받을 데이터
@@ -33,7 +33,7 @@ def test_context_lists_the_company_and_the_whole_catalog():
     assert set(ctx) == set(DOMAINS)
     assert ctx["shop"].startswith("도토리마켓, 무선 이어폰 소리방울 2, 접이식 캠핑 의자")
     assert ctx["shop"].endswith("러닝화 250")
-    assert ctx["telecom"].count(", ") == 16  # company + 6 plans + 5 devices + 5 add-ons
+    assert ctx["telecom"].count(", ") == 16  # 회사 + 요금제 6 + 기기 5 + 부가 서비스 5
     assert "은하 탭 9" in ctx["telecom"] and "해외 로밍 패스" in ctx["telecom"]
     assert (
         ctx["parcel"] == "새싹택배, 전자레인지, 노트북, 김치 10kg, 도자기 그릇 세트, 의류 상자, "
@@ -146,7 +146,7 @@ def test_identity_compares_the_base_text_of_new_audio_with_the_recorded_transcri
 def test_the_cheap_gate_counts_gold_identifiers_found_in_the_identifier_turns():
     pairs = [_parcel(i, TRACKING_SAID) for i in range(3)]
     items = [p[0] for p in pairs]
-    rows = [r for r in _index(items) if r["turn"] == 1]  # pass 1 with --only-ids keeps only these
+    rows = [r for r in _index(items) if r["turn"] == 1]  # 1패스를 --only-ids로 돌리면 이 발화만 남는다
     index = asr_arms.by_turn(rows)
 
     def hangul(it, i, text):
@@ -155,25 +155,25 @@ def test_the_cheap_gate_counts_gold_identifiers_found_in_the_identifier_turns():
             tracking, ", ".join("".join(NAMES[int(c)] for c in g) for g in tracking.split("-"))
         )
 
-    base = {r["key"]: {**r, "heard": "운송장 번호 몰라요"} for r in rows}  # T lost every number
+    base = {r["key"]: {**r, "heard": "운송장 번호 몰라요"} for r in rows}  # T는 번호를 모두 잃었다
     arms = {
         "T": asr_arms.from_hyp(base),
         "Q": asr_arms.from_hyp(_hyp(items, hangul)),
         "Q+I": asr_arms.from_hyp(_hyp(items, hangul)),
     }
     got = asr_arms.gate(items, index, arms)
-    assert got["T"]["found"] == 0 and got["Q"]["found"] == 0  # Hangul digit names are not found
+    assert got["T"]["found"] == 0 and got["Q"]["found"] == 0  # 한글 숫자 이름은 찾지 못한다
     assert got["Q+I"]["found"] == 3 and got["Q+I"]["ids"] == 3
     assert got["Q+I"]["types"] == {"운송장번호": [3, 3]}
     assert asr_arms.gate_verdict(got) == "go"
     assert asr_arms.gate_verdict({"T": got["T"], "Q": got["Q"]}) == "stop"
-    assert asr_arms.gate_verdict(got, reference={"Q+I"}) == "stop"  # a reference arm is no candidate
+    assert asr_arms.gate_verdict(got, reference={"Q+I"}) == "stop"  # 참고 팔은 후보가 아니다
 
 
 # build 결과와 같은 꼴의 데이터 파일을 만든다. lost에 든 건은 운송장번호 발화를 "운송장 번호 몰라요"로 바꿔
 # 번호를 잃게 한다. 단계 A가 건마다 "모든 값이 남았는지"를 세므로 이것으로 팔마다 남는 건 수를 정해 둔다.
 def _dataset(tmp_path, name, items, lost=()):
-    """A built dataset where the items in `lost` lost their tracking number."""
+    """`lost`에 든 건이 운송장번호를 잃은, build 결과와 같은 꼴의 데이터셋."""
     out = []
     for it in items:
         d = it.to_dict()
@@ -199,11 +199,11 @@ def _dataset(tmp_path, name, items, lost=()):
 def test_compare_gates_each_arm_on_the_paired_survival_difference_and_ranks_the_passing_ones(tmp_path):
     items = [_parcel(i, TRACKING_SAID)[0] for i in range(40)]
     ids = [it.item_id for it in items]
-    base = _dataset(tmp_path, "T", items, lost=ids[:12])  # 28/40 survive
-    good = _dataset(tmp_path, "L+I", items, lost=ids[:2])  # gains 10, loses none
-    catalog = _dataset(tmp_path, "Qc+I", items, lost=ids[:2])  # the same, but catalog-biased
-    mixed = _dataset(tmp_path, "N+I", items, lost=ids[6:18])  # gains 6, loses 6
-    reference = _dataset(tmp_path, "L", items, lost=ids[:1])  # passes, but only reported
+    base = _dataset(tmp_path, "T", items, lost=ids[:12])  # 40건 중 28건이 남는다
+    good = _dataset(tmp_path, "L+I", items, lost=ids[:2])  # 10건 얻고 잃는 건 없다
+    catalog = _dataset(tmp_path, "Qc+I", items, lost=ids[:2])  # 같은 결과지만 카탈로그 쪽으로 기운 팔
+    mixed = _dataset(tmp_path, "N+I", items, lost=ids[6:18])  # 6건 얻고 6건 잃는다
+    reference = _dataset(tmp_path, "L", items, lost=ids[:1])  # 통과하지만 보고만 한다
     arms = {"L+I": good, "Qc+I": catalog, "N+I": mixed, "L": reference}
     got = asr_arms.compare(base, arms, catalog={"Qc+I"}, reference={"L"})
     assert got["L"]["passed"] and got["L"]["reference"]
@@ -211,10 +211,10 @@ def test_compare_gates_each_arm_on_the_paired_survival_difference_and_ranks_the_
     assert got["L+I"]["diff"] == pytest.approx(0.25) and got["L+I"]["low"] > 0 and got["L+I"]["passed"]
     assert got["N+I"]["diff"] == 0 and not got["N+I"]["passed"]
     assert got["L+I"]["types"]["운송장번호"] == [38, 40]
-    assert asr_arms.ranking(got) == ["L+I", "Qc+I"]  # same bounds: the non-catalog arm first
+    assert asr_arms.ranking(got) == ["L+I", "Qc+I"]  # 하한이 같으면 카탈로그를 쓰지 않는 팔이 먼저
     assert got["T"]["cer"] > got["L+I"]["cer"] > 0 and got["T"]["wrong_digit_runs"] == 0
     assert "| L+I |" in asr_arms.compare_table(got)
-    load_items(good)  # the built files are ordinary datasets
+    load_items(good)  # 만든 파일은 보통 데이터셋으로 읽힌다
 
 
 # 2차 지표 도우미를 확인한다. CER은 공백·문장부호를 빼고 세므로 "6291-7877-5168로"와 "6291, 7877, 5168 로"는

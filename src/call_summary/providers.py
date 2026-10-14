@@ -1,8 +1,8 @@
-"""Inference backends behind one interface: chat messages in, raw reply text out.
+"""하나의 인터페이스 뒤에 둔 추론 백엔드들: 채팅 메시지를 넣으면 원 답 글이 나온다.
 
-- ScriptedProvider: canned replies, for tests.
-- OllamaProvider: local Ollama over HTTP (baselines, teacher, judge, and GGUF-served students).
-- HFProvider: transformers + optional PEFT adapter (students before GGUF export). Heavy imports are lazy.
+- ScriptedProvider: 미리 정한 답을 돌려준다. 테스트용.
+- OllamaProvider: HTTP로 부르는 로컬 Ollama(기준선, 교사, 판정 모델, GGUF로 서빙하는 학생).
+- HFProvider: transformers + 선택적 PEFT 어댑터(GGUF로 내보내기 전의 학생). 무거운 import는 쓸 때 한다.
 """
 
 # [파일 역할] 모델을 부르는 실행기(provider)를 한 인터페이스 뒤에 모은 모듈이다. 모두 "채팅 메시지 목록을 받아
@@ -37,10 +37,12 @@ class Reply:
     latency_s: float
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
-    # Ollama's own counters in nanoseconds (total, load, prompt_eval, eval durations); None elsewhere.
+    # Ollama가 직접 잰 시간 카운터(나노초, total·load·prompt_eval·eval duration). 다른 백엔드에서는 None.
     timings: dict | None = None
-    thinking: str | None = None  # Ollama's message.thinking (reasoning split off by the model's parser)
-    done_reason: str | None = None  # Ollama's stop reason: "stop", or "length" when num_predict cut the reply
+    # thinking: Ollama 응답의 message.thinking(모델 파서가 답에서 떼어 낸 생각 글).
+    # done_reason: Ollama가 생성을 멈춘 이유. 정상 종료는 "stop", num_predict에서 잘리면 "length"다.
+    thinking: str | None = None
+    done_reason: str | None = None
 
 
 # 실행기 인터페이스(구조적 타입). name 속성과 generate(messages, json_schema)만 있으면 된다. json_schema는
@@ -55,7 +57,7 @@ class Provider(Protocol):
 # calls에 남겨 테스트가 프롬프트를 확인할 수 있다(예: tests/test_scoring.py가 few-shot 메시지를 비교).
 @dataclass
 class ScriptedProvider:
-    """Returns replies from a function of the messages (or a fixed list, in order)."""
+    """메시지를 받는 함수가 만든 답(또는 고정 목록의 답을 차례로)을 돌려준다."""
 
     replies: list[str] | Callable[[list[dict]], str]
     name: str = "scripted"
@@ -82,7 +84,7 @@ class OllamaProvider:
     num_predict: int = 1024
     # GPU에 올릴 층 수. None이면 Ollama가 정하는데, Windows에서는 VRAM을 꽉 채워 시스템 메모리로 넘치면 요청이
     # 10분 넘게 걸린 적이 있어 14B는 44층으로 제한했다(docs/experiments.md 1단계 진행 기록).
-    num_gpu: int | None = None  # layers on GPU; None lets Ollama decide (it can overfill VRAM on Windows)
+    num_gpu: int | None = None
     seed: int = 0
     # keep_alive: 마지막 요청 뒤 모델을 메모리에 남겨 둘 시간. 측정 중 요청마다 모델을 다시 올리지 않게 한다.
     # timeout_s: 요청 하나의 HTTP 시간 한도(초).
@@ -92,9 +94,10 @@ class OllamaProvider:
     # 문법이 키 순서를 바꾸면 필드를 빠뜨렸다(5단계 발견 1). 판정 모델은 켠다(judge.make_judge).
     # think: 생각 모드 스위치. False를 보내 Qwen3 계열의 생각 글을 끈다(공정하고 빠른 기준선을 위해). None이면
     # 요청에 넣지 않는다.
-    use_schema: bool = False  # pass the JSON schema as Ollama's `format` (constrained decoding)
-    think: bool | None = False  # Qwen3-style thinking models: off by default for a fair, fast baseline
-    # Further Ollama options (e.g. presence_penalty); the fixed decoding settings above have their own fields.
+    use_schema: bool = False
+    think: bool | None = False
+    # 그 밖의 Ollama 옵션(예: presence_penalty). 위의 고정 디코딩 설정은 따로 필드가 있으므로 여기서
+    # 넣지 않는다.
     extra_options: dict | None = None
 
     # 필드로 따로 둔 디코딩 설정. extra_options로 이 값들을 덮어쓰면 실행 기록의 필드 값과 실제 요청이
@@ -169,7 +172,7 @@ class OllamaProvider:
 # RTX 2080 Ti(Turing)에는 bf16이 없어 fp16으로 돌린다(docs/plan.md).
 @dataclass
 class HFProvider:
-    """Greedy decoding with transformers. fp16 on this GPU (no bf16 on Turing)."""
+    """transformers로 탐욕적 디코딩을 한다. 이 GPU(Turing)에는 bf16이 없어 fp16으로 돌린다."""
 
     model_id: str
     adapter: str | None = None
@@ -178,7 +181,7 @@ class HFProvider:
     enable_thinking: bool = False
     # PyTorch가 쓸 GPU 메모리 상한(GB). Windows에서는 VRAM을 넘겨도 오류 없이 시스템 메모리로 새어 나가 몇
     # 배나 느려지므로, train.cap_vram으로 상한을 건다(train.cap_vram docstring).
-    max_vram_gb: float | None = 9.5  # see train.cap_vram
+    max_vram_gb: float | None = 9.5
     _model: object = field(default=None, init=False, repr=False)
     _tok: object = field(default=None, init=False, repr=False)
 
@@ -230,8 +233,8 @@ class HFProvider:
     # 묶어 부른다. 지연은 배치 전체 시간을 건수로 나눈 값이라 배치 크기가 1인 실행끼리만 비교할 수
     # 있다(docstring).
     def generate_batch(self, batch: list[list[dict]]) -> list[Reply]:
-        """Greedy decoding of several conversations at once (left padding). Latency is the batch's
-        wall time divided evenly, so per-item latency is only comparable between runs with batch size 1."""
+        """여러 대화를 한 번에 탐욕적 디코딩한다(왼쪽 패딩). 지연은 배치 전체의 벽시계 시간을 건수로
+        똑같이 나눈 값이라, 건당 지연은 배치 크기가 1인 실행끼리만 비교할 수 있다."""
         import torch
 
         self._load()
@@ -249,7 +252,8 @@ class HFProvider:
         tok.padding_side = "left"  # type: ignore[attr-defined]
         if tok.pad_token is None:  # type: ignore[attr-defined]
             tok.pad_token = tok.eos_token  # type: ignore[attr-defined]
-        # Same tokenization as training (train.encode): the chat template already holds special tokens.
+        # 학습(train.encode)과 같은 방식으로 토큰화한다. 채팅 템플릿에 특수 토큰이 이미 들어 있으므로
+        # add_special_tokens=False로 한 번 더 붙이지 않는다.
         enc = tok(prompts, return_tensors="pt", padding=True, add_special_tokens=False).to("cuda")  # type: ignore[operator]
         # no_grad로 기울기 계산을 끄고, do_sample=False로 탐욕적 생성을 한다. 답 상한은 max_new_tokens(기본
         # 1,024, Ollama의 num_predict와 같다).

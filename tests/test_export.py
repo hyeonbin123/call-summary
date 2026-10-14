@@ -21,7 +21,7 @@ from call_summary.evaluate import adapter_hash
 # 출력 파일만 빈 파일로 만든다. monkeypatch라 테스트가 끝나면 원래 함수로 돌아간다.
 @pytest.fixture
 def fake_tools(monkeypatch):
-    """merge writes merged/config.json, the GGUF converter writes --outfile, ollama and git succeed."""
+    """merge는 merged/config.json을 쓰고, GGUF 변환기는 --outfile을 쓰며, ollama와 git은 늘 성공한다."""
 
     class Merges(list):
         pass
@@ -79,13 +79,14 @@ def test_an_interrupted_build_is_not_taken_for_the_older_stamp(tmp_path, fake_to
     a = _adapter(tmp_path, "a", b"A")
     out = tmp_path / "export"
     _export(a, out)
-    # As the refusal message says: delete merged/ and the F16 GGUF (source.json stays behind) ...
+    # 거절 메시지대로 merged/와 F16 GGUF를 지운다(source.json은 남는다) ...
     for f in (out / "merged").iterdir():
         f.unlink()
     (out / "merged").rmdir()
     (out / "model-f16.gguf").unlink()
 
-    def crashing_merge(base, adapter, target, from_4bit=False):  # ... then adapter b's merge dies half-way
+    # ... 그다음 어댑터 b의 합치기가 반쯤 쓰고 죽는다
+    def crashing_merge(base, adapter, target, from_4bit=False):
         target.mkdir(parents=True, exist_ok=True)
         (target / "config.json").write_text("{}", encoding="utf-8")
         raise RuntimeError("out of memory")
@@ -93,7 +94,7 @@ def test_an_interrupted_build_is_not_taken_for_the_older_stamp(tmp_path, fake_to
     monkeypatch.setattr(export, "merge", crashing_merge)
     with pytest.raises(RuntimeError):
         _export(_adapter(tmp_path, "b", b"B"), out)
-    with pytest.raises(SystemExit):  # b's half-merged weights must not pass for a's
+    with pytest.raises(SystemExit):  # b의 반쯤 합친 가중치를 a의 것으로 넘기면 안 된다
         _export(a, out)
 
 
@@ -132,7 +133,7 @@ def test_a_qlora_adapter_is_merged_into_the_dequantized_4bit_base(tmp_path, fake
     _export(a, out)
     assert fake_tools.from_4bit is True
     assert json.loads((out / "export.json").read_text(encoding="utf-8"))["base_from_4bit"] is True
-    # a LoRA adapter trained on the fp16 base keeps the plain merge
+    # fp16 바탕으로 학습한 LoRA 어댑터는 그대로 일반 합치기를 쓴다
     (tmp_path / "train_config.json").write_text('{"qlora": false}', encoding="utf-8")
     _export(_adapter(tmp_path, "b", b"B"), tmp_path / "export-b")
     assert fake_tools.from_4bit is False

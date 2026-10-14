@@ -1,4 +1,4 @@
-"""scripts/asr_qwen.py: the parts that need no model (and no numpy or torch, except where skipped)."""
+"""scripts/asr_qwen.py 테스트: 모델이 필요 없는 부분(건너뛰는 곳 말고는 numpy·torch도 쓰지 않는다)."""
 
 # [테스트 묶음] 음성 조건 v3의 Qwen3-ASR 팔(Q, Qc) 2패스 스크립트 scripts/asr_qwen.py 가운데 모델 없이 도는
 # 부분을 검증한다: 디코딩된 글에서 받아 적은 글만 꺼내기, 고정한 모델 판·디코딩 설정, 이어 하기를 위한 할 일
@@ -39,7 +39,7 @@ qwen = _load("asr_qwen", ROOT / "scripts" / "asr_qwen.py")
 @pytest.mark.parametrize(
     "decoded,want",
     [
-        ("주문번호는 디 사사칠칠팔삼팔 입니다.", "주문번호는 디 사사칠칠팔삼팔 입니다."),  # language forced
+        ("주문번호는 디 사사칠칠팔삼팔 입니다.", "주문번호는 디 사사칠칠팔삼팔 입니다."),  # 언어 강제
         ("language Korean<asr_text>네, 맞습니다.", "네, 맞습니다."),
         ("system\nassistant\nlanguage Korean<asr_text> 안녕하세요 ", "안녕하세요"),
         ("", ""),
