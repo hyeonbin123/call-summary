@@ -16,6 +16,10 @@ Verbalizer v1 = support-agent의 verbalize()만 쓴다(4단계). v2(2026-10-03)�
 (\\d{4}-\\d{4}-\\d{4})를 묶음 사이에 쉼을 두고 숫자 하나씩 읽게 풀어 쓴다. verbalize()가 전화번호를 이미
 그렇게 읽는 것과 같다. v1은 운송장번호를 수사로 읽고 묶음을 범위 "에서"로 이었다.
 
+verbalize()는 support-agent의 현재 파일이 아니라, 4단계 때의 파일(support-agent 커밋 a5717ce)을 옮긴 사본
+scripts/verbalize_a5717ce.py다(2026-10-14부터). support-agent가 그 뒤 운송장번호 읽기를 고쳐, 현재 파일로는
+v1이 4단계 읽기를 재현하지 못한다. 사본의 본문이 원본과 다르면 멈춘다.
+
 음성 조건 v3(2026-10-05)는 같은 소리로 인식기를 비교하며, 두 패스로 돈다:
 
     1패스  --keep-audio [--only-ids]   모든 발화를 다시 합성하고(텍스트 캐시에는 소리가 없다), 기준 인식기
@@ -41,6 +45,10 @@ Verbalizer v1 = support-agent의 verbalize()만 쓴다(4단계). v2(2026-10-03)�
 # 법(verbalizer)을 바꾸면 달라진 발화만 다시 합성한다.
 # [판] v1(4단계): support-agent의 verbalize만. v2(2026-10-03): 운송장번호를 숫자 하나씩 읽도록 고침(v1은 범위
 # "에서"와 기수로 읽은 측정 인공물이었다). v3(2026-10-05): 같은 소리로 인식기를 비교하는 두 패스.
+# [읽기 고정] 2026-10-14부터 verbalize는 4단계 때의 support-agent 파일(커밋 a5717ce)을 옮긴 사본만 쓴다
+# (load_verbalize, docs/experiments.md "음성 조건 v2"의 2026-10-14 덧붙임). 합성·인식
+# (support_agent.voice.speech)은 그대로 support-agent 음성 환경에서 가져오며, 그 라이브러리 버전은 캐시
+# 키(speech_identity)가 지킨다.
 
 from __future__ import annotations
 
@@ -55,6 +63,7 @@ import os
 import re
 import sys
 import time
+import types
 import unicodedata
 import zlib
 from collections import Counter
@@ -71,6 +80,16 @@ MU = 255.0
 SPEEDS = {"상담원": 1.0, "고객": 1.1}  # 한국어 목소리 하나, 화자마다 다른 속도
 VERBALIZERS = ("v1", "v2")
 DIGIT_NAMES = "공일이삼사오육칠팔구"  # support-agent의 verbalize가 전화번호를 읽는 대로(0은 "공")
+# 고정한 verbalize의 출처. PINNED_VERBALIZE는 support-agent의 PINNED_SOURCE를 커밋 PINNED_COMMIT 시점
+# 그대로 옮긴 사본이고, 머리 주석을 뺀 본문의 git blob 해시가 PINNED_BLOB이다(`git rev-parse
+# <커밋>:<경로>`가 내는 값과 같은 계산이라 옆 저장소 없이도 확인된다). 이 커밋을 고른 근거: 이 파일의
+# 코드는 a5717ce(2026-09-21) 뒤 2026-10-13까지 바뀌지 않았고(56507f0은 주석만 더함), 4단계·v2·v3 데이터가
+# 모두 그 사이에 만들어졌으며, 이 사본의 읽기가 기록된 캐시의 v1·v2 발화와 글자까지 같다
+# (tests/test_asr_condition.py, docs/experiments.md).
+PINNED_VERBALIZE = Path(__file__).resolve().with_name("verbalize_a5717ce.py")
+PINNED_COMMIT = "a5717ce60ca95aaa69c34e3d3dc91af6de00603a"
+PINNED_SOURCE = "src/support_agent/voice/verbalize.py"
+PINNED_BLOB = "e956c969424fee355d53ccc613d2915a95530181"
 # _TRACKING: 운송장번호 꼴(4-4-4). 앞뒤에 숫자나 하이픈이 붙어 더 긴 수의 일부인 경우는 잡지 않는다. 이 꼴이
 # 아닌 하이픈 숫자(주소 "761-4" 등)는 v2 규칙의 범위 밖이다(docs/experiments.md 음성 조건 v2).
 # ID_PATTERN: 쓴 글의 주문번호(D+7), 접수번호(R+6), 운송장번호. v3 관문은 이 번호가 든 발화만 먼저 합성한다.
@@ -261,12 +280,41 @@ def speech_identity(whisper_model: str) -> dict:
     }
 
 
-# support-agent의 발음형 변환(verbalize)을 불러온다. 숫자·기호를 한국어 읽는 법으로 풀어 써야 TTS가 읽을 수
-# 있다.
-def load_verbalize() -> Callable[[str], str]:
-    from support_agent.voice.verbalize import verbalize
+# git이 파일 내용에 붙이는 blob 해시(sha1("blob <길이>\0" + 내용)). `git hash-object`·`git rev-parse
+# <커밋>:<경로>`와 같은 값이라, support-agent 저장소 없이도 사본이 그 커밋의 파일과 같은지 확인할 수 있다.
+def git_blob_id(data: bytes) -> str:
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
-    return verbalize
+
+# 고정 사본에서 원본 부분만 꺼낸다: 줄바꿈을 LF로 맞추고(Windows 체크아웃은 core.autocrlf로 CRLF가 될 수
+# 있고, 원본 blob은 LF뿐이다), 맨 앞의 머리 주석(# 줄)과 빈 줄을 뺀다. 원본은 모듈 docstring으로 시작하므로
+# 머리 주석과 섞이지 않는다.
+def pinned_body(raw: bytes) -> bytes:
+    lines = raw.replace(b"\r\n", b"\n").splitlines(keepends=True)
+    start = 0
+    while start < len(lines) and (lines[start].startswith(b"#") or not lines[start].strip()):
+        start += 1
+    return b"".join(lines[start:])
+
+
+# 발음형 변환(verbalize)을 불러온다. 숫자·기호를 한국어 읽는 법으로 풀어 써야 TTS가 읽을 수 있다.
+# support_agent.voice.verbalize(옆 저장소의 현재 파일)는 import하지 않는다: support-agent가 2026-10-13에
+# 운송장번호 읽기를 고쳐, 그 파일로는 v1이 4단계 읽기가 아니게 되고(v2와 같은 읽기) 그 키가 캐시에 있어
+# 실행도 멈추지 않는다. 대신 4단계 때의 파일을 옮긴 사본(PINNED_VERBALIZE)을 쓰고, 본문의 blob 해시가
+# PINNED_BLOB이 아니면(누가 사본을 고쳤으면) 멈춘다. 확인한 바이트를 그대로 실행하므로 확인과 실행 사이에
+# 파일이 바뀌어도 섞이지 않는다. 출력: verbalize(text) -> 한글·공백·`.,?!~`만 남은 읽는 글.
+def load_verbalize() -> Callable[[str], str]:
+    raw = PINNED_VERBALIZE.read_bytes()
+    blob = git_blob_id(pinned_body(raw))
+    if blob != PINNED_BLOB:
+        raise SystemExit(
+            f"{PINNED_VERBALIZE} is not support-agent {PINNED_COMMIT[:7]}:{PINNED_SOURCE} "
+            f"(blob {blob} != {PINNED_BLOB}); v1 and v2 would no longer be the recorded readings"
+        )
+    module = types.ModuleType("verbalize_a5717ce")
+    module.__file__ = str(PINNED_VERBALIZE)
+    exec(compile(raw, str(PINNED_VERBALIZE), "exec"), module.__dict__)
+    return module.verbalize
 
 
 # 발화 하나를 말하고(합성 + 전화 채널) 듣는(인식) 통로. 모델은 처음 캐시에 없는 발화를 만날 때 올리므로, 모두
@@ -682,7 +730,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--split", required=True)
     ap.add_argument("--data", default="datasets")
-    ap.add_argument("--verbalizer", choices=VERBALIZERS, default="v2")
+    ap.add_argument(
+        "--verbalizer",
+        choices=VERBALIZERS,
+        default="v2",
+        help="발음형 판. v1: 4단계 읽기(support-agent a5717ce의 verbalize 사본 그대로, 운송장번호를 기수와 "
+        "범위 '에서'로 읽은 인공물 포함). v2(기본): v1에서 운송장번호만 숫자 하나씩, 묶음 사이 쉼표. 둘 다 "
+        "scripts/verbalize_a5717ce.py를 쓰고 support-agent의 현재 verbalize는 쓰지 않는다",
+    )
     ap.add_argument("--out", help="출력 폴더(기본: v1은 data/asr, 그 밖은 data/asr-<verbalizer>)")
     ap.add_argument("--cache", default="outputs/asr/cache.jsonl")
     ap.add_argument("--limit", type=int)
@@ -738,8 +793,18 @@ def main(argv: list[str] | None = None) -> int:
     # 4단계·v2 데이터: 먼저 계획을 찍고, v1과 똑같이 읽는데 캐시에 없는 발화가 있으면 음성 환경이 달라진
     # 것으로 보고 멈춘다(--allow-full-run으로만 넘어감). 환경이 바뀐 채 일부만 다시 합성해 조건이 섞이는 것을
     # 막는다.
+    # 계획 보고에 고정한 verbalize의 출처(커밋과 blob)도 남겨, 실행 로그만 봐도 어떤 읽기로 만들었는지 알 수
+    # 있게 한다. 데이터의 meta.asr에는 넣지 않는다: 넣으면 같은 캐시로 다시 만든 데이터가 기록된 파일(실행
+    # 기록에 data_sha로 남음)과 달라진다.
     p = channel.plan(todo)
-    report = {"split": args.split, "verbalizer": args.verbalizer, "items": len(todo), "done": len(done), **p}
+    report = {
+        "split": args.split,
+        "verbalizer": args.verbalizer,
+        "verbalize": f"support-agent {PINNED_COMMIT[:7]}:{PINNED_SOURCE} (blob {PINNED_BLOB[:12]})",
+        "items": len(todo),
+        "done": len(done),
+        **p,
+    }
     print(json.dumps(report, ensure_ascii=False), file=sys.stderr, flush=True)
     if args.dry_run:
         return 0

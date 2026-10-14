@@ -250,6 +250,7 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 
 ### 조건
 - 대화의 발화마다 `scripts/asr_condition.py`로 음성 조건 전사를 만든다: 발음형으로 풀어 쓰기(support-agent의 `verbalize`) → MeloTTS 한국어(목소리 하나, 상담원 속도 1.0·고객 1.1, 발화마다 고정 seed) → 전화 채널(300~3400 Hz 대역, 8 kHz, 8비트 μ-law, whisper-ko-ft와 같은 식) → faster-whisper large-v3-turbo(한국어, beam 5, temperature 0). 음성 합성·인식 모델이 transformers 4.27을 요구해 support-agent의 음성 환경에서 돌리고, 버전은 각 건의 `meta.asr`에 남긴다
+  - (2026-10-14 덧붙임) 이때 쓴 `verbalize`는 support-agent 커밋 `a5717ce`의 파일이다. support-agent가 그 뒤 운송장번호 읽기를 고쳐, 지금 스크립트는 그 판을 옮긴 사본(`scripts/verbalize_a5717ce.py`)을 쓴다 (아래 "음성 조건 v2" 절의 같은 날 덧붙임)
 - 발화 단위로 따로 인식하므로 화자 분리는 완벽하다고 가정한다. 잡음·끼어들기·실제 사람 목소리는 없다 (한계)
 - **test-d** = test-a 300건의 음성 조건판, **dev-asr** = dev 240건의 음성 조건판, **train-half-asr** = train에서 업종마다 짝수 번째인 750건의 음성 조건판. 정답(명세)과 참고 요약은 원래 것 그대로다
 
@@ -496,6 +497,11 @@ Ollama나 템플릿이 아니라 바탕 정밀도 문제다. QLoRA 어댑터는 
 - 남는 것: train 절반의 주소 한 발화("역삼동 761-4 입니다")는 여전히 범위로 읽힌다 (dev·test에는 없음). 운송장번호 꼴이 아닌 하이픈 숫자는 이 규칙의 범위 밖이다. 같은 범위 규칙 오발동은 support-agent 음성 채널의 하이픈 숫자 번호에도 생기므로 그 저장소에 따로 넘긴다 (여기서는 고치지 않는다)
 - 캐시와 음성 환경 확인 (2026-10-03, CPU만, 모델을 올리지 않음): 지금의 음성 환경(melotts 0.1.2, torch 2.11.0+cu128, faster-whisper 1.2.1, ctranslate2 4.8.2)과 지금의 `verbalize`로 v1 16,663발화의 캐시 키를 다시 계산하면 모두 캐시에 있다. 고친 스크립트를 v1로 캐시만으로 다시 돌리면 `datasets/dev-asr.jsonl`·`test-d.jsonl`과 건마다 같다 (`meta.asr.verbalizer` 필드만 더해짐). v2의 계획(`--dry-run`): 새로 합성·인식할 발화 dev 142, test-a 185, train 절반 485, 나머지는 캐시를 그대로 쓴다. 스크립트는 v1과 같게 읽는 발화가 캐시에 없으면(음성 환경이 바뀐 것) 멈춘다 (`--allow-full-run` 없이는)
 - 파일: `datasets/dev-asr-v2.jsonl`, `datasets/test-d-v2.jsonl`, `datasets/train-half-asr-v2.jsonl`. 분할 이름은 v1과 같고(`dev-asr` 등) 각 건의 `meta.asr.verbalizer`가 `v2`다. v1 파일은 그대로 둔다. 섞어 학습용 `data/train_mixed_v2.jsonl`은 4단계와 같은 방식(train에서 업종마다 짝수 번째 750건을 v2 음성 조건판으로 바꿈)
+- (2026-10-14 덧붙임, 새 측정 없음) **v1·v2의 `verbalize`를 4단계 때의 판에 고정한다.** 스크립트는 support-agent의 현재 `verbalize`를 불러 썼다. support-agent가 2026-10-13(`877b691`)에 하이픈으로 이은 세 묶음 이상의 숫자를 숫자 하나씩 읽게 고친 뒤로는, v1으로 다시 돌리면 운송장번호 발화(dev 142, test-a 185, train 절반 485)가 v2와 같은 읽기가 된다 (그 밖의 발화와 v2의 읽기는 이 데이터에서 그대로). 그 v2 키가 캐시에 있어 위의 보호(v1과 같게 읽는데 캐시에 없으면 멈춤)도 걸리지 않는다: 고치기 전 스크립트의 dev `--dry-run`은 v1 "합성할 것 0", v2 "바뀐 발화 0"을 냈다. 기록된 데이터와 결과는 그대로이고, 다시 실행하면 v1의 뜻이 몰래 바뀌는 문제였다
+  - 고정한 판: support-agent 커밋 `a5717ce`(2026-09-21)의 `src/support_agent/voice/verbalize.py` (git blob `e956c969`). 근거: (1) 이 파일의 코드는 `a5717ce` 뒤 `877b691`까지 바뀌지 않았다 (그 사이의 `56507f0`은 주석만 더했고 구문 트리가 같다) (2) 4단계(2026-09-29), v2(2026-10-04), v3 1패스(2026-10-05) 데이터는 모두 이 기간에 만들었다 (3) 아래 확인. 측정 때 support-agent 커밋을 기록하지 않아 (1)(2)는 날짜로 정했고, (3)이 직접 근거다
+  - 방법: 그 파일을 이 저장소에 사본으로 둔다 (`scripts/verbalize_a5717ce.py`: 머리에 출처를 적은 주석, 그 아래는 원본과 바이트까지 같다). 실행할 때마다 `git show <커밋>:<경로>`로 읽는 방법은 옆에 support-agent 저장소와 그 이력이 있어야 해서 GitHub CI에서 확인할 수 없다. 이 파일은 표준 라이브러리만 쓰므로 사본이면 CI가 v1·v2 읽기를 그대로 시험한다. 스크립트는 사본 본문의 git blob 해시가 위 값이 아니면 멈춘다. v2의 정의(고정한 v1에서 운송장번호만 숫자 하나씩)는 그대로다
+  - 확인 (CPU만, 모델 없음): 고정한 읽기로 v1 데이터 3개(`dev-asr`, `test-d`, `train-half-asr`)와 v2 데이터 3개의 모든 발화(각 16,664발화, 소리 없는 발화 1개 포함)에서 각 건 `meta.asr`의 음성 환경과 쓴 글로 캐시 키를 다시 만들면 모두 캐시(`outputs/asr/cache.jsonl`)에 있고, 캐시의 읽은 글이 글자까지 같고, 캐시의 들린 글이 데이터의 전사와 같다. v3 1패스가 남긴 dev 3,157발화(`outputs/asr3/audio/index.jsonl`)의 읽은 글과 키도 모두 같다. support-agent 음성 환경의 `--dry-run`은 v1의 dev·test-a·train 절반에서 바뀐 발화 0·합성할 것 0, v2에서 바뀐 발화 142·185·485(이 절의 범위와 같음)·합성할 것 0을 낸다. 캐시 대조는 테스트로도 둔다 (`tests/test_asr_condition.py`, 캐시가 있는 곳에서만 돈다)
+  - 고정하지 않은 것: 합성·인식 코드(support-agent의 `support_agent.voice.speech`)는 그대로 support-agent 음성 환경에서 가져온다. 그 라이브러리 버전은 캐시 키에 들어 있어 바뀌면 스크립트가 멈춘다
 
 ### 입력 분석 (모델을 돌리기 전에 적는다)
 - `python -m call_summary.asr_report survival`로 dev-asr·test-d의 v1과 v2에서 유형별 값 보존율과 모든 값이 남은 건의 비율. 이 도구로 4단계 입력 분석을 다시 계산하면 적힌 값(test-d 83.7%, dev-asr 79.6%, 운송장번호 90.8%, 주문번호 84.2% 등)이 그대로 나온다
