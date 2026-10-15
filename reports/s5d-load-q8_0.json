@@ -1,0 +1,3676 @@
+{
+  "url": "http://127.0.0.1:8072",
+  "data": "datasets/dev.jsonl",
+  "health": {
+    "status": "ok",
+    "model": "ollama:call-summary-4b-dq:q8_0",
+    "prompt_hash": "4cead4cf6510"
+  },
+  "runs": [
+    {
+      "concurrency": 1,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 609.03,
+      "throughput_rps": 0.394,
+      "latency_s": {
+        "p50": 2.552,
+        "p95": 2.929,
+        "mean": 2.538,
+        "max": 3.437
+      },
+      "requests": [
+        {
+          "item_id": "dev-parcel-00000",
+          "status": "200",
+          "latency_s": 2.5011
+        },
+        {
+          "item_id": "dev-parcel-00002",
+          "status": "200",
+          "latency_s": 3.0914
+        },
+        {
+          "item_id": "dev-parcel-00003",
+          "status": "200",
+          "latency_s": 2.6907
+        },
+        {
+          "item_id": "dev-parcel-00005",
+          "status": "200",
+          "latency_s": 2.27
+        },
+        {
+          "item_id": "dev-parcel-00006",
+          "status": "200",
+          "latency_s": 2.7765
+        },
+        {
+          "item_id": "dev-parcel-00007",
+          "status": "200",
+          "latency_s": 2.8036
+        },
+        {
+          "item_id": "dev-parcel-00008",
+          "status": "200",
+          "latency_s": 2.2855
+        },
+        {
+          "item_id": "dev-parcel-00009",
+          "status": "200",
+          "latency_s": 2.7836
+        },
+        {
+          "item_id": "dev-parcel-00010",
+          "status": "200",
+          "latency_s": 3.0345
+        },
+        {
+          "item_id": "dev-parcel-00011",
+          "status": "200",
+          "latency_s": 2.7934
+        },
+        {
+          "item_id": "dev-parcel-00012",
+          "status": "200",
+          "latency_s": 2.4013
+        },
+        {
+          "item_id": "dev-parcel-00013",
+          "status": "200",
+          "latency_s": 2.7082
+        },
+        {
+          "item_id": "dev-parcel-00014",
+          "status": "200",
+          "latency_s": 2.3838
+        },
+        {
+          "item_id": "dev-parcel-00015",
+          "status": "200",
+          "latency_s": 2.6321
+        },
+        {
+          "item_id": "dev-parcel-00016",
+          "status": "200",
+          "latency_s": 2.4397
+        },
+        {
+          "item_id": "dev-parcel-00017",
+          "status": "200",
+          "latency_s": 3.4374
+        },
+        {
+          "item_id": "dev-parcel-00018",
+          "status": "200",
+          "latency_s": 2.8366
+        },
+        {
+          "item_id": "dev-parcel-00019",
+          "status": "200",
+          "latency_s": 3.0116
+        },
+        {
+          "item_id": "dev-parcel-00020",
+          "status": "200",
+          "latency_s": 2.259
+        },
+        {
+          "item_id": "dev-parcel-00021",
+          "status": "200",
+          "latency_s": 2.5294
+        },
+        {
+          "item_id": "dev-parcel-00022",
+          "status": "200",
+          "latency_s": 2.6114
+        },
+        {
+          "item_id": "dev-parcel-00023",
+          "status": "200",
+          "latency_s": 2.6392
+        },
+        {
+          "item_id": "dev-parcel-00024",
+          "status": "200",
+          "latency_s": 2.4156
+        },
+        {
+          "item_id": "dev-parcel-00025",
+          "status": "200",
+          "latency_s": 2.7265
+        },
+        {
+          "item_id": "dev-parcel-00026",
+          "status": "200",
+          "latency_s": 2.7143
+        },
+        {
+          "item_id": "dev-parcel-00027",
+          "status": "200",
+          "latency_s": 2.4161
+        },
+        {
+          "item_id": "dev-parcel-00028",
+          "status": "200",
+          "latency_s": 2.3323
+        },
+        {
+          "item_id": "dev-parcel-00029",
+          "status": "200",
+          "latency_s": 2.3199
+        },
+        {
+          "item_id": "dev-parcel-00031",
+          "status": "200",
+          "latency_s": 2.6792
+        },
+        {
+          "item_id": "dev-parcel-00032",
+          "status": "200",
+          "latency_s": 2.3422
+        },
+        {
+          "item_id": "dev-parcel-00034",
+          "status": "200",
+          "latency_s": 3.3394
+        },
+        {
+          "item_id": "dev-parcel-00035",
+          "status": "200",
+          "latency_s": 2.5352
+        },
+        {
+          "item_id": "dev-parcel-00036",
+          "status": "200",
+          "latency_s": 2.2658
+        },
+        {
+          "item_id": "dev-parcel-00037",
+          "status": "200",
+          "latency_s": 2.6008
+        },
+        {
+          "item_id": "dev-parcel-00038",
+          "status": "200",
+          "latency_s": 2.3077
+        },
+        {
+          "item_id": "dev-parcel-00039",
+          "status": "200",
+          "latency_s": 2.7325
+        },
+        {
+          "item_id": "dev-parcel-00040",
+          "status": "200",
+          "latency_s": 2.5608
+        },
+        {
+          "item_id": "dev-parcel-00042",
+          "status": "200",
+          "latency_s": 2.7095
+        },
+        {
+          "item_id": "dev-parcel-00043",
+          "status": "200",
+          "latency_s": 2.7142
+        },
+        {
+          "item_id": "dev-parcel-00045",
+          "status": "200",
+          "latency_s": 2.4006
+        },
+        {
+          "item_id": "dev-parcel-00046",
+          "status": "200",
+          "latency_s": 2.4238
+        },
+        {
+          "item_id": "dev-parcel-00047",
+          "status": "200",
+          "latency_s": 2.7709
+        },
+        {
+          "item_id": "dev-parcel-00048",
+          "status": "200",
+          "latency_s": 2.5559
+        },
+        {
+          "item_id": "dev-parcel-00049",
+          "status": "200",
+          "latency_s": 2.6774
+        },
+        {
+          "item_id": "dev-parcel-00054",
+          "status": "200",
+          "latency_s": 2.7883
+        },
+        {
+          "item_id": "dev-parcel-00055",
+          "status": "200",
+          "latency_s": 2.7707
+        },
+        {
+          "item_id": "dev-parcel-00056",
+          "status": "200",
+          "latency_s": 2.305
+        },
+        {
+          "item_id": "dev-parcel-00057",
+          "status": "200",
+          "latency_s": 2.9339
+        },
+        {
+          "item_id": "dev-parcel-00059",
+          "status": "200",
+          "latency_s": 2.5263
+        },
+        {
+          "item_id": "dev-parcel-00061",
+          "status": "200",
+          "latency_s": 2.9554
+        },
+        {
+          "item_id": "dev-parcel-00062",
+          "status": "200",
+          "latency_s": 2.808
+        },
+        {
+          "item_id": "dev-parcel-00063",
+          "status": "200",
+          "latency_s": 2.7783
+        },
+        {
+          "item_id": "dev-parcel-00064",
+          "status": "200",
+          "latency_s": 2.6133
+        },
+        {
+          "item_id": "dev-parcel-00066",
+          "status": "200",
+          "latency_s": 2.88
+        },
+        {
+          "item_id": "dev-parcel-00067",
+          "status": "200",
+          "latency_s": 2.7201
+        },
+        {
+          "item_id": "dev-parcel-00068",
+          "status": "200",
+          "latency_s": 2.3862
+        },
+        {
+          "item_id": "dev-parcel-00069",
+          "status": "200",
+          "latency_s": 2.4575
+        },
+        {
+          "item_id": "dev-parcel-00070",
+          "status": "200",
+          "latency_s": 2.6276
+        },
+        {
+          "item_id": "dev-parcel-00071",
+          "status": "200",
+          "latency_s": 2.6082
+        },
+        {
+          "item_id": "dev-parcel-00072",
+          "status": "200",
+          "latency_s": 2.31
+        },
+        {
+          "item_id": "dev-parcel-00073",
+          "status": "200",
+          "latency_s": 2.8296
+        },
+        {
+          "item_id": "dev-parcel-00074",
+          "status": "200",
+          "latency_s": 2.5246
+        },
+        {
+          "item_id": "dev-parcel-00075",
+          "status": "200",
+          "latency_s": 2.3629
+        },
+        {
+          "item_id": "dev-parcel-00078",
+          "status": "200",
+          "latency_s": 2.5737
+        },
+        {
+          "item_id": "dev-parcel-00079",
+          "status": "200",
+          "latency_s": 2.6294
+        },
+        {
+          "item_id": "dev-parcel-00080",
+          "status": "200",
+          "latency_s": 2.2797
+        },
+        {
+          "item_id": "dev-parcel-00081",
+          "status": "200",
+          "latency_s": 2.8039
+        },
+        {
+          "item_id": "dev-parcel-00082",
+          "status": "200",
+          "latency_s": 2.9174
+        },
+        {
+          "item_id": "dev-parcel-00083",
+          "status": "200",
+          "latency_s": 2.5247
+        },
+        {
+          "item_id": "dev-parcel-00084",
+          "status": "200",
+          "latency_s": 2.77
+        },
+        {
+          "item_id": "dev-parcel-00085",
+          "status": "200",
+          "latency_s": 2.6077
+        },
+        {
+          "item_id": "dev-parcel-00086",
+          "status": "200",
+          "latency_s": 2.3815
+        },
+        {
+          "item_id": "dev-parcel-00087",
+          "status": "200",
+          "latency_s": 2.6109
+        },
+        {
+          "item_id": "dev-parcel-00088",
+          "status": "200",
+          "latency_s": 3.0217
+        },
+        {
+          "item_id": "dev-parcel-00089",
+          "status": "200",
+          "latency_s": 2.727
+        },
+        {
+          "item_id": "dev-parcel-00090",
+          "status": "200",
+          "latency_s": 2.8918
+        },
+        {
+          "item_id": "dev-parcel-00091",
+          "status": "200",
+          "latency_s": 2.8832
+        },
+        {
+          "item_id": "dev-parcel-00092",
+          "status": "200",
+          "latency_s": 2.6018
+        },
+        {
+          "item_id": "dev-parcel-00093",
+          "status": "200",
+          "latency_s": 2.778
+        },
+        {
+          "item_id": "dev-parcel-00094",
+          "status": "200",
+          "latency_s": 2.422
+        },
+        {
+          "item_id": "dev-shop-00000",
+          "status": "200",
+          "latency_s": 2.5094
+        },
+        {
+          "item_id": "dev-shop-00001",
+          "status": "200",
+          "latency_s": 2.5288
+        },
+        {
+          "item_id": "dev-shop-00002",
+          "status": "200",
+          "latency_s": 2.5255
+        },
+        {
+          "item_id": "dev-shop-00003",
+          "status": "200",
+          "latency_s": 2.6288
+        },
+        {
+          "item_id": "dev-shop-00004",
+          "status": "200",
+          "latency_s": 2.7007
+        },
+        {
+          "item_id": "dev-shop-00005",
+          "status": "200",
+          "latency_s": 2.5727
+        },
+        {
+          "item_id": "dev-shop-00006",
+          "status": "200",
+          "latency_s": 2.4498
+        },
+        {
+          "item_id": "dev-shop-00008",
+          "status": "200",
+          "latency_s": 2.6076
+        },
+        {
+          "item_id": "dev-shop-00009",
+          "status": "200",
+          "latency_s": 2.8266
+        },
+        {
+          "item_id": "dev-shop-00010",
+          "status": "200",
+          "latency_s": 2.6407
+        },
+        {
+          "item_id": "dev-shop-00011",
+          "status": "200",
+          "latency_s": 2.5754
+        },
+        {
+          "item_id": "dev-shop-00012",
+          "status": "200",
+          "latency_s": 2.4027
+        },
+        {
+          "item_id": "dev-shop-00013",
+          "status": "200",
+          "latency_s": 2.5272
+        },
+        {
+          "item_id": "dev-shop-00014",
+          "status": "200",
+          "latency_s": 2.4163
+        },
+        {
+          "item_id": "dev-shop-00016",
+          "status": "200",
+          "latency_s": 2.2547
+        },
+        {
+          "item_id": "dev-shop-00017",
+          "status": "200",
+          "latency_s": 2.377
+        },
+        {
+          "item_id": "dev-shop-00018",
+          "status": "200",
+          "latency_s": 2.6028
+        },
+        {
+          "item_id": "dev-shop-00019",
+          "status": "200",
+          "latency_s": 2.4445
+        },
+        {
+          "item_id": "dev-shop-00021",
+          "status": "200",
+          "latency_s": 2.5999
+        },
+        {
+          "item_id": "dev-shop-00022",
+          "status": "200",
+          "latency_s": 2.3813
+        },
+        {
+          "item_id": "dev-shop-00023",
+          "status": "200",
+          "latency_s": 2.4997
+        },
+        {
+          "item_id": "dev-shop-00024",
+          "status": "200",
+          "latency_s": 2.6453
+        },
+        {
+          "item_id": "dev-shop-00025",
+          "status": "200",
+          "latency_s": 2.4828
+        },
+        {
+          "item_id": "dev-shop-00026",
+          "status": "200",
+          "latency_s": 2.662
+        },
+        {
+          "item_id": "dev-shop-00027",
+          "status": "200",
+          "latency_s": 2.7974
+        },
+        {
+          "item_id": "dev-shop-00029",
+          "status": "200",
+          "latency_s": 2.6531
+        },
+        {
+          "item_id": "dev-shop-00030",
+          "status": "200",
+          "latency_s": 2.3111
+        },
+        {
+          "item_id": "dev-shop-00031",
+          "status": "200",
+          "latency_s": 2.0742
+        },
+        {
+          "item_id": "dev-shop-00032",
+          "status": "200",
+          "latency_s": 2.3452
+        },
+        {
+          "item_id": "dev-shop-00033",
+          "status": "200",
+          "latency_s": 2.5543
+        },
+        {
+          "item_id": "dev-shop-00034",
+          "status": "200",
+          "latency_s": 2.5626
+        },
+        {
+          "item_id": "dev-shop-00035",
+          "status": "200",
+          "latency_s": 2.3824
+        },
+        {
+          "item_id": "dev-shop-00036",
+          "status": "200",
+          "latency_s": 2.494
+        },
+        {
+          "item_id": "dev-shop-00037",
+          "status": "200",
+          "latency_s": 2.6243
+        },
+        {
+          "item_id": "dev-shop-00038",
+          "status": "200",
+          "latency_s": 2.2072
+        },
+        {
+          "item_id": "dev-shop-00039",
+          "status": "200",
+          "latency_s": 2.2631
+        },
+        {
+          "item_id": "dev-shop-00040",
+          "status": "200",
+          "latency_s": 2.5731
+        },
+        {
+          "item_id": "dev-shop-00041",
+          "status": "200",
+          "latency_s": 2.6149
+        },
+        {
+          "item_id": "dev-shop-00042",
+          "status": "200",
+          "latency_s": 2.5188
+        },
+        {
+          "item_id": "dev-shop-00043",
+          "status": "200",
+          "latency_s": 2.4059
+        },
+        {
+          "item_id": "dev-shop-00044",
+          "status": "200",
+          "latency_s": 2.626
+        },
+        {
+          "item_id": "dev-shop-00045",
+          "status": "200",
+          "latency_s": 2.746
+        },
+        {
+          "item_id": "dev-shop-00046",
+          "status": "200",
+          "latency_s": 2.4387
+        },
+        {
+          "item_id": "dev-shop-00047",
+          "status": "200",
+          "latency_s": 2.6523
+        },
+        {
+          "item_id": "dev-shop-00048",
+          "status": "200",
+          "latency_s": 2.7894
+        },
+        {
+          "item_id": "dev-shop-00050",
+          "status": "200",
+          "latency_s": 2.8829
+        },
+        {
+          "item_id": "dev-shop-00051",
+          "status": "200",
+          "latency_s": 2.6272
+        },
+        {
+          "item_id": "dev-shop-00053",
+          "status": "200",
+          "latency_s": 2.9272
+        },
+        {
+          "item_id": "dev-shop-00054",
+          "status": "200",
+          "latency_s": 2.3459
+        },
+        {
+          "item_id": "dev-shop-00056",
+          "status": "200",
+          "latency_s": 3.0834
+        },
+        {
+          "item_id": "dev-shop-00057",
+          "status": "200",
+          "latency_s": 2.884
+        },
+        {
+          "item_id": "dev-shop-00058",
+          "status": "200",
+          "latency_s": 2.7686
+        },
+        {
+          "item_id": "dev-shop-00059",
+          "status": "200",
+          "latency_s": 2.6951
+        },
+        {
+          "item_id": "dev-shop-00060",
+          "status": "200",
+          "latency_s": 2.4593
+        },
+        {
+          "item_id": "dev-shop-00061",
+          "status": "200",
+          "latency_s": 2.564
+        },
+        {
+          "item_id": "dev-shop-00062",
+          "status": "200",
+          "latency_s": 2.3382
+        },
+        {
+          "item_id": "dev-shop-00063",
+          "status": "200",
+          "latency_s": 2.2991
+        },
+        {
+          "item_id": "dev-shop-00064",
+          "status": "200",
+          "latency_s": 2.5987
+        },
+        {
+          "item_id": "dev-shop-00066",
+          "status": "200",
+          "latency_s": 3.0096
+        },
+        {
+          "item_id": "dev-shop-00067",
+          "status": "200",
+          "latency_s": 2.5302
+        },
+        {
+          "item_id": "dev-shop-00068",
+          "status": "200",
+          "latency_s": 2.6106
+        },
+        {
+          "item_id": "dev-shop-00070",
+          "status": "200",
+          "latency_s": 2.5789
+        },
+        {
+          "item_id": "dev-shop-00072",
+          "status": "200",
+          "latency_s": 2.3174
+        },
+        {
+          "item_id": "dev-shop-00073",
+          "status": "200",
+          "latency_s": 2.944
+        },
+        {
+          "item_id": "dev-shop-00075",
+          "status": "200",
+          "latency_s": 2.7404
+        },
+        {
+          "item_id": "dev-shop-00076",
+          "status": "200",
+          "latency_s": 2.5517
+        },
+        {
+          "item_id": "dev-shop-00077",
+          "status": "200",
+          "latency_s": 2.6871
+        },
+        {
+          "item_id": "dev-shop-00078",
+          "status": "200",
+          "latency_s": 2.5796
+        },
+        {
+          "item_id": "dev-shop-00079",
+          "status": "200",
+          "latency_s": 2.2878
+        },
+        {
+          "item_id": "dev-shop-00080",
+          "status": "200",
+          "latency_s": 2.595
+        },
+        {
+          "item_id": "dev-shop-00081",
+          "status": "200",
+          "latency_s": 2.6494
+        },
+        {
+          "item_id": "dev-shop-00082",
+          "status": "200",
+          "latency_s": 2.9288
+        },
+        {
+          "item_id": "dev-shop-00083",
+          "status": "200",
+          "latency_s": 2.639
+        },
+        {
+          "item_id": "dev-shop-00084",
+          "status": "200",
+          "latency_s": 2.6267
+        },
+        {
+          "item_id": "dev-shop-00085",
+          "status": "200",
+          "latency_s": 2.7092
+        },
+        {
+          "item_id": "dev-shop-00086",
+          "status": "200",
+          "latency_s": 2.4146
+        },
+        {
+          "item_id": "dev-shop-00087",
+          "status": "200",
+          "latency_s": 2.3309
+        },
+        {
+          "item_id": "dev-shop-00088",
+          "status": "200",
+          "latency_s": 2.6693
+        },
+        {
+          "item_id": "dev-shop-00089",
+          "status": "200",
+          "latency_s": 2.7092
+        },
+        {
+          "item_id": "dev-shop-00090",
+          "status": "200",
+          "latency_s": 2.7009
+        },
+        {
+          "item_id": "dev-telecom-00000",
+          "status": "200",
+          "latency_s": 2.4917
+        },
+        {
+          "item_id": "dev-telecom-00001",
+          "status": "200",
+          "latency_s": 2.4348
+        },
+        {
+          "item_id": "dev-telecom-00003",
+          "status": "200",
+          "latency_s": 2.274
+        },
+        {
+          "item_id": "dev-telecom-00004",
+          "status": "200",
+          "latency_s": 2.8957
+        },
+        {
+          "item_id": "dev-telecom-00005",
+          "status": "200",
+          "latency_s": 2.4806
+        },
+        {
+          "item_id": "dev-telecom-00007",
+          "status": "200",
+          "latency_s": 2.5968
+        },
+        {
+          "item_id": "dev-telecom-00008",
+          "status": "200",
+          "latency_s": 2.4722
+        },
+        {
+          "item_id": "dev-telecom-00009",
+          "status": "200",
+          "latency_s": 2.4843
+        },
+        {
+          "item_id": "dev-telecom-00011",
+          "status": "200",
+          "latency_s": 2.2385
+        },
+        {
+          "item_id": "dev-telecom-00012",
+          "status": "200",
+          "latency_s": 2.5736
+        },
+        {
+          "item_id": "dev-telecom-00013",
+          "status": "200",
+          "latency_s": 1.9352
+        },
+        {
+          "item_id": "dev-telecom-00014",
+          "status": "200",
+          "latency_s": 2.4321
+        },
+        {
+          "item_id": "dev-telecom-00015",
+          "status": "200",
+          "latency_s": 2.4864
+        },
+        {
+          "item_id": "dev-telecom-00016",
+          "status": "200",
+          "latency_s": 2.6724
+        },
+        {
+          "item_id": "dev-telecom-00017",
+          "status": "200",
+          "latency_s": 2.6251
+        },
+        {
+          "item_id": "dev-telecom-00018",
+          "status": "200",
+          "latency_s": 2.4304
+        },
+        {
+          "item_id": "dev-telecom-00019",
+          "status": "200",
+          "latency_s": 2.2536
+        },
+        {
+          "item_id": "dev-telecom-00020",
+          "status": "200",
+          "latency_s": 2.7415
+        },
+        {
+          "item_id": "dev-telecom-00021",
+          "status": "200",
+          "latency_s": 1.7227
+        },
+        {
+          "item_id": "dev-telecom-00023",
+          "status": "200",
+          "latency_s": 2.3836
+        },
+        {
+          "item_id": "dev-telecom-00025",
+          "status": "200",
+          "latency_s": 2.6079
+        },
+        {
+          "item_id": "dev-telecom-00027",
+          "status": "200",
+          "latency_s": 2.0777
+        },
+        {
+          "item_id": "dev-telecom-00029",
+          "status": "200",
+          "latency_s": 2.3107
+        },
+        {
+          "item_id": "dev-telecom-00030",
+          "status": "200",
+          "latency_s": 2.9834
+        },
+        {
+          "item_id": "dev-telecom-00032",
+          "status": "200",
+          "latency_s": 2.2096
+        },
+        {
+          "item_id": "dev-telecom-00033",
+          "status": "200",
+          "latency_s": 2.613
+        },
+        {
+          "item_id": "dev-telecom-00034",
+          "status": "200",
+          "latency_s": 2.516
+        },
+        {
+          "item_id": "dev-telecom-00035",
+          "status": "200",
+          "latency_s": 2.0749
+        },
+        {
+          "item_id": "dev-telecom-00036",
+          "status": "200",
+          "latency_s": 2.2657
+        },
+        {
+          "item_id": "dev-telecom-00037",
+          "status": "200",
+          "latency_s": 2.0978
+        },
+        {
+          "item_id": "dev-telecom-00038",
+          "status": "200",
+          "latency_s": 2.5205
+        },
+        {
+          "item_id": "dev-telecom-00040",
+          "status": "200",
+          "latency_s": 2.5751
+        },
+        {
+          "item_id": "dev-telecom-00041",
+          "status": "200",
+          "latency_s": 2.3644
+        },
+        {
+          "item_id": "dev-telecom-00042",
+          "status": "200",
+          "latency_s": 2.5514
+        },
+        {
+          "item_id": "dev-telecom-00043",
+          "status": "200",
+          "latency_s": 2.233
+        },
+        {
+          "item_id": "dev-telecom-00045",
+          "status": "200",
+          "latency_s": 2.0745
+        },
+        {
+          "item_id": "dev-telecom-00046",
+          "status": "200",
+          "latency_s": 2.3161
+        },
+        {
+          "item_id": "dev-telecom-00048",
+          "status": "200",
+          "latency_s": 2.3461
+        },
+        {
+          "item_id": "dev-telecom-00049",
+          "status": "200",
+          "latency_s": 2.622
+        },
+        {
+          "item_id": "dev-telecom-00050",
+          "status": "200",
+          "latency_s": 2.2942
+        },
+        {
+          "item_id": "dev-telecom-00051",
+          "status": "200",
+          "latency_s": 2.1207
+        },
+        {
+          "item_id": "dev-telecom-00052",
+          "status": "200",
+          "latency_s": 2.5382
+        },
+        {
+          "item_id": "dev-telecom-00053",
+          "status": "200",
+          "latency_s": 1.909
+        },
+        {
+          "item_id": "dev-telecom-00054",
+          "status": "200",
+          "latency_s": 2.5593
+        },
+        {
+          "item_id": "dev-telecom-00055",
+          "status": "200",
+          "latency_s": 2.8011
+        },
+        {
+          "item_id": "dev-telecom-00056",
+          "status": "200",
+          "latency_s": 2.0387
+        },
+        {
+          "item_id": "dev-telecom-00057",
+          "status": "200",
+          "latency_s": 2.4055
+        },
+        {
+          "item_id": "dev-telecom-00058",
+          "status": "200",
+          "latency_s": 2.8931
+        },
+        {
+          "item_id": "dev-telecom-00059",
+          "status": "200",
+          "latency_s": 2.2964
+        },
+        {
+          "item_id": "dev-telecom-00061",
+          "status": "200",
+          "latency_s": 1.8105
+        },
+        {
+          "item_id": "dev-telecom-00062",
+          "status": "200",
+          "latency_s": 2.2197
+        },
+        {
+          "item_id": "dev-telecom-00063",
+          "status": "200",
+          "latency_s": 2.5875
+        },
+        {
+          "item_id": "dev-telecom-00064",
+          "status": "200",
+          "latency_s": 2.2081
+        },
+        {
+          "item_id": "dev-telecom-00065",
+          "status": "200",
+          "latency_s": 2.4768
+        },
+        {
+          "item_id": "dev-telecom-00066",
+          "status": "200",
+          "latency_s": 2.5182
+        },
+        {
+          "item_id": "dev-telecom-00067",
+          "status": "200",
+          "latency_s": 2.128
+        },
+        {
+          "item_id": "dev-telecom-00068",
+          "status": "200",
+          "latency_s": 2.4892
+        },
+        {
+          "item_id": "dev-telecom-00070",
+          "status": "200",
+          "latency_s": 2.3786
+        },
+        {
+          "item_id": "dev-telecom-00071",
+          "status": "200",
+          "latency_s": 2.3715
+        },
+        {
+          "item_id": "dev-telecom-00072",
+          "status": "200",
+          "latency_s": 2.4156
+        },
+        {
+          "item_id": "dev-telecom-00073",
+          "status": "200",
+          "latency_s": 2.5037
+        },
+        {
+          "item_id": "dev-telecom-00074",
+          "status": "200",
+          "latency_s": 2.4476
+        },
+        {
+          "item_id": "dev-telecom-00075",
+          "status": "200",
+          "latency_s": 2.5095
+        },
+        {
+          "item_id": "dev-telecom-00076",
+          "status": "200",
+          "latency_s": 1.9596
+        },
+        {
+          "item_id": "dev-telecom-00077",
+          "status": "200",
+          "latency_s": 2.2245
+        },
+        {
+          "item_id": "dev-telecom-00078",
+          "status": "200",
+          "latency_s": 2.2754
+        },
+        {
+          "item_id": "dev-telecom-00079",
+          "status": "200",
+          "latency_s": 2.75
+        },
+        {
+          "item_id": "dev-telecom-00080",
+          "status": "200",
+          "latency_s": 2.6863
+        },
+        {
+          "item_id": "dev-telecom-00081",
+          "status": "200",
+          "latency_s": 2.3069
+        },
+        {
+          "item_id": "dev-telecom-00082",
+          "status": "200",
+          "latency_s": 2.3279
+        },
+        {
+          "item_id": "dev-telecom-00083",
+          "status": "200",
+          "latency_s": 2.2641
+        },
+        {
+          "item_id": "dev-telecom-00084",
+          "status": "200",
+          "latency_s": 2.3939
+        },
+        {
+          "item_id": "dev-telecom-00085",
+          "status": "200",
+          "latency_s": 2.0778
+        },
+        {
+          "item_id": "dev-telecom-00086",
+          "status": "200",
+          "latency_s": 2.7642
+        },
+        {
+          "item_id": "dev-telecom-00087",
+          "status": "200",
+          "latency_s": 2.5921
+        },
+        {
+          "item_id": "dev-telecom-00088",
+          "status": "200",
+          "latency_s": 2.2367
+        },
+        {
+          "item_id": "dev-telecom-00089",
+          "status": "200",
+          "latency_s": 2.5232
+        },
+        {
+          "item_id": "dev-telecom-00090",
+          "status": "200",
+          "latency_s": 2.4388
+        },
+        {
+          "item_id": "dev-telecom-00091",
+          "status": "200",
+          "latency_s": 2.6946
+        },
+        {
+          "item_id": "dev-telecom-00092",
+          "status": "200",
+          "latency_s": 2.7496
+        }
+      ]
+    },
+    {
+      "concurrency": 2,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 547.36,
+      "throughput_rps": 0.438,
+      "latency_s": {
+        "p50": 4.538,
+        "p95": 5.165,
+        "mean": 4.551,
+        "max": 5.888
+      },
+      "requests": [
+        {
+          "item_id": "dev-parcel-00000",
+          "status": "200",
+          "latency_s": 5.6538
+        },
+        {
+          "item_id": "dev-parcel-00002",
+          "status": "200",
+          "latency_s": 3.3841
+        },
+        {
+          "item_id": "dev-parcel-00003",
+          "status": "200",
+          "latency_s": 4.7397
+        },
+        {
+          "item_id": "dev-parcel-00005",
+          "status": "200",
+          "latency_s": 4.5937
+        },
+        {
+          "item_id": "dev-parcel-00006",
+          "status": "200",
+          "latency_s": 4.9222
+        },
+        {
+          "item_id": "dev-parcel-00007",
+          "status": "200",
+          "latency_s": 5.2308
+        },
+        {
+          "item_id": "dev-parcel-00008",
+          "status": "200",
+          "latency_s": 4.4537
+        },
+        {
+          "item_id": "dev-parcel-00009",
+          "status": "200",
+          "latency_s": 4.557
+        },
+        {
+          "item_id": "dev-parcel-00010",
+          "status": "200",
+          "latency_s": 5.3154
+        },
+        {
+          "item_id": "dev-parcel-00011",
+          "status": "200",
+          "latency_s": 5.2713
+        },
+        {
+          "item_id": "dev-parcel-00012",
+          "status": "200",
+          "latency_s": 4.6355
+        },
+        {
+          "item_id": "dev-parcel-00013",
+          "status": "200",
+          "latency_s": 4.5967
+        },
+        {
+          "item_id": "dev-parcel-00014",
+          "status": "200",
+          "latency_s": 4.5697
+        },
+        {
+          "item_id": "dev-parcel-00015",
+          "status": "200",
+          "latency_s": 4.4315
+        },
+        {
+          "item_id": "dev-parcel-00016",
+          "status": "200",
+          "latency_s": 4.481
+        },
+        {
+          "item_id": "dev-parcel-00017",
+          "status": "200",
+          "latency_s": 5.352
+        },
+        {
+          "item_id": "dev-parcel-00018",
+          "status": "200",
+          "latency_s": 5.8876
+        },
+        {
+          "item_id": "dev-parcel-00019",
+          "status": "200",
+          "latency_s": 5.4122
+        },
+        {
+          "item_id": "dev-parcel-00020",
+          "status": "200",
+          "latency_s": 4.7311
+        },
+        {
+          "item_id": "dev-parcel-00021",
+          "status": "200",
+          "latency_s": 4.2862
+        },
+        {
+          "item_id": "dev-parcel-00022",
+          "status": "200",
+          "latency_s": 4.6156
+        },
+        {
+          "item_id": "dev-parcel-00023",
+          "status": "200",
+          "latency_s": 4.7214
+        },
+        {
+          "item_id": "dev-parcel-00024",
+          "status": "200",
+          "latency_s": 4.5025
+        },
+        {
+          "item_id": "dev-parcel-00025",
+          "status": "200",
+          "latency_s": 4.7179
+        },
+        {
+          "item_id": "dev-parcel-00026",
+          "status": "200",
+          "latency_s": 5.0278
+        },
+        {
+          "item_id": "dev-parcel-00027",
+          "status": "200",
+          "latency_s": 4.639
+        },
+        {
+          "item_id": "dev-parcel-00028",
+          "status": "200",
+          "latency_s": 4.2696
+        },
+        {
+          "item_id": "dev-parcel-00029",
+          "status": "200",
+          "latency_s": 4.3148
+        },
+        {
+          "item_id": "dev-parcel-00031",
+          "status": "200",
+          "latency_s": 4.6514
+        },
+        {
+          "item_id": "dev-parcel-00032",
+          "status": "200",
+          "latency_s": 4.5238
+        },
+        {
+          "item_id": "dev-parcel-00034",
+          "status": "200",
+          "latency_s": 4.9741
+        },
+        {
+          "item_id": "dev-parcel-00035",
+          "status": "200",
+          "latency_s": 5.0833
+        },
+        {
+          "item_id": "dev-parcel-00036",
+          "status": "200",
+          "latency_s": 4.2775
+        },
+        {
+          "item_id": "dev-parcel-00037",
+          "status": "200",
+          "latency_s": 4.3979
+        },
+        {
+          "item_id": "dev-parcel-00038",
+          "status": "200",
+          "latency_s": 4.4489
+        },
+        {
+          "item_id": "dev-parcel-00039",
+          "status": "200",
+          "latency_s": 4.4888
+        },
+        {
+          "item_id": "dev-parcel-00040",
+          "status": "200",
+          "latency_s": 4.739
+        },
+        {
+          "item_id": "dev-parcel-00042",
+          "status": "200",
+          "latency_s": 5.0054
+        },
+        {
+          "item_id": "dev-parcel-00043",
+          "status": "200",
+          "latency_s": 5.0902
+        },
+        {
+          "item_id": "dev-parcel-00045",
+          "status": "200",
+          "latency_s": 4.6218
+        },
+        {
+          "item_id": "dev-parcel-00046",
+          "status": "200",
+          "latency_s": 4.3219
+        },
+        {
+          "item_id": "dev-parcel-00047",
+          "status": "200",
+          "latency_s": 4.5124
+        },
+        {
+          "item_id": "dev-parcel-00048",
+          "status": "200",
+          "latency_s": 4.6795
+        },
+        {
+          "item_id": "dev-parcel-00049",
+          "status": "200",
+          "latency_s": 4.7029
+        },
+        {
+          "item_id": "dev-parcel-00054",
+          "status": "200",
+          "latency_s": 4.9321
+        },
+        {
+          "item_id": "dev-parcel-00055",
+          "status": "200",
+          "latency_s": 5.0485
+        },
+        {
+          "item_id": "dev-parcel-00056",
+          "status": "200",
+          "latency_s": 4.5843
+        },
+        {
+          "item_id": "dev-parcel-00057",
+          "status": "200",
+          "latency_s": 4.7032
+        },
+        {
+          "item_id": "dev-parcel-00059",
+          "status": "200",
+          "latency_s": 4.9131
+        },
+        {
+          "item_id": "dev-parcel-00061",
+          "status": "200",
+          "latency_s": 4.9647
+        },
+        {
+          "item_id": "dev-parcel-00062",
+          "status": "200",
+          "latency_s": 5.2526
+        },
+        {
+          "item_id": "dev-parcel-00063",
+          "status": "200",
+          "latency_s": 5.0859
+        },
+        {
+          "item_id": "dev-parcel-00064",
+          "status": "200",
+          "latency_s": 4.8876
+        },
+        {
+          "item_id": "dev-parcel-00066",
+          "status": "200",
+          "latency_s": 4.7942
+        },
+        {
+          "item_id": "dev-parcel-00067",
+          "status": "200",
+          "latency_s": 4.8664
+        },
+        {
+          "item_id": "dev-parcel-00068",
+          "status": "200",
+          "latency_s": 4.5964
+        },
+        {
+          "item_id": "dev-parcel-00069",
+          "status": "200",
+          "latency_s": 4.3409
+        },
+        {
+          "item_id": "dev-parcel-00070",
+          "status": "200",
+          "latency_s": 4.5641
+        },
+        {
+          "item_id": "dev-parcel-00071",
+          "status": "200",
+          "latency_s": 4.6782
+        },
+        {
+          "item_id": "dev-parcel-00072",
+          "status": "200",
+          "latency_s": 4.3625
+        },
+        {
+          "item_id": "dev-parcel-00073",
+          "status": "200",
+          "latency_s": 4.6539
+        },
+        {
+          "item_id": "dev-parcel-00074",
+          "status": "200",
+          "latency_s": 4.8292
+        },
+        {
+          "item_id": "dev-parcel-00075",
+          "status": "200",
+          "latency_s": 4.3493
+        },
+        {
+          "item_id": "dev-parcel-00078",
+          "status": "200",
+          "latency_s": 4.5048
+        },
+        {
+          "item_id": "dev-parcel-00079",
+          "status": "200",
+          "latency_s": 4.7888
+        },
+        {
+          "item_id": "dev-parcel-00080",
+          "status": "200",
+          "latency_s": 4.42
+        },
+        {
+          "item_id": "dev-parcel-00081",
+          "status": "200",
+          "latency_s": 4.4955
+        },
+        {
+          "item_id": "dev-parcel-00082",
+          "status": "200",
+          "latency_s": 5.1427
+        },
+        {
+          "item_id": "dev-parcel-00083",
+          "status": "200",
+          "latency_s": 4.9076
+        },
+        {
+          "item_id": "dev-parcel-00084",
+          "status": "200",
+          "latency_s": 4.5766
+        },
+        {
+          "item_id": "dev-parcel-00085",
+          "status": "200",
+          "latency_s": 4.6677
+        },
+        {
+          "item_id": "dev-parcel-00086",
+          "status": "200",
+          "latency_s": 4.4712
+        },
+        {
+          "item_id": "dev-parcel-00087",
+          "status": "200",
+          "latency_s": 4.4857
+        },
+        {
+          "item_id": "dev-parcel-00088",
+          "status": "200",
+          "latency_s": 5.1028
+        },
+        {
+          "item_id": "dev-parcel-00089",
+          "status": "200",
+          "latency_s": 5.2507
+        },
+        {
+          "item_id": "dev-parcel-00090",
+          "status": "200",
+          "latency_s": 5.2061
+        },
+        {
+          "item_id": "dev-parcel-00091",
+          "status": "200",
+          "latency_s": 5.328
+        },
+        {
+          "item_id": "dev-parcel-00092",
+          "status": "200",
+          "latency_s": 4.9373
+        },
+        {
+          "item_id": "dev-parcel-00093",
+          "status": "200",
+          "latency_s": 4.8401
+        },
+        {
+          "item_id": "dev-parcel-00094",
+          "status": "200",
+          "latency_s": 4.6841
+        },
+        {
+          "item_id": "dev-shop-00000",
+          "status": "200",
+          "latency_s": 4.4111
+        },
+        {
+          "item_id": "dev-shop-00001",
+          "status": "200",
+          "latency_s": 4.4664
+        },
+        {
+          "item_id": "dev-shop-00002",
+          "status": "200",
+          "latency_s": 4.501
+        },
+        {
+          "item_id": "dev-shop-00003",
+          "status": "200",
+          "latency_s": 4.5788
+        },
+        {
+          "item_id": "dev-shop-00004",
+          "status": "200",
+          "latency_s": 4.7696
+        },
+        {
+          "item_id": "dev-shop-00005",
+          "status": "200",
+          "latency_s": 4.7162
+        },
+        {
+          "item_id": "dev-shop-00006",
+          "status": "200",
+          "latency_s": 4.3648
+        },
+        {
+          "item_id": "dev-shop-00008",
+          "status": "200",
+          "latency_s": 4.4674
+        },
+        {
+          "item_id": "dev-shop-00009",
+          "status": "200",
+          "latency_s": 4.8966
+        },
+        {
+          "item_id": "dev-shop-00010",
+          "status": "200",
+          "latency_s": 4.9426
+        },
+        {
+          "item_id": "dev-shop-00011",
+          "status": "200",
+          "latency_s": 4.7105
+        },
+        {
+          "item_id": "dev-shop-00012",
+          "status": "200",
+          "latency_s": 4.455
+        },
+        {
+          "item_id": "dev-shop-00013",
+          "status": "200",
+          "latency_s": 4.4215
+        },
+        {
+          "item_id": "dev-shop-00014",
+          "status": "200",
+          "latency_s": 4.4413
+        },
+        {
+          "item_id": "dev-shop-00016",
+          "status": "200",
+          "latency_s": 4.1748
+        },
+        {
+          "item_id": "dev-shop-00017",
+          "status": "200",
+          "latency_s": 4.1369
+        },
+        {
+          "item_id": "dev-shop-00018",
+          "status": "200",
+          "latency_s": 4.4242
+        },
+        {
+          "item_id": "dev-shop-00019",
+          "status": "200",
+          "latency_s": 4.4604
+        },
+        {
+          "item_id": "dev-shop-00021",
+          "status": "200",
+          "latency_s": 4.506
+        },
+        {
+          "item_id": "dev-shop-00022",
+          "status": "200",
+          "latency_s": 4.4608
+        },
+        {
+          "item_id": "dev-shop-00023",
+          "status": "200",
+          "latency_s": 4.3213
+        },
+        {
+          "item_id": "dev-shop-00024",
+          "status": "200",
+          "latency_s": 4.5048
+        },
+        {
+          "item_id": "dev-shop-00025",
+          "status": "200",
+          "latency_s": 4.5563
+        },
+        {
+          "item_id": "dev-shop-00026",
+          "status": "200",
+          "latency_s": 4.691
+        },
+        {
+          "item_id": "dev-shop-00027",
+          "status": "200",
+          "latency_s": 4.9493
+        },
+        {
+          "item_id": "dev-shop-00029",
+          "status": "200",
+          "latency_s": 4.8955
+        },
+        {
+          "item_id": "dev-shop-00030",
+          "status": "200",
+          "latency_s": 4.4384
+        },
+        {
+          "item_id": "dev-shop-00031",
+          "status": "200",
+          "latency_s": 3.8217
+        },
+        {
+          "item_id": "dev-shop-00032",
+          "status": "200",
+          "latency_s": 3.8632
+        },
+        {
+          "item_id": "dev-shop-00033",
+          "status": "200",
+          "latency_s": 4.432
+        },
+        {
+          "item_id": "dev-shop-00034",
+          "status": "200",
+          "latency_s": 4.6658
+        },
+        {
+          "item_id": "dev-shop-00035",
+          "status": "200",
+          "latency_s": 4.4583
+        },
+        {
+          "item_id": "dev-shop-00036",
+          "status": "200",
+          "latency_s": 4.3515
+        },
+        {
+          "item_id": "dev-shop-00037",
+          "status": "200",
+          "latency_s": 4.6105
+        },
+        {
+          "item_id": "dev-shop-00038",
+          "status": "200",
+          "latency_s": 4.3279
+        },
+        {
+          "item_id": "dev-shop-00039",
+          "status": "200",
+          "latency_s": 3.9812
+        },
+        {
+          "item_id": "dev-shop-00040",
+          "status": "200",
+          "latency_s": 4.3342
+        },
+        {
+          "item_id": "dev-shop-00041",
+          "status": "200",
+          "latency_s": 4.6652
+        },
+        {
+          "item_id": "dev-shop-00042",
+          "status": "200",
+          "latency_s": 4.6379
+        },
+        {
+          "item_id": "dev-shop-00043",
+          "status": "200",
+          "latency_s": 4.4202
+        },
+        {
+          "item_id": "dev-shop-00044",
+          "status": "200",
+          "latency_s": 4.508
+        },
+        {
+          "item_id": "dev-shop-00045",
+          "status": "200",
+          "latency_s": 4.8193
+        },
+        {
+          "item_id": "dev-shop-00046",
+          "status": "200",
+          "latency_s": 4.6383
+        },
+        {
+          "item_id": "dev-shop-00047",
+          "status": "200",
+          "latency_s": 4.5984
+        },
+        {
+          "item_id": "dev-shop-00048",
+          "status": "200",
+          "latency_s": 4.9445
+        },
+        {
+          "item_id": "dev-shop-00050",
+          "status": "200",
+          "latency_s": 5.1546
+        },
+        {
+          "item_id": "dev-shop-00051",
+          "status": "200",
+          "latency_s": 5.0222
+        },
+        {
+          "item_id": "dev-shop-00053",
+          "status": "200",
+          "latency_s": 5.1062
+        },
+        {
+          "item_id": "dev-shop-00054",
+          "status": "200",
+          "latency_s": 4.7429
+        },
+        {
+          "item_id": "dev-shop-00056",
+          "status": "200",
+          "latency_s": 4.8591
+        },
+        {
+          "item_id": "dev-shop-00057",
+          "status": "200",
+          "latency_s": 5.463
+        },
+        {
+          "item_id": "dev-shop-00058",
+          "status": "200",
+          "latency_s": 5.1651
+        },
+        {
+          "item_id": "dev-shop-00059",
+          "status": "200",
+          "latency_s": 4.9762
+        },
+        {
+          "item_id": "dev-shop-00060",
+          "status": "200",
+          "latency_s": 4.6322
+        },
+        {
+          "item_id": "dev-shop-00061",
+          "status": "200",
+          "latency_s": 4.5026
+        },
+        {
+          "item_id": "dev-shop-00062",
+          "status": "200",
+          "latency_s": 4.3956
+        },
+        {
+          "item_id": "dev-shop-00063",
+          "status": "200",
+          "latency_s": 4.1157
+        },
+        {
+          "item_id": "dev-shop-00064",
+          "status": "200",
+          "latency_s": 4.3862
+        },
+        {
+          "item_id": "dev-shop-00066",
+          "status": "200",
+          "latency_s": 5.1076
+        },
+        {
+          "item_id": "dev-shop-00067",
+          "status": "200",
+          "latency_s": 5.0429
+        },
+        {
+          "item_id": "dev-shop-00068",
+          "status": "200",
+          "latency_s": 4.6151
+        },
+        {
+          "item_id": "dev-shop-00070",
+          "status": "200",
+          "latency_s": 4.6565
+        },
+        {
+          "item_id": "dev-shop-00072",
+          "status": "200",
+          "latency_s": 4.4481
+        },
+        {
+          "item_id": "dev-shop-00073",
+          "status": "200",
+          "latency_s": 4.7811
+        },
+        {
+          "item_id": "dev-shop-00075",
+          "status": "200",
+          "latency_s": 5.1503
+        },
+        {
+          "item_id": "dev-shop-00076",
+          "status": "200",
+          "latency_s": 4.8051
+        },
+        {
+          "item_id": "dev-shop-00077",
+          "status": "200",
+          "latency_s": 4.7291
+        },
+        {
+          "item_id": "dev-shop-00078",
+          "status": "200",
+          "latency_s": 4.7385
+        },
+        {
+          "item_id": "dev-shop-00079",
+          "status": "200",
+          "latency_s": 4.3956
+        },
+        {
+          "item_id": "dev-shop-00080",
+          "status": "200",
+          "latency_s": 4.3771
+        },
+        {
+          "item_id": "dev-shop-00081",
+          "status": "200",
+          "latency_s": 4.7085
+        },
+        {
+          "item_id": "dev-shop-00082",
+          "status": "200",
+          "latency_s": 5.1195
+        },
+        {
+          "item_id": "dev-shop-00083",
+          "status": "200",
+          "latency_s": 5.095
+        },
+        {
+          "item_id": "dev-shop-00084",
+          "status": "200",
+          "latency_s": 4.7294
+        },
+        {
+          "item_id": "dev-shop-00085",
+          "status": "200",
+          "latency_s": 4.8154
+        },
+        {
+          "item_id": "dev-shop-00086",
+          "status": "200",
+          "latency_s": 4.6311
+        },
+        {
+          "item_id": "dev-shop-00087",
+          "status": "200",
+          "latency_s": 4.2235
+        },
+        {
+          "item_id": "dev-shop-00088",
+          "status": "200",
+          "latency_s": 4.4381
+        },
+        {
+          "item_id": "dev-shop-00089",
+          "status": "200",
+          "latency_s": 4.8474
+        },
+        {
+          "item_id": "dev-shop-00090",
+          "status": "200",
+          "latency_s": 4.9019
+        },
+        {
+          "item_id": "dev-telecom-00000",
+          "status": "200",
+          "latency_s": 4.6515
+        },
+        {
+          "item_id": "dev-telecom-00001",
+          "status": "200",
+          "latency_s": 4.4074
+        },
+        {
+          "item_id": "dev-telecom-00003",
+          "status": "200",
+          "latency_s": 4.1882
+        },
+        {
+          "item_id": "dev-telecom-00004",
+          "status": "200",
+          "latency_s": 4.6376
+        },
+        {
+          "item_id": "dev-telecom-00005",
+          "status": "200",
+          "latency_s": 4.8819
+        },
+        {
+          "item_id": "dev-telecom-00007",
+          "status": "200",
+          "latency_s": 4.5813
+        },
+        {
+          "item_id": "dev-telecom-00008",
+          "status": "200",
+          "latency_s": 4.6008
+        },
+        {
+          "item_id": "dev-telecom-00009",
+          "status": "200",
+          "latency_s": 4.4821
+        },
+        {
+          "item_id": "dev-telecom-00011",
+          "status": "200",
+          "latency_s": 4.2202
+        },
+        {
+          "item_id": "dev-telecom-00012",
+          "status": "200",
+          "latency_s": 4.3354
+        },
+        {
+          "item_id": "dev-telecom-00013",
+          "status": "200",
+          "latency_s": 3.9937
+        },
+        {
+          "item_id": "dev-telecom-00014",
+          "status": "200",
+          "latency_s": 3.8233
+        },
+        {
+          "item_id": "dev-telecom-00015",
+          "status": "200",
+          "latency_s": 4.3858
+        },
+        {
+          "item_id": "dev-telecom-00016",
+          "status": "200",
+          "latency_s": 4.6576
+        },
+        {
+          "item_id": "dev-telecom-00017",
+          "status": "200",
+          "latency_s": 4.7872
+        },
+        {
+          "item_id": "dev-telecom-00018",
+          "status": "200",
+          "latency_s": 4.5046
+        },
+        {
+          "item_id": "dev-telecom-00019",
+          "status": "200",
+          "latency_s": 4.131
+        },
+        {
+          "item_id": "dev-telecom-00020",
+          "status": "200",
+          "latency_s": 4.443
+        },
+        {
+          "item_id": "dev-telecom-00021",
+          "status": "200",
+          "latency_s": 3.9341
+        },
+        {
+          "item_id": "dev-telecom-00023",
+          "status": "200",
+          "latency_s": 3.6029
+        },
+        {
+          "item_id": "dev-telecom-00025",
+          "status": "200",
+          "latency_s": 4.4954
+        },
+        {
+          "item_id": "dev-telecom-00027",
+          "status": "200",
+          "latency_s": 4.14
+        },
+        {
+          "item_id": "dev-telecom-00029",
+          "status": "200",
+          "latency_s": 3.904
+        },
+        {
+          "item_id": "dev-telecom-00030",
+          "status": "200",
+          "latency_s": 4.8003
+        },
+        {
+          "item_id": "dev-telecom-00032",
+          "status": "200",
+          "latency_s": 4.6146
+        },
+        {
+          "item_id": "dev-telecom-00033",
+          "status": "200",
+          "latency_s": 4.2603
+        },
+        {
+          "item_id": "dev-telecom-00034",
+          "status": "200",
+          "latency_s": 4.5975
+        },
+        {
+          "item_id": "dev-telecom-00035",
+          "status": "200",
+          "latency_s": 4.0459
+        },
+        {
+          "item_id": "dev-telecom-00036",
+          "status": "200",
+          "latency_s": 3.7952
+        },
+        {
+          "item_id": "dev-telecom-00037",
+          "status": "200",
+          "latency_s": 3.8175
+        },
+        {
+          "item_id": "dev-telecom-00038",
+          "status": "200",
+          "latency_s": 4.0448
+        },
+        {
+          "item_id": "dev-telecom-00040",
+          "status": "200",
+          "latency_s": 4.5534
+        },
+        {
+          "item_id": "dev-telecom-00041",
+          "status": "200",
+          "latency_s": 4.4329
+        },
+        {
+          "item_id": "dev-telecom-00042",
+          "status": "200",
+          "latency_s": 4.4239
+        },
+        {
+          "item_id": "dev-telecom-00043",
+          "status": "200",
+          "latency_s": 4.2678
+        },
+        {
+          "item_id": "dev-telecom-00045",
+          "status": "200",
+          "latency_s": 3.7405
+        },
+        {
+          "item_id": "dev-telecom-00046",
+          "status": "200",
+          "latency_s": 3.8338
+        },
+        {
+          "item_id": "dev-telecom-00048",
+          "status": "200",
+          "latency_s": 4.1518
+        },
+        {
+          "item_id": "dev-telecom-00049",
+          "status": "200",
+          "latency_s": 4.4537
+        },
+        {
+          "item_id": "dev-telecom-00050",
+          "status": "200",
+          "latency_s": 4.4344
+        },
+        {
+          "item_id": "dev-telecom-00051",
+          "status": "200",
+          "latency_s": 3.8545
+        },
+        {
+          "item_id": "dev-telecom-00052",
+          "status": "200",
+          "latency_s": 4.054
+        },
+        {
+          "item_id": "dev-telecom-00053",
+          "status": "200",
+          "latency_s": 3.9012
+        },
+        {
+          "item_id": "dev-telecom-00054",
+          "status": "200",
+          "latency_s": 3.935
+        },
+        {
+          "item_id": "dev-telecom-00055",
+          "status": "200",
+          "latency_s": 4.8233
+        },
+        {
+          "item_id": "dev-telecom-00056",
+          "status": "200",
+          "latency_s": 4.2855
+        },
+        {
+          "item_id": "dev-telecom-00057",
+          "status": "200",
+          "latency_s": 3.9119
+        },
+        {
+          "item_id": "dev-telecom-00058",
+          "status": "200",
+          "latency_s": 4.7831
+        },
+        {
+          "item_id": "dev-telecom-00059",
+          "status": "200",
+          "latency_s": 4.6553
+        },
+        {
+          "item_id": "dev-telecom-00061",
+          "status": "200",
+          "latency_s": 3.5835
+        },
+        {
+          "item_id": "dev-telecom-00062",
+          "status": "200",
+          "latency_s": 3.5365
+        },
+        {
+          "item_id": "dev-telecom-00063",
+          "status": "200",
+          "latency_s": 4.304
+        },
+        {
+          "item_id": "dev-telecom-00064",
+          "status": "200",
+          "latency_s": 4.251
+        },
+        {
+          "item_id": "dev-telecom-00065",
+          "status": "200",
+          "latency_s": 4.1244
+        },
+        {
+          "item_id": "dev-telecom-00066",
+          "status": "200",
+          "latency_s": 4.4588
+        },
+        {
+          "item_id": "dev-telecom-00067",
+          "status": "200",
+          "latency_s": 4.1281
+        },
+        {
+          "item_id": "dev-telecom-00068",
+          "status": "200",
+          "latency_s": 4.1165
+        },
+        {
+          "item_id": "dev-telecom-00070",
+          "status": "200",
+          "latency_s": 4.3331
+        },
+        {
+          "item_id": "dev-telecom-00071",
+          "status": "200",
+          "latency_s": 4.2235
+        },
+        {
+          "item_id": "dev-telecom-00072",
+          "status": "200",
+          "latency_s": 4.2969
+        },
+        {
+          "item_id": "dev-telecom-00073",
+          "status": "200",
+          "latency_s": 4.4162
+        },
+        {
+          "item_id": "dev-telecom-00074",
+          "status": "200",
+          "latency_s": 4.411
+        },
+        {
+          "item_id": "dev-telecom-00075",
+          "status": "200",
+          "latency_s": 4.4209
+        },
+        {
+          "item_id": "dev-telecom-00076",
+          "status": "200",
+          "latency_s": 3.9727
+        },
+        {
+          "item_id": "dev-telecom-00077",
+          "status": "200",
+          "latency_s": 3.6886
+        },
+        {
+          "item_id": "dev-telecom-00078",
+          "status": "200",
+          "latency_s": 4.0446
+        },
+        {
+          "item_id": "dev-telecom-00079",
+          "status": "200",
+          "latency_s": 4.5381
+        },
+        {
+          "item_id": "dev-telecom-00080",
+          "status": "200",
+          "latency_s": 4.9095
+        },
+        {
+          "item_id": "dev-telecom-00081",
+          "status": "200",
+          "latency_s": 4.4981
+        },
+        {
+          "item_id": "dev-telecom-00082",
+          "status": "200",
+          "latency_s": 4.1816
+        },
+        {
+          "item_id": "dev-telecom-00083",
+          "status": "200",
+          "latency_s": 4.0874
+        },
+        {
+          "item_id": "dev-telecom-00084",
+          "status": "200",
+          "latency_s": 4.1075
+        },
+        {
+          "item_id": "dev-telecom-00085",
+          "status": "200",
+          "latency_s": 3.9552
+        },
+        {
+          "item_id": "dev-telecom-00086",
+          "status": "200",
+          "latency_s": 4.3418
+        },
+        {
+          "item_id": "dev-telecom-00087",
+          "status": "200",
+          "latency_s": 4.8709
+        },
+        {
+          "item_id": "dev-telecom-00088",
+          "status": "200",
+          "latency_s": 4.3332
+        },
+        {
+          "item_id": "dev-telecom-00089",
+          "status": "200",
+          "latency_s": 4.2116
+        },
+        {
+          "item_id": "dev-telecom-00090",
+          "status": "200",
+          "latency_s": 4.4174
+        },
+        {
+          "item_id": "dev-telecom-00091",
+          "status": "200",
+          "latency_s": 4.6261
+        },
+        {
+          "item_id": "dev-telecom-00092",
+          "status": "200",
+          "latency_s": 4.9129
+        }
+      ]
+    },
+    {
+      "concurrency": 4,
+      "n": 240,
+      "status": {
+        "200": 240
+      },
+      "wall_s": 572.46,
+      "throughput_rps": 0.419,
+      "latency_s": {
+        "p50": 9.454,
+        "p95": 10.619,
+        "mean": 9.468,
+        "max": 11.21
+      },
+      "requests": [
+        {
+          "item_id": "dev-parcel-00000",
+          "status": "200",
+          "latency_s": 2.9362
+        },
+        {
+          "item_id": "dev-parcel-00002",
+          "status": "200",
+          "latency_s": 10.406
+        },
+        {
+          "item_id": "dev-parcel-00003",
+          "status": "200",
+          "latency_s": 7.501
+        },
+        {
+          "item_id": "dev-parcel-00005",
+          "status": "200",
+          "latency_s": 5.0542
+        },
+        {
+          "item_id": "dev-parcel-00006",
+          "status": "200",
+          "latency_s": 10.2518
+        },
+        {
+          "item_id": "dev-parcel-00007",
+          "status": "200",
+          "latency_s": 10.6339
+        },
+        {
+          "item_id": "dev-parcel-00008",
+          "status": "200",
+          "latency_s": 10.2534
+        },
+        {
+          "item_id": "dev-parcel-00009",
+          "status": "200",
+          "latency_s": 9.8586
+        },
+        {
+          "item_id": "dev-parcel-00010",
+          "status": "200",
+          "latency_s": 9.8638
+        },
+        {
+          "item_id": "dev-parcel-00011",
+          "status": "200",
+          "latency_s": 9.85
+        },
+        {
+          "item_id": "dev-parcel-00012",
+          "status": "200",
+          "latency_s": 9.9835
+        },
+        {
+          "item_id": "dev-parcel-00013",
+          "status": "200",
+          "latency_s": 9.8842
+        },
+        {
+          "item_id": "dev-parcel-00014",
+          "status": "200",
+          "latency_s": 9.1779
+        },
+        {
+          "item_id": "dev-parcel-00015",
+          "status": "200",
+          "latency_s": 9.0611
+        },
+        {
+          "item_id": "dev-parcel-00016",
+          "status": "200",
+          "latency_s": 9.0458
+        },
+        {
+          "item_id": "dev-parcel-00017",
+          "status": "200",
+          "latency_s": 9.8379
+        },
+        {
+          "item_id": "dev-parcel-00018",
+          "status": "200",
+          "latency_s": 10.4552
+        },
+        {
+          "item_id": "dev-parcel-00019",
+          "status": "200",
+          "latency_s": 10.8137
+        },
+        {
+          "item_id": "dev-parcel-00020",
+          "status": "200",
+          "latency_s": 10.639
+        },
+        {
+          "item_id": "dev-parcel-00021",
+          "status": "200",
+          "latency_s": 9.7179
+        },
+        {
+          "item_id": "dev-parcel-00022",
+          "status": "200",
+          "latency_s": 9.3691
+        },
+        {
+          "item_id": "dev-parcel-00023",
+          "status": "200",
+          "latency_s": 9.016
+        },
+        {
+          "item_id": "dev-parcel-00024",
+          "status": "200",
+          "latency_s": 9.1288
+        },
+        {
+          "item_id": "dev-parcel-00025",
+          "status": "200",
+          "latency_s": 9.4398
+        },
+        {
+          "item_id": "dev-parcel-00026",
+          "status": "200",
+          "latency_s": 9.5407
+        },
+        {
+          "item_id": "dev-parcel-00027",
+          "status": "200",
+          "latency_s": 9.3563
+        },
+        {
+          "item_id": "dev-parcel-00028",
+          "status": "200",
+          "latency_s": 9.2996
+        },
+        {
+          "item_id": "dev-parcel-00029",
+          "status": "200",
+          "latency_s": 8.9524
+        },
+        {
+          "item_id": "dev-parcel-00031",
+          "status": "200",
+          "latency_s": 8.9019
+        },
+        {
+          "item_id": "dev-parcel-00032",
+          "status": "200",
+          "latency_s": 8.7783
+        },
+        {
+          "item_id": "dev-parcel-00034",
+          "status": "200",
+          "latency_s": 9.6309
+        },
+        {
+          "item_id": "dev-parcel-00035",
+          "status": "200",
+          "latency_s": 9.5995
+        },
+        {
+          "item_id": "dev-parcel-00036",
+          "status": "200",
+          "latency_s": 9.2738
+        },
+        {
+          "item_id": "dev-parcel-00037",
+          "status": "200",
+          "latency_s": 9.5112
+        },
+        {
+          "item_id": "dev-parcel-00038",
+          "status": "200",
+          "latency_s": 8.6615
+        },
+        {
+          "item_id": "dev-parcel-00039",
+          "status": "200",
+          "latency_s": 8.8631
+        },
+        {
+          "item_id": "dev-parcel-00040",
+          "status": "200",
+          "latency_s": 9.14
+        },
+        {
+          "item_id": "dev-parcel-00042",
+          "status": "200",
+          "latency_s": 9.4829
+        },
+        {
+          "item_id": "dev-parcel-00043",
+          "status": "200",
+          "latency_s": 9.8623
+        },
+        {
+          "item_id": "dev-parcel-00045",
+          "status": "200",
+          "latency_s": 9.6329
+        },
+        {
+          "item_id": "dev-parcel-00046",
+          "status": "200",
+          "latency_s": 9.4214
+        },
+        {
+          "item_id": "dev-parcel-00047",
+          "status": "200",
+          "latency_s": 9.1428
+        },
+        {
+          "item_id": "dev-parcel-00048",
+          "status": "200",
+          "latency_s": 9.0105
+        },
+        {
+          "item_id": "dev-parcel-00049",
+          "status": "200",
+          "latency_s": 9.2274
+        },
+        {
+          "item_id": "dev-parcel-00054",
+          "status": "200",
+          "latency_s": 9.6549
+        },
+        {
+          "item_id": "dev-parcel-00055",
+          "status": "200",
+          "latency_s": 9.7352
+        },
+        {
+          "item_id": "dev-parcel-00056",
+          "status": "200",
+          "latency_s": 9.4674
+        },
+        {
+          "item_id": "dev-parcel-00057",
+          "status": "200",
+          "latency_s": 9.7209
+        },
+        {
+          "item_id": "dev-parcel-00059",
+          "status": "200",
+          "latency_s": 9.4258
+        },
+        {
+          "item_id": "dev-parcel-00061",
+          "status": "200",
+          "latency_s": 9.6607
+        },
+        {
+          "item_id": "dev-parcel-00062",
+          "status": "200",
+          "latency_s": 10.1727
+        },
+        {
+          "item_id": "dev-parcel-00063",
+          "status": "200",
+          "latency_s": 10.0421
+        },
+        {
+          "item_id": "dev-parcel-00064",
+          "status": "200",
+          "latency_s": 10.1362
+        },
+        {
+          "item_id": "dev-parcel-00066",
+          "status": "200",
+          "latency_s": 9.8467
+        },
+        {
+          "item_id": "dev-parcel-00067",
+          "status": "200",
+          "latency_s": 9.7248
+        },
+        {
+          "item_id": "dev-parcel-00068",
+          "status": "200",
+          "latency_s": 9.347
+        },
+        {
+          "item_id": "dev-parcel-00069",
+          "status": "200",
+          "latency_s": 9.1685
+        },
+        {
+          "item_id": "dev-parcel-00070",
+          "status": "200",
+          "latency_s": 9.1331
+        },
+        {
+          "item_id": "dev-parcel-00071",
+          "status": "200",
+          "latency_s": 8.9924
+        },
+        {
+          "item_id": "dev-parcel-00072",
+          "status": "200",
+          "latency_s": 8.8889
+        },
+        {
+          "item_id": "dev-parcel-00073",
+          "status": "200",
+          "latency_s": 9.294
+        },
+        {
+          "item_id": "dev-parcel-00074",
+          "status": "200",
+          "latency_s": 9.169
+        },
+        {
+          "item_id": "dev-parcel-00075",
+          "status": "200",
+          "latency_s": 8.9903
+        },
+        {
+          "item_id": "dev-parcel-00078",
+          "status": "200",
+          "latency_s": 9.334
+        },
+        {
+          "item_id": "dev-parcel-00079",
+          "status": "200",
+          "latency_s": 9.1043
+        },
+        {
+          "item_id": "dev-parcel-00080",
+          "status": "200",
+          "latency_s": 8.8823
+        },
+        {
+          "item_id": "dev-parcel-00081",
+          "status": "200",
+          "latency_s": 9.2479
+        },
+        {
+          "item_id": "dev-parcel-00082",
+          "status": "200",
+          "latency_s": 9.5233
+        },
+        {
+          "item_id": "dev-parcel-00083",
+          "status": "200",
+          "latency_s": 9.3937
+        },
+        {
+          "item_id": "dev-parcel-00084",
+          "status": "200",
+          "latency_s": 9.7028
+        },
+        {
+          "item_id": "dev-parcel-00085",
+          "status": "200",
+          "latency_s": 9.5422
+        },
+        {
+          "item_id": "dev-parcel-00086",
+          "status": "200",
+          "latency_s": 9.0201
+        },
+        {
+          "item_id": "dev-parcel-00087",
+          "status": "200",
+          "latency_s": 9.14
+        },
+        {
+          "item_id": "dev-parcel-00088",
+          "status": "200",
+          "latency_s": 9.5798
+        },
+        {
+          "item_id": "dev-parcel-00089",
+          "status": "200",
+          "latency_s": 9.7281
+        },
+        {
+          "item_id": "dev-parcel-00090",
+          "status": "200",
+          "latency_s": 10.2972
+        },
+        {
+          "item_id": "dev-parcel-00091",
+          "status": "200",
+          "latency_s": 10.5562
+        },
+        {
+          "item_id": "dev-parcel-00092",
+          "status": "200",
+          "latency_s": 10.1122
+        },
+        {
+          "item_id": "dev-parcel-00093",
+          "status": "200",
+          "latency_s": 10.1602
+        },
+        {
+          "item_id": "dev-parcel-00094",
+          "status": "200",
+          "latency_s": 9.6073
+        },
+        {
+          "item_id": "dev-shop-00000",
+          "status": "200",
+          "latency_s": 9.2241
+        },
+        {
+          "item_id": "dev-shop-00001",
+          "status": "200",
+          "latency_s": 9.1325
+        },
+        {
+          "item_id": "dev-shop-00002",
+          "status": "200",
+          "latency_s": 8.8647
+        },
+        {
+          "item_id": "dev-shop-00003",
+          "status": "200",
+          "latency_s": 9.0011
+        },
+        {
+          "item_id": "dev-shop-00004",
+          "status": "200",
+          "latency_s": 9.2001
+        },
+        {
+          "item_id": "dev-shop-00005",
+          "status": "200",
+          "latency_s": 9.2591
+        },
+        {
+          "item_id": "dev-shop-00006",
+          "status": "200",
+          "latency_s": 9.1291
+        },
+        {
+          "item_id": "dev-shop-00008",
+          "status": "200",
+          "latency_s": 9.1602
+        },
+        {
+          "item_id": "dev-shop-00009",
+          "status": "200",
+          "latency_s": 9.2711
+        },
+        {
+          "item_id": "dev-shop-00010",
+          "status": "200",
+          "latency_s": 9.3843
+        },
+        {
+          "item_id": "dev-shop-00011",
+          "status": "200",
+          "latency_s": 9.5542
+        },
+        {
+          "item_id": "dev-shop-00012",
+          "status": "200",
+          "latency_s": 9.3769
+        },
+        {
+          "item_id": "dev-shop-00013",
+          "status": "200",
+          "latency_s": 9.1159
+        },
+        {
+          "item_id": "dev-shop-00014",
+          "status": "200",
+          "latency_s": 8.8725
+        },
+        {
+          "item_id": "dev-shop-00016",
+          "status": "200",
+          "latency_s": 8.648
+        },
+        {
+          "item_id": "dev-shop-00017",
+          "status": "200",
+          "latency_s": 8.6174
+        },
+        {
+          "item_id": "dev-shop-00018",
+          "status": "200",
+          "latency_s": 8.6065
+        },
+        {
+          "item_id": "dev-shop-00019",
+          "status": "200",
+          "latency_s": 8.5989
+        },
+        {
+          "item_id": "dev-shop-00021",
+          "status": "200",
+          "latency_s": 8.8772
+        },
+        {
+          "item_id": "dev-shop-00022",
+          "status": "200",
+          "latency_s": 8.874
+        },
+        {
+          "item_id": "dev-shop-00023",
+          "status": "200",
+          "latency_s": 8.8221
+        },
+        {
+          "item_id": "dev-shop-00024",
+          "status": "200",
+          "latency_s": 8.967
+        },
+        {
+          "item_id": "dev-shop-00025",
+          "status": "200",
+          "latency_s": 8.8733
+        },
+        {
+          "item_id": "dev-shop-00026",
+          "status": "200",
+          "latency_s": 9.1825
+        },
+        {
+          "item_id": "dev-shop-00027",
+          "status": "200",
+          "latency_s": 9.4773
+        },
+        {
+          "item_id": "dev-shop-00029",
+          "status": "200",
+          "latency_s": 9.5633
+        },
+        {
+          "item_id": "dev-shop-00030",
+          "status": "200",
+          "latency_s": 9.3731
+        },
+        {
+          "item_id": "dev-shop-00031",
+          "status": "200",
+          "latency_s": 8.7153
+        },
+        {
+          "item_id": "dev-shop-00032",
+          "status": "200",
+          "latency_s": 8.3255
+        },
+        {
+          "item_id": "dev-shop-00033",
+          "status": "200",
+          "latency_s": 8.2356
+        },
+        {
+          "item_id": "dev-shop-00034",
+          "status": "200",
+          "latency_s": 8.5027
+        },
+        {
+          "item_id": "dev-shop-00035",
+          "status": "200",
+          "latency_s": 8.8388
+        },
+        {
+          "item_id": "dev-shop-00036",
+          "status": "200",
+          "latency_s": 8.944
+        },
+        {
+          "item_id": "dev-shop-00037",
+          "status": "200",
+          "latency_s": 9.0259
+        },
+        {
+          "item_id": "dev-shop-00038",
+          "status": "200",
+          "latency_s": 8.6429
+        },
+        {
+          "item_id": "dev-shop-00039",
+          "status": "200",
+          "latency_s": 8.5762
+        },
+        {
+          "item_id": "dev-shop-00040",
+          "status": "200",
+          "latency_s": 8.6478
+        },
+        {
+          "item_id": "dev-shop-00041",
+          "status": "200",
+          "latency_s": 8.6378
+        },
+        {
+          "item_id": "dev-shop-00042",
+          "status": "200",
+          "latency_s": 8.9694
+        },
+        {
+          "item_id": "dev-shop-00043",
+          "status": "200",
+          "latency_s": 9.0742
+        },
+        {
+          "item_id": "dev-shop-00044",
+          "status": "200",
+          "latency_s": 9.1324
+        },
+        {
+          "item_id": "dev-shop-00045",
+          "status": "200",
+          "latency_s": 9.2548
+        },
+        {
+          "item_id": "dev-shop-00046",
+          "status": "200",
+          "latency_s": 9.1429
+        },
+        {
+          "item_id": "dev-shop-00047",
+          "status": "200",
+          "latency_s": 9.4162
+        },
+        {
+          "item_id": "dev-shop-00048",
+          "status": "200",
+          "latency_s": 9.5722
+        },
+        {
+          "item_id": "dev-shop-00050",
+          "status": "200",
+          "latency_s": 9.7039
+        },
+        {
+          "item_id": "dev-shop-00051",
+          "status": "200",
+          "latency_s": 9.9223
+        },
+        {
+          "item_id": "dev-shop-00053",
+          "status": "200",
+          "latency_s": 10.1914
+        },
+        {
+          "item_id": "dev-shop-00054",
+          "status": "200",
+          "latency_s": 9.801
+        },
+        {
+          "item_id": "dev-shop-00056",
+          "status": "200",
+          "latency_s": 9.9647
+        },
+        {
+          "item_id": "dev-shop-00057",
+          "status": "200",
+          "latency_s": 10.2058
+        },
+        {
+          "item_id": "dev-shop-00058",
+          "status": "200",
+          "latency_s": 10.042
+        },
+        {
+          "item_id": "dev-shop-00059",
+          "status": "200",
+          "latency_s": 10.3627
+        },
+        {
+          "item_id": "dev-shop-00060",
+          "status": "200",
+          "latency_s": 9.7832
+        },
+        {
+          "item_id": "dev-shop-00061",
+          "status": "200",
+          "latency_s": 9.4722
+        },
+        {
+          "item_id": "dev-shop-00062",
+          "status": "200",
+          "latency_s": 9.0344
+        },
+        {
+          "item_id": "dev-shop-00063",
+          "status": "200",
+          "latency_s": 8.6398
+        },
+        {
+          "item_id": "dev-shop-00064",
+          "status": "200",
+          "latency_s": 8.7826
+        },
+        {
+          "item_id": "dev-shop-00066",
+          "status": "200",
+          "latency_s": 9.2287
+        },
+        {
+          "item_id": "dev-shop-00067",
+          "status": "200",
+          "latency_s": 9.4117
+        },
+        {
+          "item_id": "dev-shop-00068",
+          "status": "200",
+          "latency_s": 9.6974
+        },
+        {
+          "item_id": "dev-shop-00070",
+          "status": "200",
+          "latency_s": 9.6734
+        },
+        {
+          "item_id": "dev-shop-00072",
+          "status": "200",
+          "latency_s": 8.9984
+        },
+        {
+          "item_id": "dev-shop-00073",
+          "status": "200",
+          "latency_s": 9.4233
+        },
+        {
+          "item_id": "dev-shop-00075",
+          "status": "200",
+          "latency_s": 9.6329
+        },
+        {
+          "item_id": "dev-shop-00076",
+          "status": "200",
+          "latency_s": 9.5588
+        },
+        {
+          "item_id": "dev-shop-00077",
+          "status": "200",
+          "latency_s": 9.9177
+        },
+        {
+          "item_id": "dev-shop-00078",
+          "status": "200",
+          "latency_s": 9.5414
+        },
+        {
+          "item_id": "dev-shop-00079",
+          "status": "200",
+          "latency_s": 9.0222
+        },
+        {
+          "item_id": "dev-shop-00080",
+          "status": "200",
+          "latency_s": 9.1474
+        },
+        {
+          "item_id": "dev-shop-00081",
+          "status": "200",
+          "latency_s": 9.0991
+        },
+        {
+          "item_id": "dev-shop-00082",
+          "status": "200",
+          "latency_s": 9.4641
+        },
+        {
+          "item_id": "dev-shop-00083",
+          "status": "200",
+          "latency_s": 9.8092
+        },
+        {
+          "item_id": "dev-shop-00084",
+          "status": "200",
+          "latency_s": 9.7947
+        },
+        {
+          "item_id": "dev-shop-00085",
+          "status": "200",
+          "latency_s": 9.8536
+        },
+        {
+          "item_id": "dev-shop-00086",
+          "status": "200",
+          "latency_s": 9.3362
+        },
+        {
+          "item_id": "dev-shop-00087",
+          "status": "200",
+          "latency_s": 9.0236
+        },
+        {
+          "item_id": "dev-shop-00088",
+          "status": "200",
+          "latency_s": 9.0672
+        },
+        {
+          "item_id": "dev-shop-00089",
+          "status": "200",
+          "latency_s": 9.1071
+        },
+        {
+          "item_id": "dev-shop-00090",
+          "status": "200",
+          "latency_s": 9.3716
+        },
+        {
+          "item_id": "dev-telecom-00000",
+          "status": "200",
+          "latency_s": 9.5176
+        },
+        {
+          "item_id": "dev-telecom-00001",
+          "status": "200",
+          "latency_s": 9.3142
+        },
+        {
+          "item_id": "dev-telecom-00003",
+          "status": "200",
+          "latency_s": 8.8276
+        },
+        {
+          "item_id": "dev-telecom-00004",
+          "status": "200",
+          "latency_s": 9.0475
+        },
+        {
+          "item_id": "dev-telecom-00005",
+          "status": "200",
+          "latency_s": 9.0789
+        },
+        {
+          "item_id": "dev-telecom-00007",
+          "status": "200",
+          "latency_s": 9.2259
+        },
+        {
+          "item_id": "dev-telecom-00008",
+          "status": "200",
+          "latency_s": 9.4536
+        },
+        {
+          "item_id": "dev-telecom-00009",
+          "status": "200",
+          "latency_s": 9.0612
+        },
+        {
+          "item_id": "dev-telecom-00011",
+          "status": "200",
+          "latency_s": 8.8208
+        },
+        {
+          "item_id": "dev-telecom-00012",
+          "status": "200",
+          "latency_s": 8.8088
+        },
+        {
+          "item_id": "dev-telecom-00013",
+          "status": "200",
+          "latency_s": 8.225
+        },
+        {
+          "item_id": "dev-telecom-00014",
+          "status": "200",
+          "latency_s": 8.147
+        },
+        {
+          "item_id": "dev-telecom-00015",
+          "status": "200",
+          "latency_s": 8.3847
+        },
+        {
+          "item_id": "dev-telecom-00016",
+          "status": "200",
+          "latency_s": 8.486
+        },
+        {
+          "item_id": "dev-telecom-00017",
+          "status": "200",
+          "latency_s": 9.1853
+        },
+        {
+          "item_id": "dev-telecom-00018",
+          "status": "200",
+          "latency_s": 9.1661
+        },
+        {
+          "item_id": "dev-telecom-00019",
+          "status": "200",
+          "latency_s": 8.9007
+        },
+        {
+          "item_id": "dev-telecom-00020",
+          "status": "200",
+          "latency_s": 8.9499
+        },
+        {
+          "item_id": "dev-telecom-00021",
+          "status": "200",
+          "latency_s": 8.0639
+        },
+        {
+          "item_id": "dev-telecom-00023",
+          "status": "200",
+          "latency_s": 8.0449
+        },
+        {
+          "item_id": "dev-telecom-00025",
+          "status": "200",
+          "latency_s": 8.8621
+        },
+        {
+          "item_id": "dev-telecom-00027",
+          "status": "200",
+          "latency_s": 8.2561
+        },
+        {
+          "item_id": "dev-telecom-00029",
+          "status": "200",
+          "latency_s": 9.3177
+        },
+        {
+          "item_id": "dev-telecom-00030",
+          "status": "200",
+          "latency_s": 10.4348
+        },
+        {
+          "item_id": "dev-telecom-00032",
+          "status": "200",
+          "latency_s": 9.939
+        },
+        {
+          "item_id": "dev-telecom-00033",
+          "status": "200",
+          "latency_s": 10.8067
+        },
+        {
+          "item_id": "dev-telecom-00034",
+          "status": "200",
+          "latency_s": 10.9903
+        },
+        {
+          "item_id": "dev-telecom-00035",
+          "status": "200",
+          "latency_s": 9.8557
+        },
+        {
+          "item_id": "dev-telecom-00036",
+          "status": "200",
+          "latency_s": 9.9759
+        },
+        {
+          "item_id": "dev-telecom-00037",
+          "status": "200",
+          "latency_s": 9.3751
+        },
+        {
+          "item_id": "dev-telecom-00038",
+          "status": "200",
+          "latency_s": 9.3339
+        },
+        {
+          "item_id": "dev-telecom-00040",
+          "status": "200",
+          "latency_s": 9.9641
+        },
+        {
+          "item_id": "dev-telecom-00041",
+          "status": "200",
+          "latency_s": 10.0945
+        },
+        {
+          "item_id": "dev-telecom-00042",
+          "status": "200",
+          "latency_s": 10.7386
+        },
+        {
+          "item_id": "dev-telecom-00043",
+          "status": "200",
+          "latency_s": 10.4754
+        },
+        {
+          "item_id": "dev-telecom-00045",
+          "status": "200",
+          "latency_s": 9.8516
+        },
+        {
+          "item_id": "dev-telecom-00046",
+          "status": "200",
+          "latency_s": 9.797
+        },
+        {
+          "item_id": "dev-telecom-00048",
+          "status": "200",
+          "latency_s": 9.5098
+        },
+        {
+          "item_id": "dev-telecom-00049",
+          "status": "200",
+          "latency_s": 9.9774
+        },
+        {
+          "item_id": "dev-telecom-00050",
+          "status": "200",
+          "latency_s": 10.3101
+        },
+        {
+          "item_id": "dev-telecom-00051",
+          "status": "200",
+          "latency_s": 9.999
+        },
+        {
+          "item_id": "dev-telecom-00052",
+          "status": "200",
+          "latency_s": 10.2356
+        },
+        {
+          "item_id": "dev-telecom-00053",
+          "status": "200",
+          "latency_s": 9.3202
+        },
+        {
+          "item_id": "dev-telecom-00054",
+          "status": "200",
+          "latency_s": 9.6269
+        },
+        {
+          "item_id": "dev-telecom-00055",
+          "status": "200",
+          "latency_s": 10.503
+        },
+        {
+          "item_id": "dev-telecom-00056",
+          "status": "200",
+          "latency_s": 9.8683
+        },
+        {
+          "item_id": "dev-telecom-00057",
+          "status": "200",
+          "latency_s": 10.491
+        },
+        {
+          "item_id": "dev-telecom-00058",
+          "status": "200",
+          "latency_s": 10.901
+        },
+        {
+          "item_id": "dev-telecom-00059",
+          "status": "200",
+          "latency_s": 10.2819
+        },
+        {
+          "item_id": "dev-telecom-00061",
+          "status": "200",
+          "latency_s": 10.0538
+        },
+        {
+          "item_id": "dev-telecom-00062",
+          "status": "200",
+          "latency_s": 9.868
+        },
+        {
+          "item_id": "dev-telecom-00063",
+          "status": "200",
+          "latency_s": 9.4955
+        },
+        {
+          "item_id": "dev-telecom-00064",
+          "status": "200",
+          "latency_s": 9.381
+        },
+        {
+          "item_id": "dev-telecom-00065",
+          "status": "200",
+          "latency_s": 10.1533
+        },
+        {
+          "item_id": "dev-telecom-00066",
+          "status": "200",
+          "latency_s": 10.5258
+        },
+        {
+          "item_id": "dev-telecom-00067",
+          "status": "200",
+          "latency_s": 9.9304
+        },
+        {
+          "item_id": "dev-telecom-00068",
+          "status": "200",
+          "latency_s": 10.3256
+        },
+        {
+          "item_id": "dev-telecom-00070",
+          "status": "200",
+          "latency_s": 10.1929
+        },
+        {
+          "item_id": "dev-telecom-00071",
+          "status": "200",
+          "latency_s": 9.9689
+        },
+        {
+          "item_id": "dev-telecom-00072",
+          "status": "200",
+          "latency_s": 10.3461
+        },
+        {
+          "item_id": "dev-telecom-00073",
+          "status": "200",
+          "latency_s": 10.3391
+        },
+        {
+          "item_id": "dev-telecom-00074",
+          "status": "200",
+          "latency_s": 10.389
+        },
+        {
+          "item_id": "dev-telecom-00075",
+          "status": "200",
+          "latency_s": 10.5854
+        },
+        {
+          "item_id": "dev-telecom-00076",
+          "status": "200",
+          "latency_s": 10.0662
+        },
+        {
+          "item_id": "dev-telecom-00077",
+          "status": "200",
+          "latency_s": 9.7293
+        },
+        {
+          "item_id": "dev-telecom-00078",
+          "status": "200",
+          "latency_s": 9.6126
+        },
+        {
+          "item_id": "dev-telecom-00079",
+          "status": "200",
+          "latency_s": 9.8871
+        },
+        {
+          "item_id": "dev-telecom-00080",
+          "status": "200",
+          "latency_s": 10.7424
+        },
+        {
+          "item_id": "dev-telecom-00081",
+          "status": "200",
+          "latency_s": 10.8621
+        },
+        {
+          "item_id": "dev-telecom-00082",
+          "status": "200",
+          "latency_s": 10.9365
+        },
+        {
+          "item_id": "dev-telecom-00083",
+          "status": "200",
+          "latency_s": 10.3647
+        },
+        {
+          "item_id": "dev-telecom-00084",
+          "status": "200",
+          "latency_s": 9.9754
+        },
+        {
+          "item_id": "dev-telecom-00085",
+          "status": "200",
+          "latency_s": 9.6685
+        },
+        {
+          "item_id": "dev-telecom-00086",
+          "status": "200",
+          "latency_s": 10.1972
+        },
+        {
+          "item_id": "dev-telecom-00087",
+          "status": "200",
+          "latency_s": 10.5658
+        },
+        {
+          "item_id": "dev-telecom-00088",
+          "status": "200",
+          "latency_s": 10.4255
+        },
+        {
+          "item_id": "dev-telecom-00089",
+          "status": "200",
+          "latency_s": 10.9058
+        },
+        {
+          "item_id": "dev-telecom-00090",
+          "status": "200",
+          "latency_s": 10.4882
+        },
+        {
+          "item_id": "dev-telecom-00091",
+          "status": "200",
+          "latency_s": 10.6185
+        },
+        {
+          "item_id": "dev-telecom-00092",
+          "status": "200",
+          "latency_s": 11.2101
+        }
+      ]
+    }
+  ],
+  "service_stats": {
+    "requests": {
+      "ok": 725,
+      "retried_ok": 0,
+      "rejected": 0,
+      "model_unavailable": 0
+    },
+    "latency_s": {
+      "n": 725,
+      "p50": 4.502,
+      "p95": 10.219,
+      "max": 36.34
+    }
+  }
+}

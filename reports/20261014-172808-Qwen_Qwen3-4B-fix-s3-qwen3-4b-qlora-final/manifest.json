@@ -1,0 +1,40 @@
+{
+  "run_id": "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+  "provider": "hf:Qwen/Qwen3-4B+outputs/train/qwen3-4b-qlora-r16-fix/final:4bit",
+  "model_fingerprint": {
+    "adapter_sha": "a9d15030d610",
+    "train_config_sha": "66033944f656",
+    "base_revision": "1cfa9a7208912126459214e8b04321603b3df60c"
+  },
+  "data": "datasets\\dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 4,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "num_ctx": null,
+  "think": "off",
+  "ollama_options": {},
+  "git_commit": "389a6ebd5349d1b61d4882f3fcaceb1fbb860673",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev.jsonl",
+    "--official",
+    "--label",
+    "fix-s3-qwen3-4b-qlora-final",
+    "--backend",
+    "hf",
+    "--model",
+    "Qwen/Qwen3-4B",
+    "--adapter",
+    "outputs/train/qwen3-4b-qlora-r16-fix/final",
+    "--load-4bit",
+    "--batch",
+    "4"
+  ],
+  "started": "20261014-172808"
+}

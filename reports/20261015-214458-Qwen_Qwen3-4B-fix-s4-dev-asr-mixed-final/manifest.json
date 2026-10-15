@@ -1,0 +1,41 @@
+{
+  "run_id": "20261015-214458-Qwen_Qwen3-4B-fix-s4-dev-asr-mixed-final",
+  "provider": "hf:Qwen/Qwen3-4B+outputs/train/qwen3-4b-qlora-r16-mixed-fix/final:4bit",
+  "model_fingerprint": {
+    "adapter_sha": "b86579a20d93",
+    "train_config_sha": "111bf563fa85",
+    "base_revision": "1cfa9a7208912126459214e8b04321603b3df60c"
+  },
+  "data": "datasets\\dev-asr.jsonl",
+  "data_sha": "21d6574d0427",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 4,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "num_ctx": null,
+  "think": "off",
+  "ollama_options": {},
+  "git_commit": "473f0dbaefd646798f69d1d6fe7b1219ce048e60",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/dev-asr.jsonl",
+    "--official",
+    "--allow-test",
+    "--label",
+    "fix-s4-dev-asr-mixed-final",
+    "--backend",
+    "hf",
+    "--model",
+    "Qwen/Qwen3-4B",
+    "--load-4bit",
+    "--batch",
+    "4",
+    "--adapter",
+    "outputs/train/qwen3-4b-qlora-r16-mixed-fix/final"
+  ],
+  "started": "20261015-214458"
+}
