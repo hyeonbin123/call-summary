@@ -4,13 +4,20 @@
 샘플링으로 한 번 다시 시도하고(탐욕 디코딩으로 다시 하면 거절한 답이 그대로 나온다), 그래도 안 되면 이유와
 함께 502로 답한다. 반쯤 맞는 기록은 절대 내보내지 않는다. 모델 서버에 닿지 못하면 503을 준다.
 
+입력 경계: 발화 글 안의 줄바꿈류(파이썬 str.splitlines가 줄 경계로 보는 문자 전부)와 탭은 전사를 조립하기
+전에 공백 하나로 바꾼다. 고객 발화에 줄바꿈과 "상담원: ..."을 넣어 상담원 줄처럼 꾸미지 못하게 하려는
+것이다. 그 밖의 제어문자가 든 발화는 422로 받지 않는다. 컨텍스트: 모델 서버가 컨텍스트 초과 오류를 주면
+413(context exceeded), 답의 프롬프트 + 생성 토큰이 컨텍스트(4,096)를 다 채웠으면 입력이 잘렸을 수 있으므로
+다시 묻지 않고 502(context exhausted)를 준다.
+
 기록 안의 번호(주문번호, 운송장번호, 접수번호, 카드 끝자리) 가운데 운영 형식에 맞지 않거나 전사에서 찾을
 수 없는 것은 `needs_confirmation`에 나열한다(verify.py). 기록 자체는 바꾸지 않는다.
 
 처리기에 닿은 /summarize 호출마다 JSON 한 줄을 로그로 남긴다(로거 `call_summary.service`, INFO):
-요청 id, 업종, 발화 수와 글자 수, 결과, HTTP 상태, 시도 횟수, 지연, 시도들을 합친 프롬프트·생성 토큰
-수(모델 서버가 알려 주지 않으면 null), 확인이 필요한 번호의 개수. 전사, 기록, 표시한 번호 값은 절대
-남기지 않는다: 개인정보가 들어 있다.
+요청 id, 업종, 발화 수와 글자 수, 정규화로 바뀐 발화 수와 화자 표시 꼴이 든 발화 수, 결과, HTTP 상태, 시도
+횟수, 지연, 시도들을 합친 프롬프트·생성 토큰 수(모델 서버가 알려 주지 않으면 null), num_predict에서 멈춘
+답이 있었는지(length_stop)와 컨텍스트를 다 채운 답이 있었는지(context_full), 확인이 필요한 번호의 개수.
+전사, 기록, 표시한 번호 값은 절대 남기지 않는다: 개인정보가 들어 있다.
 
 모델과 함께 실행:  CALL_SUMMARY_MODEL=<ollama 모델> uvicorn call_summary.service:create_app --factory
 모델 없이 실행:    uvicorn call_summary.service:create_offline_app --factory   (고정 답, 스캔용)
@@ -24,26 +31,33 @@
 # [엔드포인트] GET /health(모델 이름·프롬프트 지문), GET /stats(요청 수·지연 분포), GET /domains(업종별 라벨
 # 목록), POST /summarize(본 기능).
 # [보안·개인정보] 응답에 보안 헤더를 붙이고, 문서 페이지는 기본으로 숨긴다. 요청 로그에는 전사·기록·번호 값을
-# 남기지 않는다(개인정보). 모델 없는 오프라인 모드(create_offline_app)는 HawkScan 보안
-# 스캔용이다(docs/experiments.md "보안 스캔 기록").
+# 남기지 않는다(개인정보). 발화 글의 줄바꿈류는 공백으로 바꿔 가짜 화자 줄을 막고 그 밖의 제어문자는 거절한다.
+# 모델 없는 오프라인 모드(create_offline_app)는 HawkScan 보안 스캔용이다(docs/experiments.md "보안 스캔
+# 기록").
 # [연결] service_eval.py·loadtest.py가 이 서비스에 요청을 보내 품질과 부하를 재고, Dockerfile·compose.yaml이
-# uvicorn으로 create_app을 띄운다.
+# uvicorn으로 create_app을 띄운다. scripts/ctx_probe.py는 이 파일의 컨텍스트 판정 함수(context_flags,
+# is_context_exceeded)로 실제 모델 서버 응답을 분류한다.
 
 from __future__ import annotations
 
 # 표준 라이브러리: dataclasses.replace로 재시도용 provider를 복사해 만들고, threading.Lock으로 /stats 집계를
 # 동시 요청에서 지키며, uuid로 요청 id를, time.perf_counter로 지연을 잰다. random은 오프라인 모드의 고정
-# 번호를 만드는 데만 쓴다.
+# 번호를 만드는 데만 쓴다. re는 발화 글의 줄바꿈류 정규화와 화자 표시 꼴 세기에 쓴다.
 import dataclasses
 import json
 import logging
 import os
 import random
+import re
 import sys
 import threading
 import time
 import uuid
 from typing import Literal
+
+# httpx: 모델 서버의 HTTP 오류(httpx.HTTPStatusError, OllamaProvider의 raise_for_status가 낸다)가 컨텍스트
+# 초과 오류인지 가린다. 패키지의 기본 의존성이다(pyproject.toml).
+import httpx
 
 # FastAPI: 요청 본문을 pydantic 모델로 검증하고(형식이 틀리면 처리기 전에 422), OpenAPI 설명을 만든다.
 from fastapi import FastAPI, HTTPException, Request
@@ -64,11 +78,37 @@ MAX_TURNS = 200
 # Ollama에 요청하는 컨텍스트 길이. 모델을 내보낼 때 정한 num_ctx(README의 export --num-ctx 4096)와 같다.
 NUM_CTX = 4096
 # MAX_CHARS는 처음 20,000자였다가 컨텍스트 4,096토큰에 프롬프트와 답이 함께 들어가도록 4,000자로 줄였다(커밋
-# fdc1b9c). 넘으면 413을 준다(README 서비스 문단).
-# 프롬프트 토큰 수 ~= 571 + 0.605 * 전사 글자 수(dev 실행, Qwen3·qwen2.5 토크나이저로 잰 값). 4,000자는 약
-# 3,000 프롬프트 토큰이라 답에 약 1,000토큰이 남는다. 더 긴 입력은 모델 서버가 잘라 버린다.
-# 데이터셋 전사는 가장 긴 것이 1,485자다.
+# fdc1b9c). 넘으면 413을 준다(README 서비스 문단). 데이터셋 전사는 가장 긴 것이 1,485자다. 이 상한은 한국어
+# 대화 전사 기준이다. 프롬프트 토큰 수 ~= 571 + 0.605 * 전사 글자 수(dev 실행, Qwen3·qwen2.5 토크나이저로 잰
+# 값)라 4,000자면 약 3,000토큰이고, 데이터셋에서 글자당 토큰이 가장 많은 전사(0.724)로 어림해도 약
+# 3,460토큰이라 답(dev 정답 최대 271토큰)이 들어간다. 그러나 숫자·영문·이모지는 글자당 약 1토큰 이상이라
+# 4,000자 안에서도 프롬프트만으로 4,096토큰을 넘을 수 있다(Qwen3 토크나이저로 센 인위적 입력: 띄어 쓴 숫자
+# 4,175, 이모지 4,491토큰). 그래서 글자 상한만 믿지 않고 답의 토큰 합(context_full → 502)과 모델 서버의
+# 컨텍스트 초과 오류(context_exceeded → 413)를 따로 본다(docs/experiments.md "서비스 컨텍스트 초과 동작
+# 확인"). 글자 종류별 가중치로 토큰을 미리 어림하는 검사는 넣지 않았다: 간단한 가중치로 시험한 인위적 입력 8종
+# 모두를 실제보다 작게 어림했고, 정확히 세려면 서비스에 토크나이저를 넣어야 한다.
 MAX_CHARS = 4_000
+# 발화 글의 줄 경계 정규화(가짜 화자 줄 막기). 전사는 발화마다 "화자: 말" 줄을 만들어 줄바꿈으로 잇기 때문에
+# (prompts.format_transcript), 고객 발화 안의 줄바꿈 뒤에 "상담원: ..."을 적으면 모델이 받는 전사에 진짜
+# 상담원 줄과 글자 꼴이 같은 줄이 생긴다(구조적 프롬프트 주입). 그래서 전사를 조립하기 전에 파이썬
+# str.splitlines가 줄 경계로 보는 문자 전부(LF, CRLF(한 경계), CR, VT, FF, U+001C~U+001E, NEL(U+0085), U+2028,
+# U+2029)와 탭을 하나마다 공백 하나로 바꾼다. str.splitlines를 기준으로 삼은 것은 이 목록이 LF만 줄로 보는
+# 쪽(모델의 채팅 템플릿)보다 넓기 때문이다. 거절하지 않고 바꾸는 이유: 실제 음성 인식·채팅 연동은 한 발화의
+# 조각을 줄바꿈으로 이어 보낼 수 있다. 이웃한 공백을 합치거나 앞뒤를 자르지는 않는다(바꾼 자리만 바뀌고 빈
+# 발화는 빈 그대로). 커밋된 데이터셋 발화에는 이 문자들이 없어 기록된 프롬프트는 바뀌지
+# 않는다(tests/test_service.py가 확인). 한 줄 안에 적은 "… 상담원: …" 같은 내용 수준 주입은 이 정규화로 막지
+# 못한다(아래 _SPEAKER_MARKER로 센다).
+_LINE_BREAKS = re.compile(r"\r\n|[\n\r\x0b\x0c\x1c-\x1e\x85\u2028\u2029\t]")
+# 발화 글에 받지 않는 문자: 위 정규화 대상(줄바꿈류와 탭)을 뺀 나머지 C0·C1 제어문자(U+0000~U+0008,
+# U+000E~U+001B, U+001F, U+007F~U+0084, U+0086~U+009F). 사람이 쓴 대화나 음성 인식 결과에 나올 일이 없고
+# NUL·ESC 같은 문자는 로그·터미널·다른 시스템에서 달리 해석될 수 있어 422로 거절한다. Turn.text의 pattern이라
+# 본문 검사에서 걸리고(처리기 전이라 로그 줄이 없다, README 서비스 문단) OpenAPI에도 적힌다. pydantic-core는
+# 이 패턴을 Rust regex로 검사하므로 문자 범위를 16진 이스케이프로 적었다(^·$는 문자열 전체의 처음과 끝이다).
+TEXT_PATTERN = r"^[^\x00-\x08\x0e-\x1b\x1f\x7f-\x84\x86-\x9f]*$"
+# 화자 표시 꼴: "상담원:"·"고객:"(콜론 앞의 공백과 전각 콜론 "："도 포함). 정규화한 발화 글에서 찾아 그런 발화
+# 수만 로그(speaker_marker_turns)에 남기고 거절하지는 않는다: 고객이 실제로 그렇게 말할 수도 있고, 목적은 운영
+# 중 내용 수준 주입 시도가 얼마나 들어오는지 보는 것이다. 커밋된 데이터셋 발화에는 이 꼴이 하나도 없다.
+_SPEAKER_MARKER = re.compile(r"(상담원|고객)\s*[:：]")
 # 모든 응답에 붙이는 보안 헤더. 이 서비스는 JSON만 주므로 브라우저가 내용을 실행하거나 다른 페이지에 끼워 넣을
 # 일이 없게 막는다: MIME 추측 금지(nosniff), 프레임 금지(X-Frame-Options, frame-ancestors), 리퍼러 안 보냄,
 # 어떤 리소스도 불러오지 않는 CSP, 카메라·마이크·위치 권한 끔, 응답 캐시 금지(전사·기록에 개인정보가 있다).
@@ -107,6 +147,53 @@ def _token_sum(values: list[int | None]) -> int | None:
     return sum(known) if known else None
 
 
+# 시도별 참·거짓 표시(length_stop, context_full)를 한 요청의 값으로 합친다. 아는 시도 가운데 하나라도 참이면
+# 참, 아는 시도가 모두 거짓이면 거짓, 아는 시도가 없으면 None(모름)이다(_token_sum처럼 모름과 거짓을 가른다).
+def _any_known(values: list[bool | None]) -> bool | None:
+    known = [v for v in values if v is not None]
+    return any(known) if known else None
+
+
+# 발화 글 하나의 줄바꿈류와 탭을 공백 하나씩으로 바꾼다(_LINE_BREAKS의 주석). 입력: 발화 글. 출력: 바꾼
+# 글(바꿀 것이 없으면 같은 글). /summarize 처리기가 전사를 조립하기 전에 모든 발화에 부르고, 테스트가 데이터셋
+# 발화가 바뀌지 않는지 확인하는 데 쓴다.
+def normalize_turn_text(text: str) -> str:
+    return _LINE_BREAKS.sub(" ", text)
+
+
+# 모델 답 하나가 컨텍스트 조건에 걸렸는지 본다. 입력: Reply와 그 요청의 num_ctx. 출력: (length_stop,
+# context_full).
+# - length_stop: done_reason이 "length"(num_predict에서 멈춤)인지. 모델 서버가 멈춘 이유를 알려 주지 않으면
+#   None.
+# - context_full: 프롬프트 + 생성 토큰이 num_ctx 이상인지(evaluate.run_checks와 같은 조건). 둘 중 하나라도
+#   모르면 None. context_full이면 넘친 프롬프트가 잘려 들어갔거나(그러면 prompt_eval_count가 num_ctx 가까이
+#   나온다) 생성 중에 컨텍스트를 밀어냈을 수 있어 답을 믿지 않는다. 다만 모델 서버가 넘침을 잘라서 처리하는지
+#   오류로 돌려주는지에 따라 이 검사가 볼 수 있는 범위가 다르다: 오류로 오면 is_context_exceeded가 맡는다.
+#   Ollama 0.35.1이 어느 쪽인지는 docs/experiments.md "서비스 컨텍스트 초과 동작 확인"에서 실제 서버로
+#   확인한다(scripts/ctx_probe.py도 이 함수로 응답을 분류한다).
+def context_flags(reply: Reply, num_ctx: int) -> tuple[bool | None, bool | None]:
+    length_stop = None if reply.done_reason is None else reply.done_reason == "length"
+    if reply.prompt_tokens is None or reply.completion_tokens is None:
+        return length_stop, None
+    return length_stop, reply.prompt_tokens + reply.completion_tokens >= num_ctx
+
+
+# 모델 서버의 예외가 컨텍스트 초과 오류인지 본다: httpx.HTTPStatusError이고 응답 본문에 "context"와
+# "exceed"(exceeds·exceeded 포함)가 함께 있으면(대소문자 무시) 그렇다고 본다. llama.cpp 서버의 오류 문구
+# 꼴("... exceeds the available context size ...")과 "... exceeds the context length" 같은 꼴을 함께 덮으려고
+# 낱말 둘로 짝을 맞췄다. 실제 Ollama 0.35.1의 응답을 보기 전에 넣은 방어적 짝 맞추기라, docs/experiments.md
+# "서비스 컨텍스트 초과 동작 확인"의 결과에 맞춰 고칠 수 있다. 그 밖의 예외(연결 실패, 시간 초과)와 다른 HTTP
+# 오류는 False다(처리기가 503으로 답한다).
+def is_context_exceeded(exc: BaseException) -> bool:
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return False
+    try:
+        body = exc.response.text.lower()
+    except Exception:  # noqa: BLE001 - 본문을 읽지 못하면 모르는 오류로 친다(503)
+        return False
+    return "context" in body and "exceed" in body
+
+
 # OpenAPI 설명에 넣는 요청 예시. 보안 스캐너가 OpenAPI만 보고도 입력 검사를 통과하는 요청을 만들 수 있게
 # 붙였다(커밋 a13fcb6, docs/experiments.md "보안 스캔 기록" 2026-10-03). hawk/summarize.har 씨앗 본문도 이
 # 예시와 같다(tests/test_service.py가 확인).
@@ -119,12 +206,14 @@ EXAMPLE_REQUEST = {
 }
 
 
-# 발화 하나. speaker는 정확히 "상담원"·"고객"만 받는다. text는 2,000자 상한.
+# 발화 하나. speaker는 정확히 "상담원"·"고객"만 받는다. text는 2,000자 상한이고 줄바꿈류·탭을 뺀 제어문자는
+# 받지 않는다(TEXT_PATTERN). 줄바꿈류·탭은 여기서 거절하지 않고 처리기가 공백으로 바꾼다(normalize_turn_text):
+# pydantic 검사기에서 바꾸면 처리기가 바꾼 발화 수를 로그에 남길 수 없다.
 class Turn(BaseModel):
     # 정규식이 아니라 Literal로 둔다: OpenAPI의 enum으로 클라이언트와 스캐너가 어떤 값이 통과하는지 안다.
     speaker: Literal["상담원", "고객"]
     # 빈 글도 받는다: 음성 인식기는 어떤 발화에서 아무것도 돌려주지 않는다(test-d에 그런 발화가 있다).
-    text: str = Field(max_length=2000)
+    text: str = Field(max_length=2000, pattern=TEXT_PATTERN)
 
 
 # POST /summarize 요청 본문. domain은 업종 키(shop, telecom, parcel, card), turns는 발화 1개 이상 MAX_TURNS개
@@ -178,14 +267,24 @@ def _retry_provider(p: Provider) -> Provider:
 
 
 # 이 프로세스가 받은 /summarize의 결과별 수와 지연 목록(GET /stats). 메모리에만 있어 재시작하면 0부터 다시
-# 센다. FastAPI는 일반 def 처리기를 스레드 풀에서 동시에 돌리므로 Lock으로 읽기·쓰기를 지킨다.
+# 센다. FastAPI는 일반 def 처리기를 스레드 풀에서 동시에 돌리므로 Lock으로 읽기·쓰기를 지킨다. 결과:
+# ok·retried_ok(기록을 줌), rejected(두 번 모두 형식·라벨 실패, 502), model_unavailable(모델 서버 오류, 503),
+# context_full(답이 컨텍스트를 다 채움, 502), context_exceeded(모델 서버의 컨텍스트 초과 오류, 413). 모델에
+# 닿기 전에 끝난 unknown_domain·too_long은 로그에만 남고 여기서는 세지 않는다(전과 같음).
 class Stats:
     """이 프로세스가 받은 /summarize 호출의 결과별 수와 지연(재시작하면 처음부터 다시 센다)."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.latencies: list[float] = []
-        self.counts = {"ok": 0, "retried_ok": 0, "rejected": 0, "model_unavailable": 0}
+        self.counts = {
+            "ok": 0,
+            "retried_ok": 0,
+            "rejected": 0,
+            "model_unavailable": 0,
+            "context_full": 0,
+            "context_exceeded": 0,
+        }
 
     # 결과 하나를 센다. 지연은 기록이 나간 요청(ok, retried_ok)만 넘겨받는다.
     def add(self, outcome: str, latency: float | None = None) -> None:
@@ -274,37 +373,45 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             for k, d in DOMAINS.items()
         }
 
-    # 본 기능. 단계: 로그 줄 준비 → 업종 확인(422) → 전사 조립·길이 확인(413) → 프롬프트 조립 → 최대 두 번
-    # 시도(모델 오류 503, 형식·라벨 검사 실패면 재시도) → 번호 확인 표시 → 응답, 두 번 모두 실패하면 502.
-    # 처리기에 닿은 요청은 어느 결과로 끝나든 finish()로 로그 한 줄을 남긴다. 본문 형식 검사(빠진 필드,
-    # 허용되지 않은 발화자)에서 걸린 422는 처리기에 닿지 않아 줄이 없다(README 서비스 문단).
+    # 본 기능. 단계: 로그 줄 준비 → 업종 확인(422) → 발화 글 정규화 → 전사 조립·길이 확인(413) → 프롬프트 조립
+    # → 최대 두 번 시도(모델 서버의 컨텍스트 초과 오류 413, 그 밖의 모델 오류 503, 답이 컨텍스트를 다 채웠으면
+    # 502, 형식·라벨 검사 실패면 재시도) → 번호 확인 표시 → 응답, 두 번 모두 실패하면 502. 처리기에 닿은
+    # 요청은 어느 결과로 끝나든 finish()로 로그 한 줄을 남긴다. 본문 형식 검사(빠진 필드, 허용되지 않은
+    # 발화자, 발화 글의 제어문자)에서 걸린 422는 처리기에 닿지 않아 줄이 없다(README 서비스 문단).
     @app.post("/summarize", response_model=SummarizeResponse)
     def summarize(req: SummarizeRequest) -> SummarizeResponse:
         p: Provider = state["provider"]
         request_id = uuid.uuid4().hex
         t0 = time.perf_counter()
-        # 요청 로그 한 줄의 틀. 개수·결과·지연·토큰 수만 담고 전사·기록·번호 값은 담지 않는다. 목록 밖 업종은
-        # 받은 문자열을 그대로 남기지 않고 None으로 둔다.
+        # 요청 로그 한 줄의 틀. 개수·결과·지연·토큰 수·표시만 담고 전사·기록·번호 값은 담지 않는다. 목록 밖
+        # 업종은 받은 문자열을 그대로 남기지 않고 None으로 둔다. normalized_turns·speaker_marker_turns는
+        # 전사를 조립할 때, length_stop·context_full은 모델 답을 받은 시도들로 채운다(그 전에 끝나면 None).
         line: dict = {
             "event": "summarize",
             "request_id": request_id,
             "domain": req.domain if req.domain in DOMAINS else None,
             "turns": len(req.turns),
             "chars": None,
+            "normalized_turns": None,
+            "speaker_marker_turns": None,
             "outcome": None,
             "status": None,
             "attempts": 0,
             "latency_s": None,
             "prompt_tokens": None,
             "completion_tokens": None,
+            "length_stop": None,
+            "context_full": None,
             "needs_confirmation": None,
             "model": p.name,
         }
         prompt_tokens: list[int | None] = []
         completion_tokens: list[int | None] = []
+        length_stops: list[bool | None] = []
+        context_fulls: list[bool | None] = []
 
-        # 결과·상태·지연·시도를 합친 토큰 수를 채워 로그 한 줄을 쓴다. 지연을 넘기지 않으면 지금까지의 시간을
-        # 잰다.
+        # 결과·상태·지연, 시도를 합친 토큰 수와 컨텍스트 표시를 채워 로그 한 줄을 쓴다. 지연을 넘기지 않으면
+        # 지금까지의 시간을 잰다.
         def finish(outcome: str, status: int, latency: float | None = None) -> None:
             line.update(
                 outcome=outcome,
@@ -312,6 +419,8 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
                 latency_s=latency if latency is not None else round(time.perf_counter() - t0, 3),
                 prompt_tokens=_token_sum(prompt_tokens),
                 completion_tokens=_token_sum(completion_tokens),
+                length_stop=_any_known(length_stops),
+                context_full=_any_known(context_fulls),
             )
             log.info(json.dumps(line, ensure_ascii=False))
 
@@ -320,8 +429,19 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         if req.domain not in DOMAINS:
             finish("unknown_domain", 422)
             raise HTTPException(422, "unknown domain")
-        # 발화를 학습·평가와 같은 "화자: 말" 줄 형식으로 잇는다. 길이 상한은 이 조립한 전사 기준이다.
-        transcript = format_transcript([t.model_dump() for t in req.turns])
+        # 발화 글의 줄바꿈류·탭을 공백으로 바꾼 뒤(가짜 화자 줄 막기, _LINE_BREAKS의 주석) 학습·평가와 같은
+        # "화자: 말" 줄 형식으로 잇는다. 로그에는 바꾼 발화 수와 화자 표시 꼴이 든 발화 수만 남긴다. 길이
+        # 상한은 이 조립한 전사 기준이다.
+        turns = [t.model_dump() for t in req.turns]
+        normalized = 0
+        for t in turns:
+            text = normalize_turn_text(t["text"])
+            if text != t["text"]:
+                normalized += 1
+                t["text"] = text
+        line["normalized_turns"] = normalized
+        line["speaker_marker_turns"] = sum(1 for t in turns if _SPEAKER_MARKER.search(t["text"]))
+        transcript = format_transcript(turns)
         line["chars"] = len(transcript)
         if len(transcript) > MAX_CHARS:
             finish("too_long", 413)
@@ -336,14 +456,31 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             line["attempts"] = attempt
             try:
                 reply = gen.generate(messages, json_schema=record_json_schema())
-            except Exception as exc:  # noqa: BLE001 - 모델 서버 실패는 무엇이든 추적 정보 대신 503
-                # 모델 서버 연결 실패·시간 초과 등 어떤 예외든 내부 추적 정보를 내보내지 않고 503으로 바꾼다.
-                # 재시도하지 않는다.
+            except Exception as exc:  # noqa: BLE001 - 모델 서버 실패는 무엇이든 추적 정보 대신 413·503
+                # 모델 서버가 컨텍스트 초과 오류를 주면 서버가 아니라 입력 크기 문제이므로 413으로 답한다(같은
+                # 입력이라 재시도하지 않는다). 그 밖에 연결 실패·시간 초과 등 어떤 예외든 내부 추적 정보와
+                # 오류 본문을 내보내지 않고 503으로 바꾼다. 재시도하지 않는다.
+                if is_context_exceeded(exc):
+                    stats.add("context_exceeded")
+                    finish("context_exceeded", 413)
+                    raise HTTPException(413, {"error": "context exceeded"}) from exc
                 stats.add("model_unavailable")
                 finish("model_unavailable", 503)
                 raise HTTPException(503, "model server unavailable") from exc
             prompt_tokens.append(reply.prompt_tokens)
             completion_tokens.append(reply.completion_tokens)
+            # 컨텍스트 검사(context_flags의 주석). 기준 num_ctx는 provider의 값(OllamaProvider)이고, 없는
+            # provider(테스트·오프라인 모드)는 서비스의 NUM_CTX다. 답이 컨텍스트를 다 채웠으면 형식·라벨
+            # 검사를 통과하더라도 잘린 입력에서 나온 답일 수 있어 내보내지 않는다. 같은 입력을 다시 물어도
+            # 같은 길이라 재시도하지 않고 502로 끝낸다. num_predict에서 멈춘 답(length_stop)은 표시만 한다:
+            # 대개 JSON이 잘려 아래 형식 검사에서 걸린다.
+            length_stop, context_full = context_flags(reply, getattr(gen, "num_ctx", None) or NUM_CTX)
+            length_stops.append(length_stop)
+            context_fulls.append(context_full)
+            if context_full:
+                stats.add("context_full")
+                finish("context_full", 502)
+                raise HTTPException(502, {"error": "context exhausted", "problems": ["context_full"]})
             # 답에서 JSON을 꺼내 기록 형식으로 검증한다. 실패하면 이유를 남기고 다음 시도로.
             parsed = parse_reply(reply.text)
             if parsed.record is None:
