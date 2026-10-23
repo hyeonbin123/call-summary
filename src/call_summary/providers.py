@@ -99,6 +99,15 @@ class OllamaProvider:
     # 그 밖의 Ollama 옵션(예: presence_penalty). 위의 고정 디코딩 설정은 따로 필드가 있으므로 여기서
     # 넣지 않는다.
     extra_options: dict | None = None
+    # truncate·shift: 컨텍스트가 넘칠 때의 동작을 정하는 Ollama 요청의 맨 위 필드(options 밖)다. None이면
+    # 요청에 넣지 않아 서버 기본값을 쓴다. 기본이 None이라 이 필드를 더하기 전의 요청(기록된 모든 실행)과
+    # 본문이 바이트까지 같다(tests/test_ctx_probe.py가 키 목록을 고정해 확인). False를 보내면 truncate는 넘친
+    # 프롬프트를 잘라 넣지 않고 오류를 돌려주게, shift는 생성 중에 컨텍스트가 차면 앞부분을 밀어내며 계속 쓰지
+    # 않고 멈추게 하는 설정이다. Ollama 0.35.1에서 실제로 그렇게 되는지와 서비스 요청에 넣을지는
+    # docs/experiments.md "서비스 컨텍스트 초과 동작 확인"에서 정한다(scripts/ctx_probe.py가 두 값을 보내
+    # 본다). 서비스는 아직 보내지 않는다.
+    truncate: bool | None = None
+    shift: bool | None = None
 
     # 필드로 따로 둔 디코딩 설정. extra_options로 이 값들을 덮어쓰면 실행 기록의 필드 값과 실제 요청이
     # 어긋나므로 __post_init__에서 막는다.
@@ -139,6 +148,11 @@ class OllamaProvider:
         body["options"].update(self.extra_options or {})
         if self.think is not None:
             body["think"] = self.think
+        # 컨텍스트 넘침 동작(위 필드 주석). 값이 있을 때만 맨 위에 넣는다.
+        if self.truncate is not None:
+            body["truncate"] = self.truncate
+        if self.shift is not None:
+            body["shift"] = self.shift
         if self.use_schema and json_schema is not None:
             body["format"] = json_schema
         # 지연은 HTTP 왕복 전체를 클라이언트에서 잰다(서버 쪽 시간은 timings에 따로 있다).
