@@ -35,7 +35,7 @@ from pathlib import Path
 
 # value_survival: 정답 값마다 전사에서 찾아지는지. unfound_split: 전사에 없는 예측 값을 복원/지어낸 값으로
 # 나눈다. 둘 다 채점기(scoring.py)에 있어 채점과 같은 정규화를 쓴다.
-from .dataset import load_items, read_jsonl
+from .dataset import load_items, manifest_data, read_jsonl
 from .domains import DOMAINS
 from .schema import AfterCallRecord
 from .scoring import unfound_split, value_survival
@@ -120,13 +120,13 @@ def is_placeholder(value: str) -> bool:
 
 # 평가 실행 하나에서 예측한 핵심 값 수, 전사에 없는 값의 복원/지어낸 값 유형별 수, 그중 빈 값과 자리 표시 값의
 # 수를 센다.
-# 데이터는 실행 manifest에 적힌 파일을 쓴다(또는 data 인자). 스키마를 통과하지 못해 예측 기록이 없는 건은
-# 건너뛴다.
+# 데이터는 실행 manifest에 적힌 파일을 쓴다(또는 data 인자. 기록된 manifest의 Windows 역슬래시 경로는
+# manifest_data가 슬래시 꼴로 바꾼다). 스키마를 통과하지 못해 예측 기록이 없는 건은 건너뛴다.
 def unfound(run: str | Path, data: str | Path | None = None) -> dict:
     """평가 실행 하나(reports/<run_id>)의 복원 값과 지어낸 값. 그 실행의 데이터셋에 대 본다."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
-    items = {it.item_id: it for it in load_items(data or manifest["data"])}
+    items = {it.item_id: it for it in load_items(data or manifest_data(manifest))}
     predicted = empty = placeholder = 0
     restored: Counter = Counter()
     invented: Counter = Counter()

@@ -38,7 +38,7 @@ from pydantic import BaseModel
 
 # dataset: 평가 실행이 가리키는 데이터 파일과 건별 기록(items.jsonl)을 읽는다. domains: 번호 유형과 배포
 # 형식(id_format). values: 채점과 같은 정규화와 전사 찾기.
-from .dataset import load_items, read_jsonl
+from .dataset import load_items, manifest_data, read_jsonl
 from .domains import DOMAINS, EntityType
 from .schema import AfterCallRecord
 from .values import normalize, occurs_in_transcript
@@ -138,15 +138,15 @@ def _empty_counts() -> dict:
 
 # 기록된 평가 실행 하나(reports/<run_id>)에 검사를 대 보고 지표(docs/experiments.md "지표")에 필요한 수를
 # 센다. 새 추론 없이 기록된 답과 전사만 쓰는 결정적 계산이다.
-# 데이터 파일은 manifest의 data 경로를 쓰고(Windows 경로의 역슬래시를 바꿔 읽음), data를 넘기면 그것을
-# 쓴다(테스트용).
+# 데이터 파일은 manifest의 data 경로를 쓰고(Windows 역슬래시 꼴 기록은 manifest_data가 슬래시 꼴로 바꿈. 다른
+# 도구와 같은 함수), data를 넘기면 그것을 쓴다(테스트용).
 # 돌려주는 것: 전체·유형별 수, 표시된 틀린 번호의 사유별 수, 조용히 나가는 틀린 번호의 모양·바뀐 숫자, 값
 # 그대로 규칙이었다면 더 표시됐을 수, 답에 없는 정답 번호 수, 기록이 없는 행 수, 그리고 --show용 목록.
 def guard_report(run: str | Path, data: str | Path | None = None) -> dict:
     """평가 실행 하나를 그 데이터셋에 대 본 표시 수(data를 주지 않으면 manifest의 `data`)."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
-    items = {it.item_id: it for it in load_items(data or manifest["data"].replace("\\", "/"))}
+    items = {it.item_id: it for it in load_items(data or manifest_data(manifest))}
     total = _empty_counts()
     by_type: dict[str, dict] = {}
     reasons_wrong: Counter = Counter()

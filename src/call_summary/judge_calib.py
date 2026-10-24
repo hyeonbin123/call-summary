@@ -43,7 +43,7 @@ from pathlib import Path
 # judge.py의 요청 꼴(make_judge, judge_reply)과 kappa 계산을 그대로 쓰고, evaluate.py의 실행 조건 기록
 # 도우미를 쓴다. value_facts의 fact_value_ok(사실마다 숫자 값이 요약에 있는지)와 hybrid_verdicts(판정에 값
 # 확인을 덮기)로 V와 V+J를 만든다.
-from .dataset import Item, load_items, read_jsonl, write_jsonl
+from .dataset import Item, load_items, manifest_data, read_jsonl, write_jsonl
 from .evaluate import THINK, _git, loaded_models, model_fingerprint, parse_option, run_checks
 from .judge import (
     JUDGE_NUM_CTX,
@@ -73,11 +73,11 @@ def _summaries(run: Path) -> dict[str, str]:
 
 
 # 실행 manifest의 데이터 경로를 슬래시 꼴로 바꾼다. Windows에서 쓴 manifest에는 역슬래시가 들어 있어 표본
-# 파일의 경로를 한 가지 꼴로 통일한다.
+# 파일의 경로를 한 가지 꼴로 통일한다(다른 도구와 같은 dataset.manifest_data. 기록된 표본 파일
+# reports/judge2/sample.jsonl의 data 값과 같은 꼴이 나온다).
 def _data_path(run: Path) -> str:
     """실행의 데이터셋 경로를 슬래시 꼴로(Windows에서 쓴 manifest에는 역슬래시가 들어 있다)."""
-    data = json.loads((run / "manifest.json").read_text(encoding="utf-8"))["data"]
-    return Path(data.replace("\\", "/")).as_posix()
+    return manifest_data(json.loads((run / "manifest.json").read_text(encoding="utf-8")))
 
 
 # --stratum NAME=RUN:N 인자를 (층 이름, 실행 폴더, 건수)로. 경로에 콜론이 있을 수 있어 마지막 콜론으로

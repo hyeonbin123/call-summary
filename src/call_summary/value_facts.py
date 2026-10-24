@@ -38,7 +38,7 @@ from string import Formatter
 
 # judge.VERDICTS: 판정 라벨(포함, 누락, 틀림)을 판정 모델 쪽과 같은 문자열로 쓴다. specs.Spec: 명세의
 # 슬롯·사실·말실수 값. values: 채점과 같은 정규화와 찾기.
-from .dataset import load_items, read_jsonl
+from .dataset import load_items, manifest_data, read_jsonl
 from .domains import DOMAINS
 from .judge import VERDICTS
 from .specs import Spec
@@ -164,7 +164,7 @@ def _ratio(rows: Sequence, num: Callable, den: Callable) -> float:
 
 
 # 기록된 평가 실행 하나에 값 확인을 대 보고 지표를 계산한다(새 추론 없음). 데이터는 manifest의 data 경로로
-# 읽는다.
+# 읽는다(Windows 역슬래시 꼴 기록은 manifest_data가 슬래시 꼴로 바꿈. 다른 도구와 같은 함수).
 # 요약이 비었거나 답이 스키마를 통과하지 못한 건(pred 없음)은 빈 요약으로 세어 값을 모두 못 찾은 것으로
 # 친다(규칙 1).
 # 지표: value_recall(사실·값 쌍 단위 값 보존율), value_fact_recall(값이 있는 사실 중 모든 값을 찾은 비율),
@@ -174,7 +174,7 @@ def run_value_table(run: str | Path, judge_file: str | None = None, n_boot: int 
     """기록된 실행 하나의 값 확인 수치(judge_file을 주면 판정 그대로와 V+J의 사실 재현율도)."""
     run = Path(run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
-    items = {it.item_id: it for it in load_items(manifest["data"].replace("\\", "/"))}
+    items = {it.item_id: it for it in load_items(manifest_data(manifest))}
     rows = []
     for r in read_jsonl(run / "items.jsonl"):
         it = items[r["item_id"]]

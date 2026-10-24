@@ -13,7 +13,7 @@
 # 명세 생성기 하나로 묶어, LLM이 만든 구조화 정답이 섞일 여지를 없애려는 것이다(docs/experiments.md 공통
 # "정답: 명세 생성기에서만 나온다").
 # [주요 구성] Item(한 건의 dataclass와 dict 변환) → read_jsonl/write_jsonl(줄 단위 입출력) → load_items(파일 →
-# Item 목록).
+# Item 목록) → manifest_data(실행 기록 manifest의 데이터셋 경로를 슬래시 꼴로).
 
 from __future__ import annotations
 
@@ -110,3 +110,14 @@ def write_jsonl(path: str | Path, rows: Iterable[dict]) -> int:
 # 데이터셋 파일 전체를 Item 목록으로 읽는다. 평가·분석 도구 대부분이 이 함수로 datasets/*.jsonl을 연다.
 def load_items(path: str | Path) -> list[Item]:
     return [Item.from_dict(d) for d in read_jsonl(path)]
+
+
+# 평가 실행 기록(manifest.json)의 "data" 값을 슬래시 꼴 경로로 돌려준다. 기록된 실행은 모두 Windows에서 썼고
+# 그때의 evaluate는 str(Path)를 적어 "datasets\\dev.jsonl"처럼 역슬래시가 들어 있다. 그 경로로 데이터셋을 다시
+# 여는 도구(judge_run, asr_report, value_facts, verify, judge_calib)가 Linux·macOS에서도 파일을 찾도록
+# 역슬래시를 슬래시로 바꾸고 Path.as_posix()로 정리한다(Windows에서는 두 꼴 모두 열린다). 이미 슬래시 꼴이거나
+# 절대 경로여도 뜻은 그대로다. 입력: manifest dict("data" 키 필수). 출력: 문자열 경로. 새 실행의 manifest는
+# evaluate·service_eval이 처음부터 슬래시 꼴(Path.as_posix())로 쓴다.
+def manifest_data(manifest: dict) -> str:
+    """실행 manifest의 데이터셋 경로를 슬래시 꼴로(Windows에서 쓴 기록에는 역슬래시가 들어 있다)."""
+    return Path(manifest["data"].replace("\\", "/")).as_posix()

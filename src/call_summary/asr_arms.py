@@ -380,12 +380,14 @@ def _pct(x: float) -> str:
     return "-" if x != x else f"{100 * x:.1f}"
 
 
-# compare 결과를 docs/experiments.md "단계 A 결과" 표 꼴로 만든다: 팔, 모든 값이 남은 건, 팔 − T [95%], 관문,
-# 유형별 보존율, CER, 틀린 숫자열, 한글 숫자 이름, 빈 발화.
+# compare 결과를 docs/experiments.md "단계 A 결과" 표 꼴로 만든다: 팔, 모든 값이 남은 건, 팔 - T [95%], 관문,
+# 유형별 보존율, CER, 틀린 숫자열, 한글 숫자 이름, 빈 발화. 차이 열의 빼기는 ASCII 하이픈이다: 유니코드
+# 빼기(U+2212)는 cp949에 없어 Windows에서 출력을 파일로 보내면 UnicodeEncodeError로 죽는다(compare.py의 같은
+# 결함을 커밋 0ea5791로 고쳤다). 문서의 기록된 표는 그대로 두고 새 출력만 바뀐다(수치는 같다).
 def compare_table(got: dict[str, dict]) -> str:
     types = sorted({t for g in got.values() for t in g["types"]})
     head = (
-        ["팔", "모든 값이 남은 건", "팔 − T [95%]", "관문"]
+        ["팔", "모든 값이 남은 건", "팔 - T [95%]", "관문"]
         + types
         + [
             "CER",

@@ -29,7 +29,7 @@ from pathlib import Path
 # loaded_models(/api/ps), model_fingerprint(Ollama digest 등 모델 지문), parse_option(KEY=VALUE 옵션 해석),
 # run_checks(잘린 답·생각 글·컨텍스트를 채운 답 세기). 평가와 판정이 같은 방식으로 실행 조건을 기록하게 하려는
 # 것이다.
-from .dataset import load_items, read_jsonl, write_jsonl
+from .dataset import load_items, manifest_data, read_jsonl, write_jsonl
 from .evaluate import THINK, _git, loaded_models, model_fingerprint, parse_option, run_checks
 from .judge import (
     JUDGE_NUM_CTX,
@@ -90,8 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     run = Path(args.run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
     # 판정에는 명세의 사실 목록과 전사가 필요하므로, 실행 manifest에 적힌 데이터 파일(또는 --data)에서 건을
-    # item_id로 찾는다. --limit은 스모크(앞 몇 건만)용이다.
-    items = {it.item_id: it for it in load_items(args.data or manifest["data"])}
+    # item_id로 찾는다. 기록된 manifest의 경로는 Windows 역슬래시 꼴이라 manifest_data로 슬래시 꼴로 읽는다.
+    # --limit은 스모크(앞 몇 건만)용이다.
+    items = {it.item_id: it for it in load_items(args.data or manifest_data(manifest))}
     rows = list(read_jsonl(run / "items.jsonl"))[: args.limit]
     options = dict(args.option)
     judge = make_judge(model=args.model, num_gpu=args.num_gpu, think=THINK[args.think], options=options)
@@ -172,7 +173,8 @@ def hand_template_main(argv: list[str] | None = None) -> int:
 
     run = Path(args.run)
     manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
-    items = {it.item_id: it for it in load_items(manifest["data"])}
+    # 실행 manifest의 데이터 파일(역슬래시 꼴 기록은 manifest_data가 슬래시 꼴로 바꿈)에서 건을 찾는다.
+    items = {it.item_id: it for it in load_items(manifest_data(manifest))}
     rows = list(read_jsonl(run / "items.jsonl"))
     # seed를 고정한 random.Random으로 섞어 같은 seed면 늘 같은 건이 뽑힌다.
     random.Random(args.seed).shuffle(rows)

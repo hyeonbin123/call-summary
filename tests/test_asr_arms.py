@@ -7,7 +7,9 @@
 # [왜 중요한가] 이 도구의 판정(go/stop, 통과, 순위)이 GPU 몇 시간짜리 다음 단계를 할지 정한다. 규칙을 측정
 # 전에 고정했으므로(규칙 커밋 f5b2cce), 코드가 문서의 규칙과 같게 세는지 작은 손 데이터로 미리 확인한다.
 
+import io
 import json
+import sys
 
 import pytest
 
@@ -215,6 +217,23 @@ def test_compare_gates_each_arm_on_the_paired_survival_difference_and_ranks_the_
     assert got["T"]["cer"] > got["L+I"]["cer"] > 0 and got["T"]["wrong_digit_runs"] == 0
     assert "| L+I |" in asr_arms.compare_table(got)
     load_items(good)  # 만든 파일은 보통 데이터셋으로 읽힌다
+
+
+# 이 Windows 환경에서 출력을 파일로 보내면 표준 출력이 cp949라, 표 머리줄의 U+2212(−)를 쓰지 못해 compare
+# 명령이 UnicodeEncodeError로 죽었다(compare.py의 같은 결함은 커밋 0ea5791로 고쳤다). 표준 출력을 cp949
+# 스트림으로 바꿔 compare가 끝까지 돌고 머리줄이 ASCII 하이픈 "팔 - T [95%]"인지 확인한다. 표의 수치는 바뀌지
+# 않는다.
+def test_compare_output_on_a_cp949_console(tmp_path, monkeypatch):
+    items = [_parcel(i, TRACKING_SAID)[0] for i in range(6)]
+    ids = [it.item_id for it in items]
+    base = _dataset(tmp_path, "T", items, lost=ids[:3])
+    arm = _dataset(tmp_path, "L+I", items, lost=ids[:1])
+    out = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(out, encoding="cp949"))
+    assert asr_arms.main(["compare", "--base", f"T={base}", "--arm", f"L+I={arm}"]) == 0
+    sys.stdout.flush()
+    text = out.getvalue().decode("cp949")
+    assert "| 팔 | 모든 값이 남은 건 | 팔 - T [95%] | 관문 |" in text and "ranking:" in text
 
 
 # 2차 지표 도우미를 확인한다. CER은 공백·문장부호를 빼고 세므로 "6291-7877-5168로"와 "6291, 7877, 5168 로"는

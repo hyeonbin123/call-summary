@@ -258,6 +258,31 @@ def test_judge_run_writes_to_the_named_file_and_leaves_judge_jsonl_alone(tmp_pat
     assert seen["num_gpu"] == 99 and seen["think"] is False and seen["options"] == {"presence_penalty": 0}
 
 
+# 기록된 manifest의 data 경로는 Windows에서 쓴 역슬래시 꼴이다. judge_run(판정)과 hand_template_main(사람 채점
+# 양식)이 그 경로를 슬래시 꼴로 바꿔 load_items에 넘기고, 표본 뽑기의 _data_path도 같은 꼴을 내는지 본다.
+# Windows에서는 역슬래시 경로도 열리므로 load_items를 감시 함수로 바꿔 넘긴 인자의 꼴을 본다(Linux·macOS에서는
+# 역슬래시 경로가 FileNotFoundError다).
+def test_judge_run_and_the_hand_template_open_the_dataset_by_a_posix_path(tmp_path, monkeypatch):
+    data, runs = _runs(tmp_path, n=2)
+    run = runs["A"]
+    windows_style = str(data).replace("/", "\\")
+    (run / "manifest.json").write_text(json.dumps({"data": windows_style}), encoding="utf-8")
+    seen: list = []
+    real = judge_run.load_items
+
+    def spy(path):
+        seen.append(path)
+        return real(path)
+
+    monkeypatch.setattr(judge_run, "load_items", spy)
+    monkeypatch.setattr(judge_run, "make_judge", lambda **kw: _Counting(replies=_all_included))
+    monkeypatch.setattr(judge_run, "model_fingerprint", lambda p: {})
+    assert judge_run.main(["--run", str(run), "--out", str(run / "judge-m.jsonl")]) == 0
+    assert judge_run.hand_template_main(["--run", str(run), "--out", str(tmp_path / "hand.jsonl")]) == 0
+    assert seen == [data.as_posix()] * 2 and "\\" not in seen[0]
+    assert judge_calib._data_path(run) == data.as_posix()
+
+
 # 인수 없이 부른 judge_run은 2단계 j1과 같은 조건이어야 한다: qwen2.5:14b-instruct, GPU 44층(14B가 VRAM을
 # 넘치지 않게, docs/experiments.md 재보정 판정 모델 표: j1과 같음), 생각 끔, 더한 옵션 없음, 결과는
 # judge.jsonl. 그래야 J0 재실행이 j1과 바이트 단위로 같은 요청이 된다.

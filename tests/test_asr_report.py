@@ -90,6 +90,31 @@ def test_unfound_report_of_a_run(tmp_path):
     assert "복원" in asr_report.unfound_table({"run": got})
 
 
+# 기록된 manifest의 data 경로는 Windows에서 쓴 역슬래시 꼴이다. unfound가 그 경로를 슬래시 꼴로 바꿔
+# load_items에 넘기는지 본다(Linux·macOS에서는 역슬래시 경로가 열리지 않는다). Windows에서는 역슬래시 경로도
+# 열려 "파일을 찾는가"로는 잡히지 않으므로, load_items를 감시 함수로 바꿔 넘긴 인자의 꼴을 본다.
+def test_unfound_opens_the_dataset_by_a_posix_path(tmp_path, monkeypatch):
+    it = _item(0)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [it.to_dict()])
+    run = tmp_path / "run"
+    run.mkdir()
+    windows_style = str(data).replace("/", "\\")
+    (run / "manifest.json").write_text(json.dumps({"data": windows_style}), encoding="utf-8")
+    write_jsonl(run / "items.jsonl", [{"item_id": it.item_id, "pred": _pred(it).model_dump()}])
+    seen: list = []
+    real = asr_report.load_items
+
+    def spy(path):
+        seen.append(path)
+        return real(path)
+
+    monkeypatch.setattr(asr_report, "load_items", spy)
+    got = asr_report.unfound(run)
+    assert seen == [data.as_posix()] and "\\" not in seen[0]
+    assert got["predicted"] == len(it.gold().entities)
+
+
 # 빈 값("", 공백만)은 전사에 없는 지어낸 값으로 들어가면서 empty로도 따로 센다. 3단계가 환각을 빈 값(통화에서
 # 말하지 않은 유형에 ""를 채운 것) 포함·제외 두 가지로 보고했으므로(docs/experiments.md 3단계) 표에 빈 값을 뺀
 # 비율이 함께 나와야 한다.
