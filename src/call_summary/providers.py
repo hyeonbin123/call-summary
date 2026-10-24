@@ -13,10 +13,12 @@
 # [설계 이유] torch·transformers·httpx는 함수 안에서 불러온다(지연 import). 그래서 GPU·모델 없이 도는 테스트와
 # CI가 ScriptedProvider만으로 이 모듈을 쓸 수 있다(README "테스트는 GPU·모델 없이 돈다").
 # [주요 구성] Reply(답과 측정값) / Provider(인터페이스) / ScriptedProvider(테스트용) / OllamaProvider(HTTP) /
-# HFProvider(transformers).
+# Ollama 서버 메타데이터 도우미(parse_keep_alive, ollama_model_digest, ollama_version, ollama_fingerprint,
+# ollama_load: 측정 기록의 모델 지문과 서비스의 /health·/ready·예열이 함께 쓴다) / HFProvider(transformers).
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -87,8 +89,11 @@ class OllamaProvider:
     num_gpu: int | None = None
     seed: int = 0
     # keep_alive: 마지막 요청 뒤 모델을 메모리에 남겨 둘 시간. 측정 중 요청마다 모델을 다시 올리지 않게 한다.
+    # Ollama가 받는 꼴 그대로 요청 본문에 들어간다: Go 시간 문자열("30m", "1h")이나 초 단위 정수(음수는 계속
+    # 상주, 0은 바로 내림. bench.unload가 0을 보낸다). 기본 "30m"은 기록된 모든 실행과 같은 값이고, 서비스는
+    # CALL_SUMMARY_KEEP_ALIVE로 바꿀 수 있다(parse_keep_alive가 글을 이 두 꼴로 가른다).
     # timeout_s: 요청 하나의 HTTP 시간 한도(초).
-    keep_alive: str = "30m"
+    keep_alive: str | int = "30m"
     timeout_s: float = 600.0
     # use_schema: JSON 스키마를 Ollama format으로 넘겨 강제 디코딩할지. 기본은 끈다. 학습한 모델은 스키마
     # 문법이 키 순서를 바꾸면 필드를 빠뜨렸다(5단계 발견 1). 판정 모델은 켠다(judge.make_judge).
@@ -179,6 +184,87 @@ class OllamaProvider:
         r = httpx.get(f"{self.base_url}/api/ps", timeout=10)
         r.raise_for_status()
         return r.json().get("models", [])
+
+
+# keep_alive 글이 Ollama가 받는 두 꼴 가운데 어느 것인지 가르는 정규식. Ollama 서버는 keep_alive를 JSON
+# 숫자(초. 음수는 계속 상주)나 Go의 time.ParseDuration이 읽는 문자열("30m", "1h30m", "1.5h", "-1m", "500ms".
+# 단위는 ns, us/µs, ms, s, m, h이고 부호는 맨 앞에 한 번)로 받는다. 문자열 "-1"은 단위가 없어 ParseDuration이
+# 거절하므로, 정수 글은 숫자로 보내야 한다.
+_KEEP_ALIVE_INT = re.compile(r"[-+]?\d+")
+_KEEP_ALIVE_DURATION = re.compile(r"[-+]?(?:(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|µs|μs|ms|s|m|h))+")
+
+
+# 환경 변수 같은 글을 Ollama 요청의 keep_alive 값으로 바꾼다. 입력: 글(앞뒤 공백은 지운다). 출력: 정수 글이면
+# int(JSON 숫자로 나간다: "-1" → -1 계속 상주, "0" → 0 바로 내림, "600" → 600초), Go 시간 문자열이면 그
+# 문자열 그대로. 그 밖의 글("forever", 단위 없는 소수 "1.5", 단위 앞 공백 "10 m", 빈 글)은 ValueError다:
+# Ollama가 400으로 거절해 모든 요청이 실패하는 설정을 서비스가 시작할 때 걸러 내려는 것이다(service의
+# ModelSettings.from_env). 기본값 "30m"은 이 함수를 거치지 않는다.
+def parse_keep_alive(raw: str) -> str | int:
+    """Ollama의 keep_alive 값: 정수 글은 초 단위 숫자로(음수는 계속 상주), Go 시간 문자열은 그대로.
+    둘 다 아니면 ValueError."""
+    text = raw.strip()
+    if _KEEP_ALIVE_INT.fullmatch(text):
+        return int(text)
+    if _KEEP_ALIVE_DURATION.fullmatch(text):
+        return text
+    raise ValueError(
+        f"keep_alive must be a Go duration such as 30m or 1h30m, or an integer number of seconds "
+        f"(negative keeps the model loaded), got {raw!r}"
+    )
+
+
+# Ollama /api/tags에서 model(또는 model:latest)의 digest(sha256 64자리)를 찾는다. 입력: 서버 주소, 모델 태그,
+# 요청 시간 한도(초). 출력: digest. 목록에 그 태그가 없으면 None이고, 서버에 닿지 못하거나 답이 JSON이 아니면
+# httpx 예외 등이 그대로 올라온다(부르는 쪽이 "서버 없음"과 "모델 없음"을 가르는 데 쓴다: 서비스의 /ready).
+# 측정 기록의 model_fingerprint(evaluate)가 쓰던 조회를 그대로 옮긴 것이라 기록된 manifest의 ollama_digest와
+# 같은 값이 나온다. 상태 코드는 보지 않는다(오류 응답의 JSON에는 models가 없어 None이 된다).
+def ollama_model_digest(base_url: str, model: str, timeout_s: float = 10.0) -> str | None:
+    """/api/tags의 모델 digest. 태그가 없으면 None, 서버에 닿지 못하면 예외."""
+    import httpx
+
+    names = {model, f"{model}:latest"}
+    tags = httpx.get(f"{base_url}/api/tags", timeout=timeout_s).json().get("models", [])
+    return next((m.get("digest") for m in tags if m.get("name") in names or m.get("model") in names), None)
+
+
+# Ollama /api/version의 서버 버전. 같은 가중치라도 실행기 버전이 다르면 측정 조건이 다르므로 지문의 일부다.
+# 서버에 닿지 못하면 예외가 올라온다.
+def ollama_version(base_url: str, timeout_s: float = 10.0) -> str | None:
+    """/api/version의 version. 서버에 닿지 못하면 예외."""
+    import httpx
+
+    return httpx.get(f"{base_url}/api/version", timeout=timeout_s).json().get("version")
+
+
+# Ollama 모델의 지문 {"ollama_digest", "ollama_version"}. evaluate.model_fingerprint(실행 기록 manifest)와
+# 서비스의 시작 조회가 같은 함수를 써서, 잰 모델과 서빙 중인 모델을 digest로 맞춰 볼 수 있다. 구하지 못한 값은
+# None이고 예외를 내지 않는다(모델 서버가 없으면 측정은 뒤에서 실제 오류로 멈추고, 서비스는 그래도 뜬다). 키
+# 이름과 순서는 기록된 manifest와 같아야 한다(tests/test_evaluate.py가 고정).
+def ollama_fingerprint(base_url: str, model: str, timeout_s: float = 10.0) -> dict:
+    """Ollama 모델의 digest와 서버 버전. 구하지 못한 값은 None(실행은 멈추지 않는다)."""
+    fp: dict = {}
+    try:
+        fp["ollama_digest"] = ollama_model_digest(base_url, model, timeout_s)
+    except Exception:  # noqa: BLE001 - 모델 서버 없음: 기록에는 None, 실행은 뒤에서 실제 오류로 실패한다
+        fp["ollama_digest"] = None
+    try:
+        fp["ollama_version"] = ollama_version(base_url, timeout_s)
+    except Exception:  # noqa: BLE001
+        fp["ollama_version"] = None
+    return fp
+
+
+# 프롬프트 없는 POST /api/generate {model, keep_alive}로 모델을 메모리에 올린다: Ollama는 빈 프롬프트 요청을
+# 적재 요청으로 처리하고 토큰을 만들지 않는다(응답의 done_reason "load"). keep_alive 0이면 같은 요청이 모델을
+# 내린다(bench.unload가 그렇게 쓴다). 서비스의 선택 예열(CALL_SUMMARY_WARMUP=1)이 시작할 때 한 번 부른다.
+# 실패한 HTTP 상태와 연결 오류는 httpx 예외로 올라온다. timeout_s는 디스크에서 가중치를 읽는 시간까지 덮어야
+# 한다(기록: q8_0 콜드 적재 최대 약 68초).
+def ollama_load(base_url: str, model: str, keep_alive: str | int, timeout_s: float = 120.0) -> None:
+    """모델을 메모리에 올린다(프롬프트 없는 /api/generate). 실패하면 httpx 예외."""
+    import httpx
+
+    body = {"model": model, "keep_alive": keep_alive}
+    httpx.post(f"{base_url}/api/generate", json=body, timeout=timeout_s).raise_for_status()
 
 
 # transformers로 직접 돌리는 실행기. 학습 전 학생의 기준선(Qwen3 fp16)과, GGUF로 바꾸기 전의 학습한 학생(바탕

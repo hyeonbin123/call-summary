@@ -16,7 +16,7 @@ import subprocess
 import httpx
 import pytest
 
-from call_summary import evaluate
+from call_summary import evaluate, providers
 from call_summary.dataset import read_jsonl, write_jsonl
 from call_summary.evaluate import model_fingerprint
 from call_summary.prompts import record_to_json
@@ -115,6 +115,82 @@ def test_fingerprint_of_an_ollama_model_is_its_digest_and_server_version(monkeyp
     monkeypatch.setattr(httpx, "get", refused)
     down = model_fingerprint(OllamaProvider(model="m:q8_0"))
     assert down == {"ollama_digest": None, "ollama_version": None}
+
+
+# Ollama 지문 조회는 서비스(/health·/ready·시작 로그)와 같은 providers.ollama_fingerprint다. 같은 가짜
+# 서버에서 evaluate의 manifest 값(model_fingerprint)과 공용 함수의 값이 같고 키가 ollama_digest·ollama_version
+# 둘뿐이어야 기록된 manifest와 대조가 깨지지 않는다. 요청 시간 한도는 전처럼 10초이고 바꿀 수 있다. 낮은 수준
+# 함수 ollama_model_digest는 서버에 닿지 못하면 예외를 내고(서비스가 no_model_server를 가르는 데 쓴다) 태그가
+# 없으면 None이다. 공용 함수는 둘 다 None으로 삼킨다.
+def test_ollama_fingerprint_is_shared_between_evaluate_and_the_service(monkeypatch):
+    seen: list[tuple[str, float]] = []
+
+    def fake_get(url, timeout=None, **kw):
+        seen.append((url, timeout))
+        req = httpx.Request("GET", url)
+        if url.endswith("/api/version"):
+            return httpx.Response(200, json={"version": "0.35.1"}, request=req)
+        return httpx.Response(200, json={"models": [{"name": "m:q8_0", "digest": "abc"}]}, request=req)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    shared = providers.ollama_fingerprint("http://h:1", "m:q8_0")
+    assert shared == model_fingerprint(OllamaProvider(model="m:q8_0", base_url="http://h:1"))
+    assert list(shared) == ["ollama_digest", "ollama_version"] and shared["ollama_digest"] == "abc"
+    assert seen[:2] == [("http://h:1/api/tags", 10), ("http://h:1/api/version", 10)]
+    assert providers.ollama_model_digest("http://h:1", "other") is None
+    assert providers.ollama_fingerprint("http://h:1", "m:q8_0", timeout_s=2.0) == shared
+    assert seen[-1] == ("http://h:1/api/version", 2.0)
+
+    def refused(url, **kw):
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(httpx, "get", refused)
+    with pytest.raises(httpx.ConnectError):
+        providers.ollama_model_digest("http://h:1", "m:q8_0")
+    assert providers.ollama_fingerprint("http://h:1", "m:q8_0") == {
+        "ollama_digest": None,
+        "ollama_version": None,
+    }
+
+
+# keep_alive 값 해석: Ollama가 받는 꼴은 Go 시간 문자열("30m", "1h30m", "1.5h", "-1m", "500ms")과 초 단위
+# 숫자다. 정수 글은 숫자로 바꿔 보낸다(문자열 "-1"은 Ollama의 시간 해석이 거절하지만 숫자 -1은 계속 상주, 0은
+# 바로 내림). 앞뒤 공백은 지운다.
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("30m", "30m"),
+        ("1h30m", "1h30m"),
+        ("1.5h", "1.5h"),
+        ("-1m", "-1m"),
+        ("500ms", "500ms"),
+        ("-1", -1),
+        ("0", 0),
+        ("600", 600),
+        (" 30m ", "30m"),
+    ],
+)
+def test_keep_alive_values_follow_the_ollama_rules(raw, expected):
+    got = providers.parse_keep_alive(raw)
+    assert got == expected and type(got) is type(expected)
+
+
+# Ollama가 받지 않는 keep_alive 글(단위 없는 소수, 낱말, 빈 글, 단위 앞 공백, 모르는 단위)은 ValueError다.
+@pytest.mark.parametrize("raw", ["forever", "1.5", "", "10 m", "-1x", "m", "1h 30m"])
+def test_keep_alive_rejects_values_ollama_would_not_accept(raw):
+    with pytest.raises(ValueError):
+        providers.parse_keep_alive(raw)
+
+
+# OllamaProvider의 keep_alive는 문자열(기본 "30m")이나 정수를 그대로 요청 본문에 넣는다: 정수는 JSON 숫자로
+# 간다. 기본값의 요청 본문은 전과 같다(기록된 실행과 같은 "30m").
+def test_ollama_request_sends_keep_alive_as_given(monkeypatch):
+    sent: list = []
+    monkeypatch.setattr(httpx, "post", _fake_post(sent, {"message": {"content": "{}"}}))
+    OllamaProvider(model="m").generate(MSGS)
+    assert sent[-1]["keep_alive"] == "30m"
+    OllamaProvider(model="m", keep_alive=-1).generate(MSGS)
+    assert sent[-1]["keep_alive"] == -1 and type(sent[-1]["keep_alive"]) is int
 
 
 # Ollama 답의 생각 글(message.thinking)과 멈춘 이유(done_reason)를 Reply에 남기는지 확인한다. 생각 모드가

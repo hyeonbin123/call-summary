@@ -34,7 +34,7 @@ from pathlib import Path
 # 부트스트랩)을 각 모듈에서 가져온다. 이 파일은 그것들을 순서대로 엮는 역할만 한다.
 from .dataset import Item, load_items, write_jsonl
 from .prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_messages, prompt_hash
-from .providers import HFProvider, OllamaProvider, Provider, Reply
+from .providers import HFProvider, OllamaProvider, Provider, Reply, ollama_fingerprint
 from .schema import AfterCallRecord, parse_reply, record_json_schema
 from .scoring import METRICS, ItemScore, bootstrap_ci, pctl, score_item, summarize
 
@@ -233,6 +233,9 @@ def adapter_hash(adapter: str | Path) -> str | None:
 # 다른 가중치가 들어갈 수 있기 때문이다(커밋 f89df9f).
 # transformers: 어댑터 해시, 학습 설정 해시, 바탕 모델의 HF 스냅샷 커밋. Ollama: 모델 digest와 서버 버전(같은
 # 가중치라도 실행기 버전이 다르면 조건이 다르다). 값을 못 구해도 None으로 두고 실행은 멈추지 않는다.
+# 이름과 인수는 그대로 둔다: judge_run·judge_calib·scripts/ctx_probe.py가 이 이름으로 가져다 쓰고 테스트가 이
+# 이름을 monkeypatch한다. Ollama 조회 자체는 providers.ollama_fingerprint로 옮겨 서비스(/health·/ready·시작
+# 로그)와 같은 함수를 쓴다.
 def model_fingerprint(provider: Provider) -> dict:
     """잰 가중치를 경로나 태그 이상으로 식별하는 값(경로·태그는 다시 학습하거나 다시 내보내면 재사용된다).
     구하지 못한 값은 None이고, 그 때문에 실행이 멈추지는 않는다."""
@@ -252,21 +255,9 @@ def model_fingerprint(provider: Provider) -> dict:
         except Exception:  # noqa: BLE001 - 로컬 경로이거나 hub가 설치되지 않음
             fp["base_revision"] = None
     elif isinstance(provider, OllamaProvider):
-        import httpx
-
-        names = {provider.model, f"{provider.model}:latest"}
-        try:
-            tags = httpx.get(f"{provider.base_url}/api/tags", timeout=10).json().get("models", [])
-            fp["ollama_digest"] = next(
-                (m.get("digest") for m in tags if m.get("name") in names or m.get("model") in names), None
-            )
-        except Exception:  # noqa: BLE001 - 모델 서버 없음: 실행이 뒤에서 실제 오류로 실패한다
-            fp["ollama_digest"] = None
-        try:  # 서버 버전도 측정 조건이다(같은 가중치라도 실행기가 다름)
-            got = httpx.get(f"{provider.base_url}/api/version", timeout=10).json()
-            fp["ollama_version"] = got.get("version")
-        except Exception:  # noqa: BLE001
-            fp["ollama_version"] = None
+        # /api/tags의 digest와 /api/version(각 10초 한도). 모델 서버가 없으면 둘 다 None이고 실행은 뒤에서
+        # 실제 오류로 실패한다. 키는 ollama_digest, ollama_version 그대로(기록된 manifest와 대조하기 위해).
+        fp.update(ollama_fingerprint(provider.base_url, provider.model))
     return fp
 
 
