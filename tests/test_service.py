@@ -1,7 +1,7 @@
 # [테스트 묶음] 5단계 서비스(call_summary.service)를 모델 없이 FastAPI TestClient로 검증한다: 정상 응답,
 # 확인이 필요한 번호 표시, 형식·라벨 실패 시 한 번 재시도 후 502, 재시도가 첫 답의 되풀이가 아님, 입력
 # 검사(422)의 정확한 범위, 발화 안 줄바꿈류의 정규화(가짜 화자 줄 막기)와 제어문자 거절, 보안 스캔이
-# 처리기까지 닿는지(OpenAPI 설명, ISO-8859-1 한글, HAR 씨앗), 413·503, 컨텍스트를 다 채운 답(502)과 모델
+# 처리기까지 닿는지(OpenAPI 설명, ISO-8859-1 한글, HAR·ZAP 씨앗), 413·503, 컨텍스트를 다 채운 답(502)과 모델
 # 서버의 컨텍스트 초과 오류(413), 보안 헤더, /stats, 요청별 로그 한 줄(개인정보 없음), 스키마 강제는 켤 때만.
 # 맨 아래 묶음은 입장 제어(동시 모델 호출 상한, 대기열, 503 busy와 Retry-After), 모델 호출 시간 한도, 요청
 # 본문 상한(파싱 전 413), /stats 지연 창을 본다. 동시성 시험은 TestClient 대신 httpx.ASGITransport로 한 이벤트
@@ -15,6 +15,7 @@
 
 import json
 import logging
+import re
 import threading
 import time
 from pathlib import Path
@@ -319,6 +320,26 @@ def test_hawkscan_seed_request_is_ascii_and_reaches_the_handler(caplog):
     caplog.set_level(logging.INFO, logger="call_summary.service")
     r = TestClient(create_offline_app()).post(
         "/summarize", content=body.encode("iso-8859-1"), headers={"Content-Type": headers["content-type"]}
+    )
+    assert r.status_code == 200, r.text
+    assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]
+
+
+# OWASP ZAP 계획(zap/automation.yaml)의 씨앗 요청(requestor 작업)이 HAR 씨앗과 같은 본문인지 확인한다: POST
+# ${TARGET}/summarize, 본문은 ASCII(한글은 JSON \u 이스케이프)이고 EXAMPLE_REQUEST와 같으며, ISO-8859-1로
+# 보내도 처리기에 닿아 200과 로그 줄(ok)을 남긴다. 계획이 OpenAPI 설명(${TARGET}/openapi.json)도 읽는지 본다.
+# HawkScan 체험이 끝난 뒤의 보안 스캔은 ZAP이 이 계획으로 한다(docs/experiments.md "보안 스캔 기록"). 계획
+# 파일은 YAML 라이브러리 없이 글로 읽는다(테스트 의존성을 늘리지 않으려는 것. data 줄은 하나뿐이어야 한다).
+def test_zap_plan_seed_request_is_ascii_and_reaches_the_handler(caplog):
+    root = Path(__file__).resolve().parents[1]
+    plan = (root / "zap" / "automation.yaml").read_text(encoding="utf-8")
+    assert "apiUrl: ${TARGET}/openapi.json" in plan
+    assert "- url: ${TARGET}/summarize\n        method: POST" in plan
+    (body,) = re.findall(r"^\s*data: '(.*)'\s*$", plan, flags=re.MULTILINE)
+    assert body.isascii() and json.loads(body) == EXAMPLE_REQUEST
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    r = TestClient(create_offline_app()).post(
+        "/summarize", content=body.encode("iso-8859-1"), headers={"Content-Type": "application/json"}
     )
     assert r.status_code == 200, r.text
     assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]

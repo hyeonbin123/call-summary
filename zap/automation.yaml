@@ -1,0 +1,85 @@
+# OWASP ZAP 자동화 계획. 모델 없는 오프라인 모드(call_summary.service:create_offline_app, 업종마다 정해 둔 고정
+# 답)를 대상으로, HawkScan 설정(stackhawk.yml)이 하던 것과 같은 스캔을 한다: OpenAPI 설명으로 경로를 읽고, 씨앗
+# 요청을 보내고, 스파이더, 패시브 스캔, 기본 정책의 액티브 스캔, 보고서. ZAP 2.17.0 크로스플랫폼 패키지(Java 17
+# 이상)를 zap/run_zap.sh가 -autorun으로 띄운다. 이 파일에는 비밀값이 없다. ${…} 변수는 run_zap.sh가 환경
+# 변수로 넘긴다:
+#
+#   TARGET       스캔 대상 (기본 http://127.0.0.1:8072. 늘 로컬 서비스만 스캔한다)
+#   REPORT_DIR   보고서를 둘 폴더의 절대 경로, REPORT_NAME 보고서 파일 이름(확장자 없이)
+#
+# [왜 ZAP인가] HawkScan(StackHawk) 체험 기간이 2026-10-05에 끝나 무료 ZAP으로 바꿨다. 두 도구는 규칙 목록과
+# 기본 설정이 달라 결과를 직접 비교하지 않고, ZAP 기록끼리만 비교한다 (docs/experiments.md "보안 스캔 기록").
+# [범위] 모델이 없는 층(입력 검사, 전사·프롬프트 조립, 응답 검증, 번호 검사, 상태 경로)만 본다. 모델 서버
+# (Ollama) 쪽은 범위 밖이다.
+env:
+  contexts:
+    # 컨텍스트 URL은 /health다: 스파이더 작업이 시작하기 전에 컨텍스트의 첫 URL에 접근해 200인지 확인하는데, 이
+    # 서비스에는 루트 경로(/)가 없어 ${TARGET} 그대로면 404 때문에 계획 경고가 남는다(2026-10-24 첫 두 실행).
+    # 스캔 범위는 아래 includePaths(${TARGET} 아래 전부)가 정하므로 좁아지지 않는다.
+    - name: call-summary
+      urls:
+        - ${TARGET}/health
+      includePaths:
+        - "${TARGET}.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  # 오프라인 모드는 OpenAPI JSON을 공개한다(CALL_SUMMARY_EXPOSE_OPENAPI와 같은 효과). 경로 다섯 개(/health,
+  # /ready, /stats, /domains, /summarize)와 /summarize 요청 본문의 스키마·예시가 여기서 나온다.
+  - type: openapi
+    parameters:
+      apiUrl: ${TARGET}/openapi.json
+      context: call-summary
+
+  # 씨앗 요청: hawk/summarize.har와 같은 /summarize 본문이다. 한글(발화자 "상담원"·"고객", 발화 글)을 JSON \u
+  # 이스케이프로 적어 본문이 ASCII만이라, 스캐너가 어떤 문자 집합으로 보내도 입력 검사(422)를 지나 처리기
+  # 안쪽(전사 조립·프롬프트 조립·응답 검증·번호 검사)에 닿는다. HawkScan은 OpenAPI로 만든 본문을 ISO-8859-1로
+  # 보내 한글이 "???"가 됐다(2026-10-03 스캔). 액티브 스캔은 이 요청의 본문 값(domain, speaker, text)도
+  # 공격한다. 처리기에 닿은 요청 수는 스캔 뒤 서버 로그의 JSON 줄(`"request_id"`)로 센다.
+  - type: requestor
+    requests:
+      - url: ${TARGET}/summarize
+        method: POST
+        headers:
+          - "Content-Type:application/json"
+        data: '{"domain": "shop", "turns": [{"speaker": "\uc0c1\ub2f4\uc6d0", "text": "\ub3c4\ud1a0\ub9ac\ub9c8\ucf13\uc785\ub2c8\ub2e4. \ubb34\uc5c7\uc744 \ub3c4\uc640\ub4dc\ub9b4\uae4c\uc694?"}, {"speaker": "\uace0\uac1d", "text": "\uc5b4\uc81c \ud55c \uc8fc\ubb38\uc744 \ucde8\uc18c\ud558\ub824\uace0\uc694."}]}'
+
+  # 스파이더는 컨텍스트의 첫 URL(/health)에서 시작한다. 경로 목록은 위 openapi 작업이 이미 넣었으므로 응답 안의
+  # 링크만 더 찾는다(JSON만 주는 서비스라 거의 없다).
+  - type: spider
+    parameters:
+      context: call-summary
+      maxDuration: 2
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  # 기본 정책(HawkScan의 DEFAULT_API 자리). 서비스는 모델 호출 구간에 동시 4건(CALL_SUMMARY_MAX_INFLIGHT 기본값)
+  # 까지 들이고 그 밖은 16건까지 줄을 세우므로, 스레드 4개면 503 busy 없이 모든 요청이 처리기에 닿는다.
+  - type: activeScan
+    parameters:
+      context: call-summary
+      threadPerHost: 4
+      maxScanDurationInMins: 120
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: ${REPORT_DIR}
+      reportFile: ${REPORT_NAME}
+      reportTitle: call-summary ZAP scan
+
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: ${REPORT_DIR}
+      reportFile: ${REPORT_NAME}
+      reportTitle: call-summary ZAP scan

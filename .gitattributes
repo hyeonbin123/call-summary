@@ -1,3 +1,5 @@
 # Data files are hashed into run manifests; keep their bytes identical on every checkout.
 *.jsonl text eol=lf
 *.json text eol=lf
+# 셸 스크립트(zap/run_zap.sh)는 Windows 체크아웃에서도 LF여야 bash가 줄 끝의 CR을 명령으로 읽지 않는다.
+*.sh text eol=lf
