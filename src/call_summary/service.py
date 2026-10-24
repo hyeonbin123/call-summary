@@ -16,6 +16,14 @@ CALL_SUMMARY_MAX_QUEUE(기본 16)개까지만 줄을 서서 CALL_SUMMARY_QUEUE_W
 한도는 CALL_SUMMARY_MODEL_TIMEOUT(기본 120초)이다. 요청 본문은 1 MiB까지만 받는다(넘으면 본문을 읽어 파싱하기
 전에 413). /stats의 지연 분포는 최근 CALL_SUMMARY_STATS_WINDOW(기본 10,000)건으로 낸다.
 
+상태 경로: GET /health는 liveness다. 모델 서버에 닿지 않고 프로세스가 답하는지만 보이며, 모델 이름, 프롬프트
+지문(prompt_hash), 마지막으로 확인한 서빙 모델의 digest와 Ollama 버전(시작 때 한 번 조회하고 /ready가
+갱신한다)을 준다. GET /ready는 readiness다. 모델 서버의 /api/tags에 모델 태그가 있고,
+CALL_SUMMARY_MODEL_DIGEST(digest 앞자리)를 적었으면 그 digest와 맞을 때만 200이고, 아니면 503과
+이유(no_model_server, no_model, digest_mismatch, warming)를 준다(조회 2초 한도, 10초 캐시).
+CALL_SUMMARY_KEEP_ALIVE(기본 30m)는 요청 뒤 모델을 메모리에 남겨 둘 시간이고, CALL_SUMMARY_WARMUP=1이면 시작할
+때 뒤에서 한 번 모델을 올린다(기본은 끔. 끝날 때까지 /ready는 warming).
+
 기록 안의 번호(주문번호, 운송장번호, 접수번호, 카드 끝자리) 가운데 운영 형식에 맞지 않거나 전사에서 찾을
 수 없는 것은 `needs_confirmation`에 나열한다(verify.py). 기록 자체는 바꾸지 않는다.
 
@@ -35,26 +43,34 @@ CALL_SUMMARY_MAX_QUEUE(기본 16)개까지만 줄을 서서 CALL_SUMMARY_QUEUE_W
 # [설계 이유] 모델 답을 그대로 내보내지 않고 (1) 스키마 검증, (2) 업종 라벨 목록 검사, (3) 실패 시 샘플링으로
 # 한 번만 재시도, (4) 그래도 안 되면 반쯤 맞는 기록 대신 502를 준다(docs/plan.md "서빙"). 스키마 강제 디코딩은
 # 학습한 모델의 필드를 빠뜨리게 해 기본으로 끈다(docs/experiments.md 5단계 발견 1).
-# [엔드포인트] GET /health(모델 이름·프롬프트 지문), GET /stats(요청 수·지연 분포), GET /domains(업종별 라벨
-# 목록), POST /summarize(본 기능).
+# [엔드포인트] GET /health(liveness: 모델 이름·프롬프트 지문·마지막으로 확인한 모델 digest·Ollama 버전), GET
+# /ready(readiness: 모델 서버 접속·모델 태그·digest 확인), GET /stats(요청 수·지연 분포), GET /domains(업종별
+# 라벨 목록), POST /summarize(본 기능). 상태 경로 넷은 async def다: /health·/stats·/domains는 작업 스레드를
+# 쓰지 않아 모델 호출이 스레드를 모두 차지해도 답하고, /ready는 캐시가 없을 때만 모델 서버 조회 한 번을
+# 스레드로 보낸다.
+# [모델 지문·예열] 측정 기록(manifest의 model_fingerprint, evaluate.model_fingerprint)과 같은
+# 함수(providers.ollama_model_digest·ollama_version)로 서빙 중인 모델의 digest를 시작 때와 /ready에서 확인해,
+# 잰 모델과 서빙 모델이 같은 가중치인지 보인다. 선택 예열(CALL_SUMMARY_WARMUP=1)은 시작할 때 뒤에서 모델을 한
+# 번 올려 첫 요청의 콜드 스타트를 시작 시점으로 앞당긴다.
 # [보안·개인정보] 응답에 보안 헤더를 붙이고, 문서 페이지는 기본으로 숨긴다. 요청 로그에는 전사·기록·번호 값을
 # 남기지 않는다(개인정보). 발화 글의 줄바꿈류는 공백으로 바꿔 가짜 화자 줄을 막고 그 밖의 제어문자는 거절한다.
 # 모델 없는 오프라인 모드(create_offline_app)는 HawkScan 보안 스캔용이다(docs/experiments.md "보안 스캔
 # 기록").
 # [부하 경계] 모델 호출은 동시 상한(CapacityLimiter)과 짧은 대기열 뒤에서만 돌고 넘치면 503 busy다. Ollama
-# 호출의 시간 한도는 서비스용 값(기본 120초)이고, 요청 본문은 1 MiB 상한의 ASGI 미들웨어(BodySizeLimit)가
-# 파싱 전에 자른다. /stats의 지연은 고정 크기 창(deque)으로 모아 메모리가 자라지 않는다.
+# 호출의 시간 한도는 서비스용 값(기본 120초)이고, 요청 본문은 1 MiB 상한의 ASGI 미들웨어(BodySizeLimit)가 파싱
+# 전에 자른다. /stats의 지연은 고정 크기 창(deque)으로 모아 메모리가 자라지 않는다.
 # [연결] service_eval.py·loadtest.py가 이 서비스에 요청을 보내 품질과 부하를 재고, Dockerfile·compose.yaml이
 # uvicorn으로 create_app을 띄운다. scripts/ctx_probe.py는 이 파일의 컨텍스트 판정 함수(context_flags,
 # is_context_exceeded)로 실제 모델 서버 응답을 분류한다.
 
 from __future__ import annotations
 
-# 표준 라이브러리: dataclasses는 재시도용 provider 복사(replace)와 한도 설정(Limits)에, threading.Lock은
-# /stats 집계를 동시 요청에서 지키는 데, uuid는 요청 id에, time.perf_counter는 지연과 대기 시간에 쓴다.
-# random은 오프라인 모드의 고정 번호를 만드는 데만 쓴다. re는 발화 글의 줄바꿈류 정규화와 화자 표시 꼴 세기에,
-# math는 한도 값 검사(유한한 수인지)와 Retry-After 올림에, collections.deque는 /stats의 고정 크기 지연 창에
-# 쓴다.
+# 표준 라이브러리: dataclasses는 재시도용 provider 복사(replace)와 설정(Limits, ModelSettings)에, threading은
+# /stats 집계를 동시 요청에서 지키는 Lock과 예열(모델 적재)을 뒤에서 돌리는 데몬 스레드에, uuid는 요청 id에,
+# time.perf_counter는 지연과 대기 시간에, time.monotonic은 /ready 캐시의 나이에 쓴다. random은 오프라인 모드의
+# 고정 번호를 만드는 데만 쓴다. re는 발화 글의 줄바꿈류 정규화와 화자 표시 꼴 세기, digest 기대값 검사에,
+# math는 한도 값 검사(유한한 수인지)와 Retry-After 올림에, collections.deque는 /stats의 고정 크기 지연 창에,
+# contextlib.asynccontextmanager는 FastAPI의 시작·종료 동작(lifespan)에 쓴다.
 import dataclasses
 import json
 import logging
@@ -67,11 +83,12 @@ import threading
 import time
 import uuid
 from collections import deque
+from contextlib import asynccontextmanager
 from typing import Literal
 
-# anyio: 입장 제어(CapacityLimiter, move_on_after)와 모델 호출 구간을 스레드로 보내는 to_thread.run_sync.
-# Starlette의 필수 의존성이라 FastAPI와 함께 설치되고, FastAPI가 일반 def 처리기를 돌리는 스레드 풀도 같은
-# anyio 것이다.
+# anyio: 입장 제어(CapacityLimiter, move_on_after), 모델 호출 구간과 모델 서버 조회를 스레드로 보내는
+# to_thread.run_sync, /ready 조회를 한 번에 하나만 돌리는 Lock. Starlette의 필수 의존성이라 FastAPI와 함께
+# 설치되고, FastAPI가 일반 def 처리기를 돌리는 스레드 풀도 같은 anyio 것이다.
 import anyio
 
 # httpx: 모델 서버의 HTTP 오류(httpx.HTTPStatusError, OllamaProvider의 raise_for_status가 낸다)가 컨텍스트
@@ -87,11 +104,20 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 # 프로젝트 모듈: 업종 라벨 목록(domains), 학습·평가와 같은 프롬프트 조립(prompts. 서빙 프롬프트가 학습 때와
-# 같아야 한다), 모델 호출(providers), 기록 형식과 답 읽기(schema), 확인이 필요한 번호 검사(verify), /stats의
-# 지연 백분위(scoring.pctl, 평가 도구와 같은 계산).
+# 같아야 한다), 모델 호출과 Ollama 서버 조회·적재(providers: 지문 조회는 측정 기록과 같은 함수, keep_alive 글
+# 해석), 기록 형식과 답 읽기(schema), 확인이 필요한 번호 검사(verify), /stats의 지연 백분위(scoring.pctl, 평가
+# 도구와 같은 계산).
 from .domains import DOMAINS
 from .prompts import build_messages, format_transcript, prompt_hash, record_to_json
-from .providers import OllamaProvider, Provider, Reply
+from .providers import (
+    OllamaProvider,
+    Provider,
+    Reply,
+    ollama_load,
+    ollama_model_digest,
+    ollama_version,
+    parse_keep_alive,
+)
 from .schema import AfterCallRecord, Entity, FollowUp, parse_reply, record_json_schema
 from .scoring import pctl
 from .verify import IdentifierFlag, verify_entities
@@ -117,6 +143,16 @@ MAX_CHARS = 4_000
 # 정상 요청에 닿지 않고, 그보다 큰 본문은 어차피 413(too_long)이나 422가 될 것을 메모리에 다 올리지 않게 하는
 # 것이다.
 MAX_BODY_BYTES = 1 << 20
+# /ready와 시작 조회가 모델 서버(/api/tags, /api/version)에 보내는 요청 하나의 시간 한도(초). 상태 확인은 빨리
+# 끝나야 하므로 측정 도구의 10초보다 짧다. 시작 조회가 기동을 이 시간의 두 배 넘게 늦추지는 않는다(두 요청).
+READY_TIMEOUT_S = 2.0
+# /ready가 모델 서버 조회 결과를 다시 쓰는 시간(초). 상태 확인을 자주 받아도(compose healthcheck 15초 간격 등)
+# 모델 서버를 그보다 자주 두드리지 않게 한다. 닿지 못한 결과도 같은 시간 캐시한다. 테스트가 이 값을 바꿀 수
+# 있게 처리기가 매번 모듈 변수를 읽는다.
+READY_TTL_S = 10.0
+# CALL_SUMMARY_MODEL_DIGEST가 받는 꼴: 소문자 16진수 1~64자리(digest 앞자리. `ollama list`의 ID 12자리나
+# manifest에 기록된 64자리).
+_DIGEST_PREFIX = re.compile(r"[0-9a-f]{1,64}")
 # 발화 글의 줄 경계 정규화(가짜 화자 줄 막기). 전사는 발화마다 "화자: 말" 줄을 만들어 줄바꿈으로 잇기 때문에
 # (prompts.format_transcript), 고객 발화 안의 줄바꿈 뒤에 "상담원: ..."을 적으면 모델이 받는 전사에 진짜
 # 상담원 줄과 글자 꼴이 같은 줄이 생긴다(구조적 프롬프트 주입). 그래서 전사를 조립하기 전에 파이썬
@@ -369,6 +405,48 @@ class Limits:
         return str(max(1, math.ceil(self.queue_wait_s)))
 
 
+# 모델 서버 관련 설정. 부하 한도(Limits)와 따로 둔 것은 성격이 다르기 때문이다: 모델이 메모리에 남는 시간,
+# 시작 때 올릴지, 기대하는 가중치 지문. 모두 환경 변수로 바꾸고 빈 값은 기본값이다(compose의 `${VAR:-}` 꼴).
+# - keep_alive(CALL_SUMMARY_KEEP_ALIVE, "30m"): 요청 뒤 모델을 메모리에 남겨 둘 시간. Ollama가 받는 꼴(시간
+#   문자열 또는 초 단위 정수. 음수는 계속 상주, 0은 바로 내림)만 받고 그 밖은 ValueError다
+#   (providers.parse_keep_alive). 기본 30m은 기록된 실행과 같다. -1(계속 상주)로 바꾸면 서빙 모델(q8_0 약 4.7
+#   GB)이 GPU 메모리를 늘 잡는다.
+# - warmup(CALL_SUMMARY_WARMUP=1, 기본 끔): 시작할 때 뒤에서 한 번 모델을 올릴지. 콜드 스타트(기록된 첫 요청
+#   36.3초·모델 적재를 포함한 첫 요청 52.9초)를 첫 요청 대신 시작 때 치른다. 기본으로 끈 이유: GPU를 다른
+#   작업과 나눠 쓰는 환경에서 서비스를 띄우는 것만으로 GPU 메모리를 잡지 않게 하려는 것이다.
+# - expected_digest(CALL_SUMMARY_MODEL_DIGEST, 없음): 서빙 모델 digest의 앞자리(_DIGEST_PREFIX. `ollama
+#   list`의 ID 12자리로 충분하다). 적으면 /ready가 모델 서버에 올라간 그 태그의 digest와 맞는지 확인한다. 같은
+#   태그를 `ollama create`로 덮어써도 서비스가 알 수 있게, 측정 기록(manifest의 ollama_digest)의 값을 적는
+#   용도다.
+@dataclasses.dataclass(frozen=True)
+class ModelSettings:
+    keep_alive: str | int = "30m"
+    warmup: bool = False
+    expected_digest: str | None = None
+
+    # 환경 변수에서 읽는다. 잘못된 값은 변수 이름이 든 ValueError(create_app이 그대로 올려 앱이 뜨지 않는다).
+    @classmethod
+    def from_env(cls) -> ModelSettings:
+        keep_alive: str | int = cls.keep_alive
+        raw = os.environ.get("CALL_SUMMARY_KEEP_ALIVE", "").strip()
+        if raw:
+            try:
+                keep_alive = parse_keep_alive(raw)
+            except ValueError as exc:
+                raise ValueError(f"CALL_SUMMARY_KEEP_ALIVE: {exc}") from None
+        raw_digest = os.environ.get("CALL_SUMMARY_MODEL_DIGEST", "").strip()
+        expected = raw_digest.lower() or None
+        if expected is not None and not _DIGEST_PREFIX.fullmatch(expected):
+            raise ValueError(
+                f"CALL_SUMMARY_MODEL_DIGEST must be 1-64 hex characters (a digest prefix), got {raw_digest!r}"
+            )
+        return cls(
+            keep_alive=keep_alive,
+            warmup=os.environ.get("CALL_SUMMARY_WARMUP", "").strip() == "1",
+            expected_digest=expected,
+        )
+
+
 # 이 프로세스가 받은 /summarize의 결과별 수와 최근 지연(GET /stats). 메모리에만 있어 재시작하면 0부터 다시
 # 센다. add는 모델 호출 구간을 돌리는 작업 스레드와 이벤트 루프(503 busy) 양쪽에서 불리므로
 # threading.Lock으로 읽기·쓰기를 지킨다. 결과: ok·retried_ok(기록을 줌), rejected(두 번 모두 형식·라벨 실패,
@@ -487,27 +565,41 @@ def _content_length(scope: Scope) -> int | None:
     return None
 
 
+# /ready가 작업 스레드에서 돌리는 모델 서버 조회. 입력: Ollama 주소, 모델 태그, 요청 하나의 시간 한도(초).
+# 출력: {"reachable": /api/tags에 닿아 JSON을 받았는지, "digest": 그 태그의 digest(없으면 None), "version":
+# 서버 버전(못 구하면 None)}. 서버에 닿지 못하면 /api/version은 묻지 않는다(한도만큼 더 기다리지 않게). 예외를
+# 내지 않으므로 부르는 쪽은 reachable과 digest로 서버 없음·모델 없음·digest 불일치를 가른다.
+def probe_model_server(base_url: str, model: str, timeout_s: float) -> dict:
+    """모델 서버에 닿는지, 모델 태그의 digest, 서버 버전. 예외 없이 dict로 돌려준다."""
+    out: dict = {"reachable": False, "digest": None, "version": None}
+    try:
+        out["digest"] = ollama_model_digest(base_url, model, timeout_s)
+    except Exception:  # noqa: BLE001 - 연결 실패·시간 초과·JSON 아님: 서버 없음으로 본다
+        return out
+    out["reachable"] = True
+    try:
+        out["version"] = ollama_version(base_url, timeout_s)
+    except Exception:  # noqa: BLE001 - 버전은 참고 값이라 없어도 준비 판단에는 영향이 없다
+        pass
+    return out
+
+
 # 앱 공장 함수(uvicorn --factory로 부른다). provider를 넘기면 그것을(테스트·오프라인 모드), 아니면 환경 변수로
-# OllamaProvider를 만든다.
-# 환경 변수: CALL_SUMMARY_MODEL(Ollama 모델 태그), OLLAMA_URL, CALL_SUMMARY_SCHEMA=1(스키마 강제 켜기),
-# CALL_SUMMARY_NUM_GPU(GPU에 올릴 층 수. 14B처럼 VRAM이 넘치는 모델용, docs/experiments.md 1단계 진행 기록),
-# CALL_SUMMARY_EXPOSE_OPENAPI=1(OpenAPI 공개), 부하 한도 다섯 개(Limits의 주석: CALL_SUMMARY_MAX_INFLIGHT,
-# CALL_SUMMARY_MAX_QUEUE, CALL_SUMMARY_QUEUE_WAIT_S, CALL_SUMMARY_MODEL_TIMEOUT, CALL_SUMMARY_STATS_WINDOW.
-# 잘못된 값이면 ValueError로 앱이 뜨지 않는다).
+# OllamaProvider를 만든다. 환경 변수: CALL_SUMMARY_MODEL(Ollama 모델 태그), OLLAMA_URL,
+# CALL_SUMMARY_SCHEMA=1(스키마 강제 켜기), CALL_SUMMARY_NUM_GPU(GPU에 올릴 층 수. 14B처럼 VRAM이 넘치는
+# 모델용, docs/experiments.md 1단계 진행 기록), CALL_SUMMARY_EXPOSE_OPENAPI=1(OpenAPI 공개), 부하 한도 다섯
+# 개(Limits의 주석: CALL_SUMMARY_MAX_INFLIGHT, CALL_SUMMARY_MAX_QUEUE, CALL_SUMMARY_QUEUE_WAIT_S,
+# CALL_SUMMARY_MODEL_TIMEOUT, CALL_SUMMARY_STATS_WINDOW), 모델 설정 세 개(ModelSettings의 주석:
+# CALL_SUMMARY_KEEP_ALIVE, CALL_SUMMARY_WARMUP, CALL_SUMMARY_MODEL_DIGEST). 잘못된 값이면 ValueError로 앱이
+# 뜨지 않는다. 시작(lifespan): 모델 서버를 쓰는 provider면 지문(digest·버전)을 한 번 조회해 /health와 시작
+# 로그 한 줄에 남기고(실패해도 뜬다), 예열이 켜져 있으면 뒤에서 모델을 올리는 스레드를 띄운 뒤 요청을 받는다.
 def create_app(provider: Provider | None = None, expose_openapi: bool | None = None) -> FastAPI:
     if expose_openapi is None:
         expose_openapi = os.environ.get("CALL_SUMMARY_EXPOSE_OPENAPI") == "1"
-    # 부하 한도는 provider를 넘긴 경우(테스트·오프라인 모드)에도 모두 읽고 검사한다: 잘못된 설정은 어느 모드로
-    # 띄우든 시작할 때 드러나야 한다.
+    # 부하 한도와 모델 설정은 provider를 넘긴 경우(테스트·오프라인 모드)에도 모두 읽고 검사한다: 잘못된 설정은
+    # 어느 모드로 띄우든 시작할 때 드러나야 한다.
     limits = Limits.from_env()
-    # Swagger·ReDoc 문서 페이지는 끄고, OpenAPI JSON은 요청할 때만 연다(오프라인 모드는 스캔을 위해 연다).
-    app = FastAPI(
-        title="call-summary",
-        version="0.1.0",
-        docs_url=None,
-        redoc_url=None,
-        openapi_url="/openapi.json" if expose_openapi else None,
-    )
+    settings = ModelSettings.from_env()
     stats = Stats(window=limits.stats_window)
     _ensure_log_handler()
     base: Provider = provider or OllamaProvider(
@@ -520,17 +612,108 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         num_gpu=int(os.environ["CALL_SUMMARY_NUM_GPU"]) if os.environ.get("CALL_SUMMARY_NUM_GPU") else None,
         # 서비스용 시간 한도(Limits.model_timeout_s의 주석). providers의 기본값 600초는 14B 교사·판정용이다.
         timeout_s=limits.model_timeout_s,
+        # 요청 뒤 모델을 메모리에 남겨 둘 시간(ModelSettings.keep_alive의 주석. 기본 30m은 전과 같다).
+        keep_alive=settings.keep_alive,
     )
     # 재시도 provider도 앱을 만들 때 한 번만 만든다. 요청은 작업 스레드에서 동시에 돌므로, 요청마다 provider의
     # 설정을 바꾸면 동시에 도는 다른 요청이 바뀐 설정을 쓸 수 있다. 그래서 공유 provider는 절대 바꾸지 않는다.
-    # dataclasses.replace로 만드는 재시도 provider는 timeout_s를 포함한 모든 필드를 물려받는다. waiting은 모델
-    # 호출 자리를 기다리는 요청 수인데, 처리기(이벤트 루프)에서만 바꾸므로 잠금이 필요 없다.
-    state: dict = {"provider": base, "retry_provider": _retry_provider(base), "waiting": 0}
+    # dataclasses.replace로 만드는 재시도 provider는 timeout_s·keep_alive를 포함한 모든 필드를 물려받는다.
+    # waiting은 모델 호출 자리를 기다리는 요청 수인데, 처리기(이벤트 루프)에서만 바꾸므로 잠금이 필요 없다.
+    # fingerprint는 마지막으로 확인한 서빙 모델의 지문(/health와 시작 로그): 시작 때 한 번 조회하고 /ready가
+    # 모델 서버에 닿을 때마다 갱신한다(모델 서버를 쓰지 않는 provider나 조회 실패면 둘 다 None). warming은
+    # 예열이 뒤에서 도는 동안 True(그동안 /ready는 503 warming. 예열 스레드가 끝날 때 내린다). ready_probe는
+    # /ready의 마지막 조회(time.monotonic 시각, probe_model_server 결과)로 READY_TTL_S 동안 다시 쓴다.
+    state: dict = {
+        "provider": base,
+        "retry_provider": _retry_provider(base),
+        "waiting": 0,
+        "fingerprint": {"ollama_digest": None, "ollama_version": None},
+        "warming": False,
+        "ready_probe": None,
+    }
     # 입장 제어의 동시 상한. 처리기가 모델 호출 구간에 들어갈 때 손으로 잡고(acquire) 끝나면 놓는다(release).
     # anyio.to_thread.run_sync의 limiter 인자로 같은 객체를 넘기지 않는다: 같은 태스크가 두 번 잡으려 해
     # RuntimeError가 난다. 작업 스레드는 anyio의 기본 limiter(40)로 돌리므로 모델 호출이 상한까지 차 있어도
-    # /health 같은 일반 def 처리기의 스레드 자리는 남는다.
+    # /ready의 모델 서버 조회가 쓸 스레드 자리는 남는다. 상태 경로 자체는 async라 스레드를 쓰지 않는다.
     limiter = anyio.CapacityLimiter(limits.max_inflight)
+    # /ready의 모델 서버 조회를 한 번에 하나만 돌리는 잠금: 캐시가 만료된 순간 여러 /ready가 겹쳐 와도 모델
+    # 서버를 한 번만 묻고 나머지는 그 결과를 쓴다.
+    ready_lock = anyio.Lock()
+    # 모델 서버 확인과 예열의 대상. OllamaProvider가 아닌 provider(오프라인 모드, 테스트)에는 확인할 서버가
+    # 없어 /ready가 바로 200이고 예열도 하지 않는다.
+    ollama: OllamaProvider | None = base if isinstance(base, OllamaProvider) else None
+    warmup = settings.warmup and ollama is not None
+
+    # 예열: 프롬프트 없는 /api/generate로 모델을 한 번 올린다(providers.ollama_load). 데몬 스레드에서 돌아
+    # 기동을 막지 않고, 실패해도 서비스는 그대로 뜬다(로그 줄 event warmup에 ok false와 예외 종류만 남기고
+    # 오류 본문은 남기지 않는다). keep_alive는 provider의 값이라 요청 뒤와 같은 시간만큼 남고, 시간 한도는
+    # 모델 호출 한도(기본 120초)와 같다(디스크에서 가중치를 읽는 시간까지 덮어야 한다). 끝나면 warming을 내려
+    # /ready가 모델 서버를 확인하기 시작한다. anyio 작업 스레드 대신 따로 스레드를 쓴 것은 모델 호출의 스레드
+    # 자리를 쓰지 않고, 종료할 때 적재 요청이 끝나길 기다리지 않게 하려는 것이다(데몬 스레드는 프로세스와 함께
+    # 끝난다).
+    def warm_up() -> None:
+        assert ollama is not None
+        t0 = time.perf_counter()
+        line = {
+            "event": "warmup",
+            "model": ollama.name,
+            "keep_alive": ollama.keep_alive,
+            "ok": None,
+            "latency_s": None,
+            "error": None,
+        }
+        try:
+            ollama_load(ollama.base_url, ollama.model, ollama.keep_alive, timeout_s=limits.model_timeout_s)
+            line["ok"] = True
+        except Exception as exc:  # noqa: BLE001 - 예열 실패는 기동을 막지 않는다. 오류 본문은 남기지 않는다
+            line["ok"] = False
+            line["error"] = type(exc).__name__
+        finally:
+            line["latency_s"] = round(time.perf_counter() - t0, 3)
+            state["warming"] = False
+            log.info(json.dumps(line, ensure_ascii=False))
+
+    # 시작·종료 동작. 시작할 때 모델 서버의 지문을 한 번 조회해(작업 스레드, 요청마다 READY_TIMEOUT_S 한도)
+    # /health와 시작 로그 한 줄(event startup: 모델 이름, digest, Ollama 버전, prompt_hash, 기대 digest,
+    # keep_alive, 예열 여부, 부하 한도)에 넣는다. 조회에 실패해도 서비스는 뜬다(두 값은 None). 그 뒤 예열이
+    # 켜져 있으면 스레드를 띄우고 요청을 받기 시작한다. 종료할 때 할 일은 없다. with 없이 쓰는
+    # TestClient에서는 이 함수가 돌지 않는다.
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        if ollama is not None:
+            # /ready와 같은 조회(probe_model_server: 서버에 닿지 못하면 버전은 묻지 않아 기동이 한도의 두
+            # 배까지 늦어지지 않는다). 결과는 /ready의 첫 캐시로도 쓴다.
+            probe = await anyio.to_thread.run_sync(
+                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S
+            )
+            state["ready_probe"] = (time.monotonic(), probe)
+            state["fingerprint"] = {"ollama_digest": probe["digest"], "ollama_version": probe["version"]}
+        startup = {
+            "event": "startup",
+            "model": base.name,
+            "model_digest": state["fingerprint"]["ollama_digest"],
+            "ollama_version": state["fingerprint"]["ollama_version"],
+            "prompt_hash": prompt_hash(),
+            "expected_digest": settings.expected_digest,
+            "keep_alive": ollama.keep_alive if ollama is not None else None,
+            "warmup": warmup,
+            "limits": dataclasses.asdict(limits),
+        }
+        log.info(json.dumps(startup, ensure_ascii=False))
+        if warmup:
+            state["warming"] = True
+            threading.Thread(target=warm_up, name="call-summary-warmup", daemon=True).start()
+        yield
+
+    # Swagger·ReDoc 문서 페이지는 끄고, OpenAPI JSON은 요청할 때만 연다(오프라인 모드는 스캔을 위해 연다).
+    app = FastAPI(
+        title="call-summary",
+        version="0.1.0",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url="/openapi.json" if expose_openapi else None,
+        lifespan=lifespan,
+    )
 
     # 요청 본문 상한(BodySizeLimit의 주석). 보안 헤더 미들웨어보다 먼저 등록한다: Starlette는 나중에 등록한
     # 미들웨어를 바깥에 두므로, 이 순서라야 본문 상한의 413에도 보안 헤더가 붙는다(테스트가 확인한다).
@@ -545,19 +728,91 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             response.headers.setdefault(name, value)
         return response
 
-    # 상태 확인. 모델 이름과 프롬프트 지문(prompt_hash)을 함께 돌려 서빙 프롬프트가 학습·평가 때와 같은지
-    # 확인할 수 있다. compose.yaml의 healthcheck가 이 경로를 부른다.
+    # 상태 확인(liveness): 프로세스가 답하는지만 본다. 모델 서버에는 닿지 않으므로 모델 서버가 꺼져도 200이다.
+    # compose.yaml의 healthcheck가 이 경로를 쓴다: unhealthy를 재시작으로 처리하는 오케스트레이터에서 모델
+    # 서버가 잠깐 꺼질 때마다 컨테이너가 재시작되는 고리를 만들지 않으려는 것이다(모델 서버 상태는 /ready).
+    # 모델 이름과 프롬프트 지문(prompt_hash)으로 서빙 프롬프트가 학습·평가 때와 같은지, 마지막으로 확인한 모델
+    # digest·Ollama 버전(시작 조회와 /ready가 채운다)으로 잰 모델과 같은 가중치인지 맞춰 볼 수 있다. async
+    # def라 작업 스레드를 쓰지 않는다: 모델 호출이 스레드를 모두 차지해도 답한다.
     @app.get("/health")
-    def health() -> dict:
-        return {"status": "ok", "model": state["provider"].name, "prompt_hash": prompt_hash()}
+    async def health() -> dict:
+        fp = state["fingerprint"]
+        return {
+            "status": "ok",
+            "model": base.name,
+            "prompt_hash": prompt_hash(),
+            "model_digest": fp["ollama_digest"],
+            "ollama_version": fp["ollama_version"],
+        }
 
+    # /ready의 모델 서버 조회(probe_model_server)를 작업 스레드에서 하고 결과를 READY_TTL_S 동안 캐시한다.
+    # 캐시가 살아 있으면 바로 돌려주고, 없거나 오래되면 ready_lock 안에서 다시 확인한 뒤(겹친 요청은 한 번만
+    # 조회) 조회한다. 모델 서버에 닿았으면 /health가 보이는 지문도 갱신한다. 동기 httpx 호출을 이벤트 루프에서
+    # 직접 부르지 않는다(루프가 멈춰 다른 요청까지 기다리게 된다).
+    async def ready_probe() -> dict:
+        assert ollama is not None
+        cached = state["ready_probe"]
+        if cached is not None and time.monotonic() - cached[0] < READY_TTL_S:
+            return cached[1]
+        async with ready_lock:
+            cached = state["ready_probe"]
+            if cached is not None and time.monotonic() - cached[0] < READY_TTL_S:
+                return cached[1]
+            probe = await anyio.to_thread.run_sync(
+                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S
+            )
+            state["ready_probe"] = (time.monotonic(), probe)
+            if probe["reachable"]:
+                state["fingerprint"] = {"ollama_digest": probe["digest"], "ollama_version": probe["version"]}
+            return probe
+
+    # 준비 확인(readiness): 지금 요청을 받아 처리할 수 있는지. 모델 서버에 모델 태그가 있고,
+    # CALL_SUMMARY_MODEL_DIGEST가 있으면 digest 앞자리가 같을 때만 200 {"status": "ready"}이고, 아니면 503
+    # {"status": "not_ready", "reason": ...}이다. reason: warming(예열 중. 모델 서버에 묻지 않는다),
+    # no_model_server(서버에 닿지 못함), no_model(태그 없음), digest_mismatch(같은 태그에 다른 가중치: 측정 때
+    # 쓴 digest와 맞춰 본다). 모델 서버를 쓰지 않는 provider(오프라인 모드)는 확인할 것이 없어 200이다. 두
+    # 상태 모두 응답에 모델 이름, 지금 본 digest·버전, 기대 digest를 적는다. JSONResponse로 직접 답하는 것은
+    # 503 본문을 FastAPI의 {"detail": ...} 꼴이 아니라 200과 같은 꼴로 주려는 것이다.
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        fp = state["fingerprint"]
+        body: dict = {
+            "status": "ready",
+            "reason": None,
+            "model": base.name,
+            "model_digest": fp["ollama_digest"],
+            "ollama_version": fp["ollama_version"],
+            "expected_digest": settings.expected_digest,
+        }
+
+        def not_ready(reason: str) -> JSONResponse:
+            body.update(status="not_ready", reason=reason)
+            return JSONResponse(body, status_code=503)
+
+        if ollama is None:
+            return JSONResponse(body)
+        if state["warming"]:
+            return not_ready("warming")
+        probe = await ready_probe()
+        body.update(model_digest=probe["digest"], ollama_version=probe["version"])
+        if not probe["reachable"]:
+            return not_ready("no_model_server")
+        if probe["digest"] is None:
+            return not_ready("no_model")
+        if settings.expected_digest and not probe["digest"].lower().startswith(settings.expected_digest):
+            return not_ready("digest_mismatch")
+        return JSONResponse(body)
+
+    # 요청 수와 지연 분포. async def: Stats.snapshot은 잠금 안의 복사와 정렬만이라(I/O 없음) 이벤트 루프에서
+    # 바로 돌려도 된다.
     @app.get("/stats")
-    def get_stats() -> dict:
+    async def get_stats() -> dict:
         return stats.snapshot()
 
-    # 업종별 라벨 목록. 호출하는 쪽(화면 등)이 받을 수 있는 유형·처리·코드를 알 수 있게 한다.
+    # 업종별 라벨 목록. 호출하는 쪽(화면 등)이 받을 수 있는 유형·처리·코드를 알 수 있게 한다. 고정 값이라
+    # async.
     @app.get("/domains")
-    def domains() -> dict:
+    async def domains() -> dict:
         return {
             k: {
                 "label": d.label,

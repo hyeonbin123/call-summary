@@ -4,8 +4,11 @@
 # 처리기까지 닿는지(OpenAPI 설명, ISO-8859-1 한글, HAR 씨앗), 413·503, 컨텍스트를 다 채운 답(502)과 모델
 # 서버의 컨텍스트 초과 오류(413), 보안 헤더, /stats, 요청별 로그 한 줄(개인정보 없음), 스키마 강제는 켤 때만.
 # 맨 아래 묶음은 입장 제어(동시 모델 호출 상한, 대기열, 503 busy와 Retry-After), 모델 호출 시간 한도, 요청
-# 본문 상한(파싱 전 413), /stats 지연 창을 본다. 동시성 시험은 TestClient 대신 httpx.ASGITransport로 한
-# 이벤트 루프 안에서 요청을 동시에 보낸다(with 없이 쓰는 TestClient는 요청마다 이벤트 루프를 새로 만든다).
+# 본문 상한(파싱 전 413), /stats 지연 창을 본다. 동시성 시험은 TestClient 대신 httpx.ASGITransport로 한 이벤트
+# 루프 안에서 요청을 동시에 보낸다(with 없이 쓰는 TestClient는 요청마다 이벤트 루프를 새로 만든다). 그 뒤의
+# 묶음은 /ready(모델 서버 접속·태그·digest 확인과 캐시), /health의 모델 지문과 시작 로그 한 줄, 상태 경로가
+# 작업 스레드를 쓰지 않는지, 선택 예열(CALL_SUMMARY_WARMUP), keep_alive 설정을 본다. 시작 때 도는 동작은 `with
+# TestClient(app)`로 본다(with 없이 쓰면 lifespan이 돌지 않는다).
 # [왜 중요한가] 서비스는 학습한 모델의 답을 그대로 내보내지 않고 검증·재시도·표시를 거친다(README 5단계). 이
 # 동작과 로그의 개인정보 규칙, 보안 스캔이 처리기 안쪽을 시험할 수 있는 조건이 코드가 바뀌어도 유지되는지
 # 지킨다.
@@ -13,6 +16,7 @@
 import json
 import logging
 import threading
+import time
 from pathlib import Path
 
 import anyio
@@ -23,7 +27,7 @@ from fastapi.testclient import TestClient
 from call_summary import service
 from call_summary.dataset import load_items
 from call_summary.domains import DOMAINS
-from call_summary.prompts import record_to_json
+from call_summary.prompts import prompt_hash, record_to_json
 from call_summary.providers import OllamaProvider, Reply, ScriptedProvider
 from call_summary.service import EXAMPLE_REQUEST, MAX_CHARS, Stats, create_app, create_offline_app
 from call_summary.specs import make_spec
@@ -1079,3 +1083,351 @@ def test_zero_wait_refuses_at_once_and_failed_calls_release_their_slot(monkeypat
     assert sorted(r.status_code for r in results) == [200, 503]
     (busy,) = [r for r in results if r.status_code == 503]
     assert busy.headers["Retry-After"] == "1" and p.calls == 1
+
+
+# ---- /ready(모델 서버·지문 확인), /health의 모델 지문, 상태 경로 비동기, 선택 예열, keep_alive 설정 ----
+
+# 모델 서버 관련 설정의 환경 변수 이름들. 시험마다 지워 다른 시험의 설정이 새지 않게 한다.
+MODEL_ENV = ("CALL_SUMMARY_KEEP_ALIVE", "CALL_SUMMARY_WARMUP", "CALL_SUMMARY_MODEL_DIGEST")
+
+# 기록된 서빙 모델 call-summary-4b-dq:q8_0의 digest(reports/*/manifest.json의 ollama_digest). Ollama의
+# /api/tags는 이런 64자리 digest를 주고, `ollama list`가 보이는 ID는 그 앞 12자리다.
+DIGEST = "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3"
+
+# /api/tags 응답의 모델 목록: 서빙 모델 하나가 올라가 있는 상태.
+SERVED = [{"name": "m:q8_0", "model": "m:q8_0", "digest": DIGEST}]
+
+
+# 부하 한도와 모델 설정의 환경 변수를 모두 지운다(다른 시험이나 셸의 값이 새지 않게).
+def _clear_env(monkeypatch) -> None:
+    for name in (*LIMIT_ENV, *MODEL_ENV):
+        monkeypatch.delenv(name, raising=False)
+
+
+# Ollama의 /api/tags·/api/version을 흉내 내는 httpx.get 대용. tags의 모델 목록과 version을 돌려주고, down이면
+# 연결 거부 예외를 낸다. 부른 URL을 돌려주는 목록에 모아 조회 횟수(캐시, /health가 서버에 닿지 않음)를 셀 수
+# 있게 한다.
+def _fake_ollama_get(monkeypatch, tags: list[dict], version: str = "0.35.1", down: bool = False) -> list[str]:
+    calls: list[str] = []
+
+    def fake_get(url, **kw):
+        calls.append(url)
+        if down:
+            raise httpx.ConnectError("refused")
+        req = httpx.Request("GET", url)
+        if url.endswith("/api/tags"):
+            return httpx.Response(200, json={"models": tags}, request=req)
+        assert url.endswith("/api/version"), url
+        return httpx.Response(200, json={"version": version}, request=req)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    return calls
+
+
+# Ollama의 POST /api/generate(모델 적재)를 흉내 내는 httpx.post 대용. 본문을 모으고, gate가 있으면 열릴 때까지
+# 답하지 않는다(예열 중인 상태를 보려고). status가 200이 아니면 그 상태의 오류 응답을 주어 raise_for_status가
+# 예외를 내게 한다.
+def _fake_ollama_post(monkeypatch, gate: threading.Event | None = None, status: int = 200) -> list[dict]:
+    bodies: list[dict] = []
+
+    def fake_post(url, **kw):
+        assert url.endswith("/api/generate"), url
+        bodies.append(kw["json"])
+        if gate is not None:
+            gate.wait(10)
+        payload = {"done": True, "done_reason": "load"} if status == 200 else {"error": "boom"}
+        return httpx.Response(status, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    return bodies
+
+
+# 조건이 참이 될 때까지 짧게 자며 기다리는 동기 도우미(뒤에서 도는 예열 스레드가 끝나기를 기다릴 때). 시간이
+# 지나면 그대로 돌아오고, 뒤의 assert가 실패를 알린다.
+def _poll(cond, timeout: float = 5.0) -> None:
+    deadline = time.perf_counter() + timeout
+    while not cond() and time.perf_counter() < deadline:
+        time.sleep(0.01)
+
+
+# 상태 경로(/health, /stats, /domains)는 작업 스레드를 쓰지 않는다(async, 막히는 I/O가 없다). 기본 한도(동시
+# 4)에서는 입장 제어가 스레드를 비워 두므로, 여기서는 동시 상한을 45로 올려 모델 호출 45건을 한 번에 들인다:
+# anyio의 작업 스레드 40개가 모두 모델 호출에 묶이고 다섯 건은 스레드를 기다린다. 그동안에도 세 상태 경로는
+# 0.2초 안에 200으로 답해야 한다. 고치기 전에는 셋이 일반 def라 빈 스레드를 모델 호출 뒤에 FIFO로 기다려 2초
+# 안에 답하지 못했다.
+def test_status_routes_answer_while_every_worker_thread_runs_a_model_call(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "45")
+    p = GateProvider(_good())
+    app = create_app(p)
+    results: list[httpx.Response] = []
+    timings: dict[str, float] = {}
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                try:
+                    for _ in range(45):
+                        tg.start_soon(_post_summarize, client, results)
+                    await _wait_until(lambda: p.active >= 40, timeout=5)
+                    assert p.active == 40
+                    for path in ("/health", "/stats", "/domains"):
+                        t0 = time.perf_counter()
+                        with anyio.fail_after(2):
+                            r = await client.get(path)
+                        timings[path] = time.perf_counter() - t0
+                        assert r.status_code == 200, path
+                finally:
+                    p.gate.set()
+
+    anyio.run(main)
+    assert all(t < 0.2 for t in timings.values()), timings
+    assert [r.status_code for r in results] == [200] * 45 and p.calls == 45
+
+
+# /ready는 모델 서버에 모델 태그가 있고 digest가 기대값(CALL_SUMMARY_MODEL_DIGEST, 앞자리)과 맞을 때만
+# 200이다: 기대값 없음, 앞 12자리, 64자리 전체, 대문자로 적은 앞자리 모두 200이고 응답에 digest 전체와 서버
+# 버전이 있다. 그 뒤 /health도 마지막으로 확인한 지문을 보이되 모델 서버에 다시 닿지 않는다(조회 수가 늘지
+# 않는다).
+@pytest.mark.parametrize("expected", ["", DIGEST[:12], DIGEST, DIGEST[:12].upper()])
+def test_ready_is_200_when_the_served_model_matches(monkeypatch, expected):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MODEL_DIGEST", expected)
+    calls = _fake_ollama_get(monkeypatch, SERVED)
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    r = c.get("/ready")
+    assert r.status_code == 200, r.text
+    assert r.json() == {
+        "status": "ready",
+        "reason": None,
+        "model": "ollama:m:q8_0",
+        "model_digest": DIGEST,
+        "ollama_version": "0.35.1",
+        "expected_digest": expected.lower() or None,
+    }
+    assert [u.rsplit("/", 1)[1] for u in calls] == ["tags", "version"]
+    h = c.get("/health").json()
+    assert (h["status"], h["model_digest"], h["ollama_version"]) == ("ok", DIGEST, "0.35.1")
+    assert len(calls) == 2
+
+
+# digest가 다르면 503 digest_mismatch(응답에 실제 digest와 기대값), 태그가 없으면 503 no_model, 서버에 닿지
+# 못하면 503 no_model_server다(그때는 /api/version도 묻지 않는다). 세 경우 모두 /health는 200 ok다: liveness는
+# 모델 서버를 보지 않는다. 503에도 보안 헤더가 붙는다.
+def test_ready_reasons_for_a_wrong_model_or_a_missing_server(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MODEL_DIGEST", "0000ffff")
+    _fake_ollama_get(monkeypatch, SERVED)
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    r = c.get("/ready")
+    assert r.status_code == 503
+    body = r.json()
+    assert (body["status"], body["reason"]) == ("not_ready", "digest_mismatch")
+    assert (body["model_digest"], body["expected_digest"]) == (DIGEST, "0000ffff")
+    assert r.headers["X-Content-Type-Options"] == "nosniff" and r.headers["Cache-Control"] == "no-store"
+    assert c.get("/health").json()["status"] == "ok"
+
+    monkeypatch.delenv("CALL_SUMMARY_MODEL_DIGEST")
+    _fake_ollama_get(monkeypatch, [{"name": "other:latest", "model": "other:latest", "digest": "abc"}])
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    r = c.get("/ready")
+    assert r.status_code == 503 and r.json()["reason"] == "no_model"
+    assert r.json()["model_digest"] is None and r.json()["ollama_version"] == "0.35.1"
+    assert c.get("/health").json()["status"] == "ok"
+
+    calls = _fake_ollama_get(monkeypatch, SERVED, down=True)
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    r = c.get("/ready")
+    assert r.status_code == 503 and r.json()["reason"] == "no_model_server"
+    assert r.json()["model_digest"] is None and r.json()["ollama_version"] is None
+    assert calls == ["http://127.0.0.1:11434/api/tags"]
+    h = c.get("/health").json()
+    assert (h["status"], h["model_digest"], h["ollama_version"]) == ("ok", None, None)
+
+
+# /ready의 조회 결과는 10초(READY_TTL_S) 동안 캐시한다: 그 안의 두 번째 호출은 모델 서버를 다시 부르지 않고,
+# TTL이 지나면(여기서는 0으로 바꿈) 다시 조회한다. 닿지 못한 결과도 캐시해 꺼진 서버를 요청마다 두드리지
+# 않는다.
+def test_ready_caches_the_lookup_for_the_ttl(monkeypatch):
+    _clear_env(monkeypatch)
+    calls = _fake_ollama_get(monkeypatch, SERVED)
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    assert c.get("/ready").status_code == 200 and c.get("/ready").status_code == 200
+    assert len(calls) == 2
+    monkeypatch.setattr(service, "READY_TTL_S", 0.0)
+    assert c.get("/ready").status_code == 200
+    assert len(calls) == 4
+    monkeypatch.setattr(service, "READY_TTL_S", 10.0)
+    down = _fake_ollama_get(monkeypatch, SERVED, down=True)
+    c = TestClient(create_app(OllamaProvider(model="m:q8_0")))
+    assert c.get("/ready").json()["reason"] == "no_model_server"
+    assert c.get("/ready").json()["reason"] == "no_model_server"
+    assert len(down) == 1
+
+
+# 모델 서버를 쓰지 않는 provider(오프라인 모드, 테스트용)에서는 확인할 서버가 없어 /ready가 바로 200이고 모델
+# 서버를 조회하지 않는다. 오프라인 모드의 OpenAPI에도 /ready가 있어 보안 스캐너가 이 경로를 본다.
+def test_ready_without_a_model_server_backend_is_200_and_asks_nothing(monkeypatch):
+    def no_get(url, **kw):
+        raise AssertionError(f"unexpected GET {url}")
+
+    monkeypatch.setattr(httpx, "get", no_get)
+    c = TestClient(create_offline_app())
+    r = c.get("/ready")
+    assert r.status_code == 200
+    assert (r.json()["status"], r.json()["reason"], r.json()["model"]) == ("ready", None, "offline:canned")
+    assert "/ready" in _openapi()["paths"]
+
+
+# 서비스는 시작할 때(lifespan) 모델 서버의 지문을 한 번 조회해 시작 로그 한 줄(event startup)에 모델 이름,
+# digest, Ollama 버전, prompt_hash, 한도·설정 값을 남기고, /health 응답에도 digest·버전을 넣는다. /health
+# 자체는 모델 서버에 닿지 않는다(조회 수가 늘지 않는다). 서버가 꺼져 있어도 서비스는 뜨고 두 값은 null이다.
+def test_startup_looks_up_the_model_fingerprint_once_and_logs_it(monkeypatch, caplog):
+    _clear_env(monkeypatch)
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    calls = _fake_ollama_get(monkeypatch, SERVED)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0"))) as c:
+        assert len(calls) == 2
+        for _ in range(2):
+            h = c.get("/health").json()
+        assert (h["status"], h["model"], h["prompt_hash"]) == ("ok", "ollama:m:q8_0", prompt_hash())
+        assert (h["model_digest"], h["ollama_version"]) == (DIGEST, "0.35.1")
+        assert len(calls) == 2
+    (line,) = [x for x in _log_lines(caplog) if x["event"] == "startup"]
+    assert (line["model"], line["model_digest"], line["ollama_version"]) == (
+        "ollama:m:q8_0",
+        DIGEST,
+        "0.35.1",
+    )
+    assert line["prompt_hash"] == prompt_hash() and line["warmup"] is False and line["keep_alive"] == "30m"
+    assert line["limits"]["max_inflight"] == 4 and line["expected_digest"] is None
+
+    caplog.clear()
+    _fake_ollama_get(monkeypatch, SERVED, down=True)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0"))) as c:
+        h = c.get("/health").json()
+    assert (h["status"], h["model_digest"], h["ollama_version"]) == ("ok", None, None)
+    (line,) = [x for x in _log_lines(caplog) if x["event"] == "startup"]
+    assert (line["model_digest"], line["ollama_version"]) == (None, None)
+
+
+# CALL_SUMMARY_WARMUP=1이면 서비스가 시작할 때 뒤에서 한 번 프롬프트 없는 POST /api/generate {model,
+# keep_alive}로 모델을 올린다. 그동안 /ready는 503 warming이고(모델 서버에 다시 묻지 않는다) /health는
+# 200이며, 끝나면 /ready가 모델 서버를 확인해 200이 된다. 예열 요청은 정확히 한 번이고 본문은 모델과
+# keep_alive뿐이다(프롬프트 없음). 로그 줄(event warmup)에 ok와 걸린 시간이 남는다.
+def test_warmup_loads_the_model_once_and_ready_reports_warming_meanwhile(monkeypatch, caplog):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    gets = _fake_ollama_get(monkeypatch, SERVED)
+    gate = threading.Event()
+    bodies = _fake_ollama_post(monkeypatch, gate=gate)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0"))) as c:
+        _poll(lambda: len(bodies) == 1)
+        r = c.get("/ready")
+        assert r.status_code == 503 and r.json()["reason"] == "warming"
+        assert c.get("/health").json()["status"] == "ok"
+        assert len(gets) == 2  # 시작 조회만: warming 동안 /ready는 모델 서버에 다시 묻지 않는다
+        gate.set()
+        _poll(lambda: c.get("/ready").status_code == 200)
+        assert c.get("/ready").json()["reason"] is None
+    assert bodies == [{"model": "m:q8_0", "keep_alive": "30m"}]
+    (line,) = [x for x in _log_lines(caplog) if x["event"] == "warmup"]
+    assert (line["ok"], line["model"], line["error"]) == (True, "ollama:m:q8_0", None)
+    assert line["latency_s"] >= 0
+    assert next(x for x in _log_lines(caplog) if x["event"] == "startup")["warmup"] is True
+
+
+# 예열이 실패해도(모델 서버가 500을 줌) 서비스는 뜨고 요청을 받는다: 끝난 뒤 /ready는 보통처럼 모델 서버를
+# 확인하고(태그가 있으면 200), 로그 줄(event warmup)에는 ok false와 예외 종류만 남는다(오류 본문은 남기지
+# 않는다).
+def test_a_failed_warmup_does_not_stop_the_service(monkeypatch, caplog):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    _fake_ollama_get(monkeypatch, SERVED)
+    bodies = _fake_ollama_post(monkeypatch, status=500)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0"))) as c:
+        _poll(lambda: c.get("/ready").status_code == 200)
+        assert c.get("/ready").status_code == 200 and c.get("/health").status_code == 200
+    assert len(bodies) == 1
+    (line,) = [x for x in _log_lines(caplog) if x["event"] == "warmup"]
+    assert (line["ok"], line["error"]) == (False, "HTTPStatusError")
+    assert "boom" not in json.dumps(line)
+
+
+# 기본값(CALL_SUMMARY_WARMUP 없음, 빈 값, "0")에서는 예열하지 않는다: 시작해도 /api/generate를 부르지 않고
+# /ready는 바로 모델 서버를 확인한다. 모델 서버를 쓰지 않는 provider(오프라인 모드)는 켜도 올릴 모델이 없어
+# 부르지 않는다.
+@pytest.mark.parametrize("value", [None, "", "0"])
+def test_warmup_is_off_by_default(monkeypatch, value):
+    _clear_env(monkeypatch)
+    if value is not None:
+        monkeypatch.setenv("CALL_SUMMARY_WARMUP", value)
+    _fake_ollama_get(monkeypatch, SERVED)
+    bodies = _fake_ollama_post(monkeypatch)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0"))) as c:
+        assert c.get("/ready").status_code == 200
+    monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
+    with TestClient(create_offline_app()) as c:
+        assert c.get("/ready").status_code == 200
+    assert bodies == []
+
+
+# 예열 요청의 keep_alive는 서비스 provider의 값, 곧 CALL_SUMMARY_KEEP_ALIVE다("-1"은 숫자 -1로 보내 계속
+# 상주). 모델 이름은 CALL_SUMMARY_MODEL에서 온다.
+def test_warmup_sends_the_configured_keep_alive(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
+    monkeypatch.setenv("CALL_SUMMARY_KEEP_ALIVE", "-1")
+    monkeypatch.setenv("CALL_SUMMARY_MODEL", "m:q8_0")
+    _fake_ollama_get(monkeypatch, SERVED)
+    bodies = _fake_ollama_post(monkeypatch)
+    with TestClient(create_app()):
+        _poll(lambda: len(bodies) == 1)
+    assert bodies == [{"model": "m:q8_0", "keep_alive": -1}]
+
+
+# CALL_SUMMARY_KEEP_ALIVE가 서비스 provider의 keep_alive가 된다: 기본 "30m", 시간 문자열은 그대로, 정수 글은
+# 숫자로 보낸다(Ollama는 시간 문자열과 초 단위 숫자를 받고 음수는 계속 상주다. 문자열 "-1"은 Ollama의 시간
+# 해석이 거절하므로 숫자로 바꾼다). 재시도 provider도 같은 값을 물려받는다(목록 밖 라벨로 두 번 부르게 함).
+def test_keep_alive_comes_from_the_environment(monkeypatch):
+    _clear_env(monkeypatch)
+    off_list = json.loads(_good())
+    off_list["category"] = "기타"
+    sent: list[dict] = []
+
+    def fake_post(url, **kw):
+        sent.append(kw["json"])
+        payload = {"message": {"content": json.dumps(off_list, ensure_ascii=False)}}
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    for value, expected in (("", "30m"), ("1h30m", "1h30m"), ("-1", -1), ("0", 0), ("600", 600)):
+        monkeypatch.setenv("CALL_SUMMARY_KEEP_ALIVE", value)
+        sent.clear()
+        r = TestClient(create_app()).post("/summarize", json={"domain": "shop", "turns": TURNS})
+        assert r.status_code == 502, value
+        assert [b["keep_alive"] for b in sent] == [expected, expected], value
+        assert all(type(b["keep_alive"]) is type(expected) for b in sent), value
+
+
+# 잘못된 모델 설정은 부하 한도처럼 앱을 만들 때 변수 이름과 함께 ValueError로 멈춘다: keep_alive가 Ollama가
+# 받는 꼴(시간 문자열, 정수)이 아니거나, digest 기대값이 16진수 64자리 이내가 아니면. 조용히 기본값으로 돌면
+# 운영자가 정한 설정이 걸렸다고 잘못 믿게 된다.
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("CALL_SUMMARY_KEEP_ALIVE", "forever"),
+        ("CALL_SUMMARY_KEEP_ALIVE", "1.5"),
+        ("CALL_SUMMARY_KEEP_ALIVE", "10 m"),
+        ("CALL_SUMMARY_MODEL_DIGEST", "xyz"),
+        ("CALL_SUMMARY_MODEL_DIGEST", "52a2 d2f6"),
+        ("CALL_SUMMARY_MODEL_DIGEST", "0" * 65),
+    ],
+)
+def test_bad_model_settings_stop_the_app_at_startup(name, value, monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=name):
+        create_offline_app()

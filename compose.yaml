@@ -2,15 +2,33 @@ services:
   app:
     build: .
     ports:
-      # Loopback only: the API has no authentication and drives the shared GPU.
+      # 루프백에만 연다: API에 인증이 없고 요청마다 공유 GPU를 쓴다.
       - "127.0.0.1:8072:8072"
     environment:
-      # The model is served by Ollama on the host (GPU); the container only holds the API.
+      # 모델은 호스트의 Ollama(GPU)가 서빙하고, 컨테이너에는 API만 있다.
       OLLAMA_URL: http://host.docker.internal:11434
       CALL_SUMMARY_MODEL: ${CALL_SUMMARY_MODEL:-qwen2.5:7b-instruct}
       CALL_SUMMARY_NUM_GPU: ${CALL_SUMMARY_NUM_GPU:-}
+      # 아래 변수는 셸에 없으면 빈 값으로 넘어가고, 서비스는 빈 값을 "설정하지 않음"으로 보아 기본값을 쓴다.
+      # 뜻과 기본값은 README "실행"의 서비스 문단.
+      # 서빙 모델 digest의 앞자리(`ollama list`의 ID). 적으면 /ready가 올라간 모델의 digest와 맞는지 확인한다.
+      CALL_SUMMARY_MODEL_DIGEST: ${CALL_SUMMARY_MODEL_DIGEST:-}
+      # 요청 뒤 모델을 메모리에 남겨 둘 시간(기본 30m, -1은 계속 상주)과 시작할 때 모델을 한 번 올릴지(1이면 켬).
+      CALL_SUMMARY_KEEP_ALIVE: ${CALL_SUMMARY_KEEP_ALIVE:-}
+      CALL_SUMMARY_WARMUP: ${CALL_SUMMARY_WARMUP:-}
+      # 부하 한도: 동시 모델 호출 수(4), 대기열 길이(16), 대기 시간 초(30), 모델 호출 시간 한도 초(120), /stats
+      # 지연 창(10000).
+      CALL_SUMMARY_MAX_INFLIGHT: ${CALL_SUMMARY_MAX_INFLIGHT:-}
+      CALL_SUMMARY_MAX_QUEUE: ${CALL_SUMMARY_MAX_QUEUE:-}
+      CALL_SUMMARY_QUEUE_WAIT_S: ${CALL_SUMMARY_QUEUE_WAIT_S:-}
+      CALL_SUMMARY_MODEL_TIMEOUT: ${CALL_SUMMARY_MODEL_TIMEOUT:-}
+      CALL_SUMMARY_STATS_WINDOW: ${CALL_SUMMARY_STATS_WINDOW:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # healthcheck는 liveness인 /health(프로세스가 답하는지. 모델 서버는 보지 않는다)로 둔다. readiness인
+    # /ready(모델 서버에 태그가 있고 digest가 맞는지)를 여기에 걸면, unhealthy를 재시작으로 처리하는
+    # 오케스트레이터에서 Ollama가 잠깐 꺼질 때마다 컨테이너가 재시작되는 고리가 생긴다. 모델 서버 상태는 /ready를
+    # 따로 부른다.
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8072/health')"]
       interval: 15s
