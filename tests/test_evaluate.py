@@ -8,8 +8,11 @@
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import subprocess
+import sys
+import types
 
 # httpx.post·httpx.get을 monkeypatch로 가짜로 바꿔 Ollama 서버 없이 요청 본문과 응답 처리를 본다. _item은
 # tests/test_scoring.py의 가짜 건이다.
@@ -17,10 +20,17 @@ import httpx
 import pytest
 
 from call_summary import evaluate, providers
-from call_summary.dataset import read_jsonl, write_jsonl
+from call_summary.dataset import manifest_data, read_jsonl, write_jsonl
 from call_summary.evaluate import model_fingerprint
 from call_summary.prompts import record_to_json
-from call_summary.providers import HFProvider, OllamaProvider, Reply
+from call_summary.providers import (
+    BASE_REVISIONS,
+    HFProvider,
+    OllamaProvider,
+    Reply,
+    library_versions,
+    revision_for,
+)
 from tests.test_scoring import _item
 
 # Ollama 요청에 넣을 최소 메시지.
@@ -82,11 +92,171 @@ def test_fingerprint_of_an_adapter_follows_its_bytes(tmp_path):
 
 
 # 바탕 모델의 스냅샷 커밋은 캐시된 config.json 경로의 부모 폴더 이름에서 읽는다(snapshot_download는 일부만
-# 받은 스냅샷을 거부해 쓰지 않음). huggingface_hub의 함수를 가짜로 바꿔 "abc123"이 나오는지 본다.
+# 받은 스냅샷을 거부해 쓰지 않음). huggingface_hub의 함수를 가짜로 바꿔 "abc123"이 나오는지, 그리고 실행기에
+# 고정한 revision이 조회에 그대로 넘어가는지 본다(revision을 고정한 실행은 그 스냅샷의 config.json을 찾아야
+# 한다. None이면 예전처럼 refs/main을 따른다).
 def test_fingerprint_names_the_cached_base_snapshot(monkeypatch):
     hub = pytest.importorskip("huggingface_hub")
-    monkeypatch.setattr(hub, "try_to_load_from_cache", lambda repo, name: f"/hub/snapshots/abc123/{name}")
+    seen: list[tuple] = []
+
+    def fake(repo, name, revision=None):
+        seen.append((repo, name, revision))
+        return f"/hub/snapshots/abc123/{name}"
+
+    monkeypatch.setattr(hub, "try_to_load_from_cache", fake)
     assert model_fingerprint(HFProvider(model_id="Qwen/Qwen3-4B")) == {"base_revision": "abc123"}
+    pinned = HFProvider(model_id="Qwen/Qwen3-4B", revision="abc123")
+    assert model_fingerprint(pinned) == {"base_revision": "abc123"}
+    assert seen == [("Qwen/Qwen3-4B", "config.json", None), ("Qwen/Qwen3-4B", "config.json", "abc123")]
+
+
+# 기록된 실행 74개의 manifest `data`는 모두 Windows에서 쓴 역슬래시 꼴("datasets\\dev.jsonl")이다. 그 경로로
+# 데이터셋을 다시 여는 도구(judge_run, asr_report, value_facts, verify, judge_calib)는 manifest_data로 슬래시
+# 꼴을 받아야 Linux·macOS에서도 파일을 찾는다. 슬래시 꼴과 절대 경로는 그대로다.
+def test_manifest_data_is_a_posix_path():
+    assert manifest_data({"data": "datasets\\dev.jsonl"}) == "datasets/dev.jsonl"
+    assert manifest_data({"data": "datasets/dev.jsonl"}) == "datasets/dev.jsonl"
+    assert manifest_data({"data": "D:\\coding\\x\\dev-asr.jsonl"}) == "D:/coding/x/dev-asr.jsonl"
+
+
+# 바탕 모델 두 개는 지금 캐시에 있는 스냅샷의 커밋으로 고정한다(BASE_REVISIONS). 덮어쓰기(--revision)가 있으면
+# 그 값, 표에 없는 모델(로컬 경로, 다른 바탕)은 None이라 예전처럼 refs/main을 따른다.
+def test_revision_for_pins_the_two_base_models_and_leaves_others_alone():
+    assert revision_for("Qwen/Qwen3-4B") == "1cfa9a7208912126459214e8b04321603b3df60c"
+    assert revision_for("Qwen/Qwen3-1.7B") == "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
+    assert BASE_REVISIONS == {
+        "Qwen/Qwen3-4B": "1cfa9a7208912126459214e8b04321603b3df60c",
+        "Qwen/Qwen3-1.7B": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    }
+    assert revision_for("Qwen/Qwen3-4B", "abc") == "abc"
+    assert revision_for("Qwen/Qwen3-4B", "main") == "main"
+    assert revision_for("other/model") is None
+    assert revision_for("outputs/export/merged", None) is None
+
+
+# 가짜 torch 모듈(version.cuda, backends.cudnn.version)을 sys.modules에 넣어 진짜 torch 없이 CUDA·cuDNN 판을
+# 읽게 한다.
+def _fake_torch(cuda="12.8", cudnn=91002):
+    return types.SimpleNamespace(
+        version=types.SimpleNamespace(cuda=cuda),
+        backends=types.SimpleNamespace(cudnn=types.SimpleNamespace(version=lambda: cudnn)),
+    )
+
+
+# importlib.metadata.version 대용: 표에 있는 패키지만 판을 주고 나머지는 설치되지 않은 것으로 친다.
+def _versions(table: dict):
+    def version(name):
+        if name in table:
+            return table[name]
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    return version
+
+
+# 라이브러리 판 기록: torch·transformers·peft·bitsandbytes·accelerate의 설치 판을 importlib.metadata로 읽고,
+# cuda=True면 torch.version.cuda와 cudnn 판을 더한다. 설치되지 않은 패키지는 None이고, torch를 들여올 수
+# 없으면 cuda·cudnn도 None이라 기록 때문에 실행이 멈추지 않는다. 키 순서는 고정이다.
+def test_library_versions_reports_missing_packages_and_cuda_as_none(monkeypatch):
+    monkeypatch.setattr(importlib.metadata, "version", _versions({"torch": "2.11.0+cu128", "peft": "0.21.0"}))
+    assert library_versions() == {
+        "torch": "2.11.0+cu128",
+        "transformers": None,
+        "peft": "0.21.0",
+        "bitsandbytes": None,
+        "accelerate": None,
+    }
+    monkeypatch.setitem(sys.modules, "torch", None)  # import torch가 ImportError가 된다
+    without = library_versions(cuda=True)
+    assert without["cuda"] is None and without["cudnn"] is None
+    monkeypatch.setitem(sys.modules, "torch", _fake_torch())
+    with_torch = library_versions(cuda=True)
+    assert with_torch["cuda"] == "12.8" and with_torch["cudnn"] == 91002
+    assert list(with_torch) == [
+        "torch",
+        "transformers",
+        "peft",
+        "bitsandbytes",
+        "accelerate",
+        "cuda",
+        "cudnn",
+    ]
+
+
+# 모델을 올리지 않는 가짜 HFProvider. 받은 인수(revision 포함)를 made에 남긴다.
+def _fake_hf(made: dict):
+    class FakeHF:
+        def __init__(self, **kw):
+            made.update(kw)
+            self.name = "fake"
+
+        def generate(self, messages, json_schema=None):
+            return Reply("{", 0.1)
+
+    return FakeHF
+
+
+# hf 백엔드 실행의 manifest에 재현 조건이 남는다: data는 슬래시 꼴(Windows에서도 역슬래시가 아님), revision은
+# 기본으로 BASE_REVISIONS의 값이고 실행기에도 같은 값이 넘어가며(--revision으로 바꿀 수 있고 표에 없는 모델은
+# None), libs는 설치된 학습·추론 라이브러리 판과 CUDA·cuDNN 판이다. 라이브러리 판은 가짜로 바꿔 그 값이 그대로
+# 들어가는지 본다.
+def test_hf_run_manifest_records_posix_data_path_revision_and_library_versions(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [_item(0).to_dict()])
+    made: dict = {}
+    table = {"torch": "2.11.0+cu128", "transformers": "5.17.0", "peft": "0.21.0", "bitsandbytes": "0.50.2"}
+    monkeypatch.setattr(evaluate, "HFProvider", _fake_hf(made))
+    monkeypatch.setattr(evaluate, "model_fingerprint", lambda p: {})
+    monkeypatch.setattr(importlib.metadata, "version", _versions(table))
+    monkeypatch.setitem(sys.modules, "torch", _fake_torch())
+
+    def run(label, *extra):
+        evaluate.main(["--data", str(data), "--backend", "hf", "--label", label, *extra])
+        run_dir = next((tmp_path / "outputs" / "runs").glob(f"*-{label}"))
+        return json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    manifest = run("a", "--model", "Qwen/Qwen3-4B")
+    assert manifest["data"] == data.as_posix() and "\\" not in manifest["data"]
+    assert manifest["revision"] == BASE_REVISIONS["Qwen/Qwen3-4B"] == made["revision"]
+    assert manifest["libs"] == {**table, "accelerate": None, "cuda": "12.8", "cudnn": 91002}
+    assert manifest["provider"] == "fake" and manifest["num_ctx"] is None
+    assert run("b", "--model", "Qwen/Qwen3-4B", "--revision", "abc")["revision"] == "abc" == made["revision"]
+    assert run("c", "--model", "other/model")["revision"] is None and made["revision"] is None
+
+
+# ollama 백엔드 실행은 라이브러리 판을 기록하지 않는다(libs None, revision None): torch는 학습 환경에만 있고
+# 들여오는 데 몇 초가 걸리므로 Ollama 측정에서 torch를 import하거나 패키지 판을 묻지 않아야 한다.
+# sys.modules의 torch를 None으로 두어 import 시도가 ImportError로 드러나게 하고, importlib.metadata.version
+# 호출을 센다. --revision은 hf 백엔드 전용이라 ollama에서는 --option처럼 argparse 오류다.
+def test_ollama_run_records_no_library_versions_and_does_not_import_torch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "dev.jsonl"
+    write_jsonl(data, [_item(0).to_dict()])
+    asked: list[str] = []
+
+    class FakeOllama:
+        def __init__(self, **kw):
+            self.name = "fake"
+
+        def generate(self, messages, json_schema=None):
+            return Reply("{", 0.1)
+
+    def spy_version(name):
+        asked.append(name)
+        return "0"
+
+    monkeypatch.setattr(evaluate, "OllamaProvider", FakeOllama)
+    monkeypatch.setattr(evaluate, "model_fingerprint", lambda p: {})
+    monkeypatch.setattr(importlib.metadata, "version", spy_version)
+    monkeypatch.setitem(sys.modules, "torch", None)
+    evaluate.main(["--data", str(data), "--model", "m"])
+    run = next((tmp_path / "outputs" / "runs").iterdir())
+    manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["libs"] is None and manifest["revision"] is None
+    assert asked == [] and sys.modules["torch"] is None
+    with pytest.raises(SystemExit) as stop:
+        evaluate.main(["--data", str(data), "--model", "m", "--revision", "abc"])
+    assert stop.value.code == 2
 
 
 # Ollama 모델의 지문은 /api/tags의 digest와 /api/version의 서버 버전이다(같은 가중치라도 실행기가 바뀌면

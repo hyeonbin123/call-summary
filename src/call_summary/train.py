@@ -36,9 +36,12 @@ from collections import defaultdict
 from pathlib import Path
 
 # 평가와 같은 프롬프트(build_messages), 정답 JSON 글(record_to_json: 학습 목표 글), 프롬프트 판과
-# 지문(train_config.json에 남겨 어떤 프롬프트로 학습했는지 기록).
+# 지문(train_config.json에 남겨 어떤 프롬프트로 학습했는지 기록). providers의 revision_for(바탕 모델의 고정
+# revision)와 library_versions(라이브러리 판)는 평가(evaluate hf)와 같은 재현 조건을 train_config.json에
+# 남기는 데 쓴다.
 from .dataset import Item, load_items
 from .prompts import PROMPT_VERSION, build_messages, prompt_hash, record_to_json
+from .providers import library_versions, revision_for
 
 # 손실에서 뺄 위치의 라벨 값. PyTorch cross_entropy의 ignore_index 기본값(-100)과 같게 둔다.
 IGNORE = -100
@@ -164,6 +167,12 @@ def accum_plan(n_micro: int, grad_accum: int) -> list[tuple[int, bool]]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", required=True, help="HF 모델 id 또는 로컬 경로")
+    # 바탕 모델의 Hub revision. 기본은 providers.BASE_REVISIONS의 고정 커밋(지금 캐시에 있는 스냅샷과 같은
+    # 커밋이라 내려받기 없음), 표에 없는 모델은 고정하지 않는다. 쓴 값은 train_config.json의 revision에
+    # 남는다.
+    ap.add_argument(
+        "--revision", help="바탕 모델의 HF Hub revision. 기본: 고정 표의 커밋, 표에 없는 모델은 고정 없음"
+    )
     ap.add_argument("--train", default="data/train.jsonl")
     ap.add_argument("--n-train", type=int, help="학습 건을 이만큼만 쓴다(업종마다 고르게)")
     ap.add_argument("--out", required=True, help="출력 폴더(어댑터, 로그)")
@@ -196,9 +205,12 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    # 바탕 모델과 토크나이저는 같은 revision으로 불러온다(None이면 refs/main). 평가(evaluate --backend hf)와
+    # 내보내기(export)도 같은 규칙(revision_for)을 쓰므로 세 단계가 같은 바탕 가중치를 본다.
+    revision = revision_for(args.model, args.revision)
     # 모든 예시를 미리 인코딩하고, 길이 분포(p50, 최대)와 길이 초과로 뺀 수를 찍는다.
     items = take_balanced(load_items(args.train), args.n_train)
-    tok = AutoTokenizer.from_pretrained(args.model)
+    tok = AutoTokenizer.from_pretrained(args.model, revision=revision)
     # 패딩 토큰이 없는 토크나이저는 끝 토큰을 패딩에 쓴다. 패딩 위치는 라벨 IGNORE·마스크 0이라 학습에 영향이
     # 없다.
     if tok.pad_token is None:
@@ -232,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=True,
         )
-    model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    model = AutoModelForCausalLM.from_pretrained(args.model, revision=revision, **kwargs)
     # 학습 중에는 KV 캐시가 필요 없어 끈다(gradient checkpointing과도 맞지 않는다). gradient checkpointing은
     # 중간 활성값을 저장하지 않고 역전파 때 다시 계산해 메모리를 아낀다.
     # QLoRA는 peft의 prepare_model_for_kbit_training(4bit 학습 준비 + checkpointing)을 쓰고, LoRA는 직접 켠다.
@@ -275,11 +287,15 @@ def main(argv: list[str] | None = None) -> int:
     sched = get_cosine_schedule_with_warmup(opt, int(args.warmup * total_steps), total_steps)
     scaler = torch.amp.GradScaler("cuda")
 
-    # 학습 설정 전체(인수, 예시 수, 스텝 수, 프롬프트 판·지문, 학습 파라미터 수, 학습 루프 판)를
-    # train_config.json으로 남긴다. export.py가 qlora 값을, evaluate.py가 이 파일의 해시를 모델 지문으로
-    # 읽는다. 학습 루프 판이 없는 파일은 고치기 전 루프(판 1)로 만든 것이다.
+    # 학습 설정 전체(인수, 예시 수, 스텝 수, 프롬프트 판·지문, 학습 파라미터 수, 학습 루프 판, 실제로 쓴 바탕
+    # revision, 라이브러리 판)를 train_config.json으로 남긴다. export.py가 qlora 값을, evaluate.py가 이 파일의
+    # 해시를 모델 지문으로 읽는다. 학습 루프 판이 없는 파일은 고치기 전 루프(판 1)로 만든 것이고,
+    # revision·libs가 없는 파일은 이 두 값을 남기기 전에 만든 것이다. revision은 인수의 원래 값(--revision을
+    # 주지 않으면 None)이 아니라 revision_for가 정한 값으로 덮어쓴다. 키가 늘어 이후 학습의 train_config_sha가
+    # 예전과 달라지는 것은 의도한 것이다(설정 기록이 다르면 지문도 달라야 한다).
     config = {
         **vars(args),
+        "revision": revision,
         "n_examples": len(examples),
         "dropped": dropped,
         "total_steps": total_steps,
@@ -287,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
         "prompt_hash": prompt_hash(),
         "trainable_params": trainable,
         "train_loop": TRAIN_LOOP_VERSION,
+        "libs": library_versions(cuda=True),
     }
     (out / "train_config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     log = open(out / "train_log.jsonl", "a", encoding="utf-8")

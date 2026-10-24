@@ -12,13 +12,16 @@ import subprocess
 import pytest
 
 # adapter_hash: 어댑터 파일 바이트의 해시(evaluate의 모델 지문과 같은 함수). export.json에 남는 값과 비교한다.
+# BASE_REVISIONS: 바탕 모델을 고정해 불러오는 커밋 revision 표.
 from call_summary import export
 from call_summary.evaluate import adapter_hash
+from call_summary.providers import BASE_REVISIONS
 
 
 # 진짜 합치기·변환·양자화·ollama 호출 대신 쓰는 가짜 도구(fixture). merge는 merged/config.json만 쓰고 어떤
-# 어댑터로, 4bit 바탕으로 합쳤는지 기록한다. subprocess.run은 명령을 기록하고 변환기·llama-quantize가 만들
-# 출력 파일만 빈 파일로 만든다. monkeypatch라 테스트가 끝나면 원래 함수로 돌아간다.
+# 어댑터로, 4bit 바탕으로, 어느 revision의 바탕으로 합쳤는지 기록한다. subprocess.run은 명령을 기록하고
+# 변환기·llama-quantize가 만들 출력 파일만 빈 파일로 만든다. monkeypatch라 테스트가 끝나면 원래 함수로
+# 돌아간다.
 @pytest.fixture
 def fake_tools(monkeypatch):
     """merge는 merged/config.json을 쓰고, GGUF 변환기는 --outfile을 쓰며, ollama와 git은 늘 성공한다."""
@@ -29,9 +32,10 @@ def fake_tools(monkeypatch):
     merges = Merges()
     calls = []
 
-    def fake_merge(base, adapter, out, from_4bit=False):
+    def fake_merge(base, adapter, out, from_4bit=False, revision=None):
         merges.append(adapter)
         merges.from_4bit = from_4bit  # type: ignore[attr-defined]
+        merges.revision = revision  # type: ignore[attr-defined]
         out.mkdir(parents=True, exist_ok=True)
         (out / "config.json").write_text("{}", encoding="utf-8")
 
@@ -86,7 +90,7 @@ def test_an_interrupted_build_is_not_taken_for_the_older_stamp(tmp_path, fake_to
     (out / "model-f16.gguf").unlink()
 
     # ... 그다음 어댑터 b의 합치기가 반쯤 쓰고 죽는다
-    def crashing_merge(base, adapter, target, from_4bit=False):
+    def crashing_merge(base, adapter, target, from_4bit=False, revision=None):
         target.mkdir(parents=True, exist_ok=True)
         (target / "config.json").write_text("{}", encoding="utf-8")
         raise RuntimeError("out of memory")
@@ -137,3 +141,44 @@ def test_a_qlora_adapter_is_merged_into_the_dequantized_4bit_base(tmp_path, fake
     (tmp_path / "train_config.json").write_text('{"qlora": false}', encoding="utf-8")
     _export(_adapter(tmp_path, "b", b"B"), tmp_path / "export-b")
     assert fake_tools.from_4bit is False
+
+
+# 바탕 모델은 기본으로 고정된 커밋 revision으로 불러온다(providers.BASE_REVISIONS: 지금 캐시에 있는 스냅샷과
+# 같은 커밋이라 내려받기 없이 같은 파일을 읽는다). --revision으로 바꿀 수 있고 표에 없는 바탕은 None(예전
+# 동작)이다. 합치기에 넘어간 revision과 export.json의 revision이 같아야 서빙 모델의 출처를 되짚을 수 있다.
+def test_export_pins_the_base_revision_and_records_it(tmp_path, fake_tools):
+    a = _adapter(tmp_path, "a", b"A")
+    pinned = BASE_REVISIONS["Qwen/Qwen3-4B"]
+    _export(a, tmp_path / "e1")
+    assert fake_tools.revision == pinned
+    assert json.loads((tmp_path / "e1" / "export.json").read_text(encoding="utf-8"))["revision"] == pinned
+    argv = ["--adapter", a, "--name", "cs", "--out", str(tmp_path / "e2")]
+    assert export.main(["--base", "Qwen/Qwen3-4B", "--revision", "abc", *argv]) == 0
+    assert fake_tools.revision == "abc"
+    assert json.loads((tmp_path / "e2" / "export.json").read_text(encoding="utf-8"))["revision"] == "abc"
+    argv[-1] = str(tmp_path / "e3")
+    assert export.main(["--base", "other/model", *argv]) == 0
+    assert fake_tools.revision is None
+    assert json.loads((tmp_path / "e3" / "export.json").read_text(encoding="utf-8"))["revision"] is None
+
+
+# 어댑터 없이 바탕을 그대로 내보낼 때는 HF 캐시의 스냅샷 폴더를 변환한다. snapshot_download에도 같은 고정
+# revision이 가고 local_files_only라 내려받지 않는다.
+def test_export_of_the_bare_base_asks_the_cache_for_the_pinned_snapshot(tmp_path, fake_tools, monkeypatch):
+    hub = pytest.importorskip("huggingface_hub")
+    seen: dict = {}
+
+    def fake_snapshot(repo_id, **kw):
+        seen.update(repo_id=repo_id, **kw)
+        return str(tmp_path / "snap")
+
+    monkeypatch.setattr(hub, "snapshot_download", fake_snapshot)
+    out = tmp_path / "export"
+    assert export.main(["--base", "Qwen/Qwen3-4B", "--name", "cs", "--out", str(out)]) == 0
+    assert seen == {
+        "repo_id": "Qwen/Qwen3-4B",
+        "revision": BASE_REVISIONS["Qwen/Qwen3-4B"],
+        "local_files_only": True,
+    }
+    info = json.loads((out / "export.json").read_text(encoding="utf-8"))
+    assert info["adapter"] is None and info["revision"] == BASE_REVISIONS["Qwen/Qwen3-4B"]

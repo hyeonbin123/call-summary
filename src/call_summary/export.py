@@ -30,8 +30,10 @@ import sys
 from pathlib import Path
 
 # adapter_hash: 어댑터 가중치 파일의 해시. evaluate의 실행 기록(model_fingerprint)과 같은 함수로 계산해,
-# 내보낸 모델이 어떤 어댑터에서 나왔는지 맞춰 볼 수 있게 한다.
+# 내보낸 모델이 어떤 어댑터에서 나왔는지 맞춰 볼 수 있게 한다. revision_for: 바탕 모델의 고정
+# revision(학습·평가와 같은 규칙).
 from .evaluate import adapter_hash
+from .providers import revision_for
 
 # llama.cpp 소스(변환 스크립트)와 공식 배포 실행 파일(llama-quantize)의 위치. 둘 다 work/ 아래에 두고 커밋하지
 # 않는다. Ollama 0.34부터 GGUF를 가져올 때 양자화해 주지 않아 llama.cpp의 양자화 도구를 따로 쓴다(커밋
@@ -53,8 +55,9 @@ def trained_on_4bit(adapter: str | None) -> bool:
 # QLoRA 학습 때와 같은 설정(nf4, double quant, fp16 계산)으로 바탕을 GPU에 4bit로 올리고, 4bit 선형층마다
 # 가중치를 fp16으로 풀어(dequantize) CPU의 fp16 모델 같은 자리에 덮어쓴다. 바꾼 층 수를 돌려준다(서빙
 # 모델에서는 252개, docs/experiments.md 5단계).
-# 이렇게 하면 합친 모델의 바탕 가중치가 학습 때 어댑터가 본 값과 같아진다.
-def load_dequantized_4bit_into(model, base: str) -> int:
+# 이렇게 하면 합친 모델의 바탕 가중치가 학습 때 어댑터가 본 값과 같아진다. revision은 merge가 fp16 바탕을
+# 불러온 것과 같은 값이어야 한다(다른 revision의 4bit 바탕을 풀어 넣으면 두 바탕이 섞인다).
+def load_dequantized_4bit_into(model, base: str, revision: str | None = None) -> int:
     """QLoRA 학습 때처럼(nf4, double quant, fp16 계산) 바탕을 올리고, 양자화된 선형층마다 가중치를
     fp16으로 풀어 그때그때 `model`(fp16, CPU)에 써 넣는다. 바꾼 층 수를 돌려준다."""
     import bitsandbytes as bnb
@@ -70,7 +73,7 @@ def load_dequantized_4bit_into(model, base: str) -> int:
         bnb_4bit_use_double_quant=True,
     )
     q = AutoModelForCausalLM.from_pretrained(
-        base, dtype=torch.float16, quantization_config=quant, device_map={"": 0}
+        base, revision=revision, dtype=torch.float16, quantization_config=quant, device_map={"": 0}
     )
     n = 0
     # 4bit 층 이름으로 fp16 모델의 같은 층을 찾아 바꾼다. 모양이 다르면 다른 구조의 모델이므로 바로 멈춘다.
@@ -90,9 +93,9 @@ def load_dequantized_4bit_into(model, base: str) -> int:
 
 
 # 바탕에 어댑터를 합쳐 out에 저장한다(가중치는 safetensors, 토크나이저도 함께). 합치기는 CPU에서 fp16으로
-# 한다.
+# 한다. revision은 바탕 가중치·토크나이저·4bit 바탕 모두에 같은 값으로 넘긴다(None이면 refs/main).
 # 호출 위치: main(어댑터가 있고 merged/가 아직 없을 때).
-def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
+def merge(base: str, adapter: str, out: Path, from_4bit: bool = False, revision: str | None = None) -> None:
     """from_4bit: QLoRA 학습 때와 똑같이(nf4, double quant, fp16 계산) 바탕을 올리고, 그 4bit 가중치를
     fp16으로 풀어 낸 뒤 합친다. QLoRA 어댑터를 원래 fp16 바탕에 합치면 다른 모델이 된다(5단계: dev exact
     93 -> 86)."""
@@ -100,16 +103,18 @@ def merge(base: str, adapter: str, out: Path, from_4bit: bool = False) -> None:
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.float16, device_map={"": "cpu"})
+    model = AutoModelForCausalLM.from_pretrained(
+        base, revision=revision, dtype=torch.float16, device_map={"": "cpu"}
+    )
     if from_4bit:
         # 한 층씩 옮긴다: 모델 전체를 GPU에서 fp16으로 풀면 4bit 사본 옆에 들어가지 않는다.
-        n = load_dequantized_4bit_into(model, base)
+        n = load_dequantized_4bit_into(model, base, revision)
         print(f"{n} linear layers taken from the dequantized 4-bit base", file=sys.stderr)
     # merge_and_unload: LoRA의 저랭크 행렬 곱(B·A·scale)을 바탕 가중치에 더해 넣고 PEFT 껍데기를 벗긴다.
     # 결과는 어댑터 없이 도는 일반 모델이라 llama.cpp가 변환할 수 있다.
     model = PeftModel.from_pretrained(model, adapter).merge_and_unload()
     model.save_pretrained(out, safe_serialization=True)
-    AutoTokenizer.from_pretrained(base).save_pretrained(out)
+    AutoTokenizer.from_pretrained(base, revision=revision).save_pretrained(out)
 
 
 # Ollama Modelfile 글. GGUF 경로, temperature 0(탐욕적), 컨텍스트 크기만 정한다. 서빙 모델은 --num-ctx
@@ -125,6 +130,11 @@ def modelfile(gguf: Path, num_ctx: int) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True, help="HF 바탕 모델 id")
+    # 바탕 모델의 Hub revision. 기본은 providers.BASE_REVISIONS의 고정 커밋(학습·평가와 같은 규칙), 표에 없는
+    # 바탕은 고정하지 않는다. 쓴 값은 export.json의 revision에 남는다.
+    ap.add_argument(
+        "--revision", help="바탕 모델의 HF Hub revision. 기본: 고정 표의 커밋, 표에 없는 모델은 고정 없음"
+    )
     ap.add_argument("--adapter", help="PEFT 어댑터 폴더. 빼면 바탕 모델을 그대로 내보낸다")
     ap.add_argument("--name", required=True, help="Ollama 모델 이름 앞부분. 예: call-summary-qwen3-1.7b")
     ap.add_argument("--out", required=True, help="합친 가중치와 GGUF 파일을 둘 작업 폴더")
@@ -140,6 +150,10 @@ def main(argv: list[str] | None = None) -> int:
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    # 바탕 모델을 불러올 revision(학습·평가와 같은 규칙). 도장(source.json)에는 넣지 않는다: 기록된 내보내기
+    # 폴더의 도장이 어긋나 같은 어댑터의 재사용이 거절되고, 지금 캐시에는 바탕마다 스냅샷이 하나뿐이라 도장
+    # 없이도 revision이 달라질 수 없다. 대신 export.json에 남겨 서빙 모델의 출처를 되짚을 수 있게 한다.
+    revision = revision_for(args.base, args.revision)
     # 합치기와 f16 변환은 오래 걸려 결과를 다시 쓴다. 다만 같은 바탕·같은 어댑터 가중치·같은 합치기 방식일
     # 때만 merged/와 F16 GGUF를 다시 쓰도록 source.json 도장으로 확인한다(커밋 ed76ea6).
     from_4bit = trained_on_4bit(args.adapter) and not args.fp16_base
@@ -171,14 +185,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.adapter:
         if not (merged / "config.json").exists():
             print("merging adapter ...", file=sys.stderr)
-            merge(args.base, args.adapter, merged, from_4bit=from_4bit)
+            merge(args.base, args.adapter, merged, from_4bit=from_4bit, revision=revision)
         src = str(merged)
     else:
-        # 어댑터가 없으면 바탕 모델 자체를 내보낸다(HF 캐시의 스냅샷 폴더를 그대로 변환한다.
+        # 어댑터가 없으면 바탕 모델 자체를 내보낸다(HF 캐시의 같은 revision 스냅샷 폴더를 그대로 변환한다.
         # local_files_only라 내려받지 않는다).
         from huggingface_hub import snapshot_download
 
-        src = snapshot_download(args.base, local_files_only=True)
+        src = snapshot_download(args.base, revision=revision, local_files_only=True)
 
     # llama.cpp의 convert_hf_to_gguf.py로 f16 GGUF를 만든다. 스크립트가 같은 저장소의 gguf-py 패키지를 쓰므로
     # PYTHONPATH에 넣고, 이 프로젝트의 파이썬(sys.executable)으로 돌린다.
@@ -217,10 +231,12 @@ def main(argv: list[str] | None = None) -> int:
     llama_rev = subprocess.run(
         ["git", "-C", str(LLAMA_CPP), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
-    # export.json: 바탕, 어댑터 경로와 해시, 4bit를 풀어 합쳤는지, 등록한 Ollama 모델 이름, GGUF 파일과 크기,
-    # llama.cpp 커밋. 서빙 측정의 출처 기록이다.
+    # export.json: 바탕과 그 revision, 어댑터 경로와 해시, 4bit를 풀어 합쳤는지, 등록한 Ollama 모델 이름, GGUF
+    # 파일과 크기, llama.cpp 커밋. 서빙 측정의 출처 기록이다(revision 키가 없는 export.json은 이 값을 남기기
+    # 전에 만든 것이다).
     info = {
         "base": args.base,
+        "revision": revision,
         "adapter": args.adapter,
         "adapter_sha": source["adapter_sha"],
         "base_from_4bit": from_4bit,

@@ -248,6 +248,8 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 
 **지연**: 표의 p50 지연은 4bit transformers(배치 4의 벽시계를 건수로 나눔, 건당 약 8~9초)와 Ollama(14B 약 10~13초)가 섞여 있다. 같은 조건의 서빙 지연은 5단계에서 잰다
 
+- (2026-10-24 덧붙임) 재현 조건 기록. 이 표의 Qwen3-4B 실행 다섯 개(`reports/20260929-00*-s3-test-*`: 학습한 학생 test-a·b·c, 학습 전 학생 test-b 2-shot·test-c 0-shot, 2026-09-29 00:27~01:57, 커밋 `a2f459c`)의 manifest에는 `model_fingerprint` 키가 없다(어댑터 해시와 바탕 스냅샷을 남기는 기능은 그 뒤 커밋 `f89df9f`에서 들어왔다). 학습한 학생 셋이 쓴 어댑터는 `outputs/train/qwen3-4b-qlora-r16/final`(가중치 파일 `adapter_model.safetensors`의 sha256 앞자리 `2b5c4bfdcbc7`, 맨 아래 "재측정 결과" 표의 "고치기 전 `final`")이다: 파일의 마지막 수정 시각이 2026-09-28 20:12(3단계 진행 기록의 학습 종료 시각)로 실행보다 앞서고 그 뒤 바뀐 적이 없다. 바탕 모델 스냅샷은 `1cfa9a72…`로 본다: 로컬 HF 캐시에 Qwen3-4B 스냅샷이 이것 하나뿐이고(2026-09-26 내려받음) 2026-10-14 재측정 실행의 `base_revision`도 같은 값이다. 같은 날부터 hf 백엔드 실행 manifest와 `train_config.json`에 요청한 바탕 `revision`과 라이브러리 판(`libs`: torch·transformers·peft·bitsandbytes·accelerate, CUDA·cuDNN)을 함께 남기고, 바탕 모델(Qwen3-4B `1cfa9a72…`, Qwen3-1.7B `70d244cc…`)은 기본으로 그 커밋 revision에 고정해 불러온다(`--revision`으로 바꿀 수 있다. 캐시에 그 스냅샷이 있어 내려받기 없이 같은 파일을 읽는다)
+
 ## 4단계: 음성 인식 오류 조건 (2026-09-29 규칙, 측정 전)
 
 ### 조건

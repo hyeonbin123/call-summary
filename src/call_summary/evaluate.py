@@ -34,7 +34,15 @@ from pathlib import Path
 # 부트스트랩)을 각 모듈에서 가져온다. 이 파일은 그것들을 순서대로 엮는 역할만 한다.
 from .dataset import Item, load_items, write_jsonl
 from .prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_messages, prompt_hash
-from .providers import HFProvider, OllamaProvider, Provider, Reply, ollama_fingerprint
+from .providers import (
+    HFProvider,
+    OllamaProvider,
+    Provider,
+    Reply,
+    library_versions,
+    ollama_fingerprint,
+    revision_for,
+)
 from .schema import AfterCallRecord, parse_reply, record_json_schema
 from .scoring import METRICS, ItemScore, bootstrap_ci, pctl, score_item, summarize
 
@@ -249,8 +257,10 @@ def model_fingerprint(provider: Provider) -> dict:
             from huggingface_hub import try_to_load_from_cache
 
             # 캐시된 config.json이 가리키는 스냅샷 커밋, 즉 그 경로의 부모 폴더 이름을 기록한다.
-            # snapshot_download는 일부만 받은 스냅샷을 거부해 None이 나와서 이 방법을 쓴다.
-            cfg_path = try_to_load_from_cache(provider.model_id, "config.json")
+            # snapshot_download는 일부만 받은 스냅샷을 거부해 None이 나와서 이 방법을 쓴다. 실행기가 고정한
+            # revision이 있으면 그 스냅샷에서 찾는다(None이면 refs/main, 예전과 같다). 그래서 base_revision은
+            # "실제로 캐시에서 읽은 커밋"이고, manifest의 revision은 "요청한 revision"이다.
+            cfg_path = try_to_load_from_cache(provider.model_id, "config.json", revision=provider.revision)
             fp["base_revision"] = Path(cfg_path).parent.name if isinstance(cfg_path, str) else None
         except Exception:  # noqa: BLE001 - 로컬 경로이거나 hub가 설치되지 않음
             fp["base_revision"] = None
@@ -289,8 +299,8 @@ def summary_table(scores: Sequence[ItemScore], n_boot: int = 2000) -> dict:
     return out
 
 
-# 명령줄 진입점. 주요 옵션: --backend(ollama/hf), --adapter·--load-4bit(학습한 학생), --schema(스키마 강제),
-# --shots·--shot-pool(few-shot), --batch(hf 배치), --prompt(p1/p2),
+# 명령줄 진입점. 주요 옵션: --backend(ollama/hf), --adapter·--load-4bit·--revision(학습한 학생과 바탕 모델의
+# revision), --schema(스키마 강제), --shots·--shot-pool(few-shot), --batch(hf 배치), --prompt(p1/p2),
 # --num-gpu·--num-ctx·--option·--think(Ollama 요청 설정), --official, --allow-test.
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
@@ -299,6 +309,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--model", required=True, help="Ollama 모델 이름 또는 HF 모델 id/경로")
     ap.add_argument("--adapter", help="PEFT 어댑터 폴더(hf 백엔드)")
     ap.add_argument("--load-4bit", action="store_true")
+    # 바탕 모델의 Hub revision(hf 백엔드). 기본은 providers.BASE_REVISIONS의 고정 커밋(지금 캐시에 있는
+    # 스냅샷과 같은 커밋이라 내려받기 없음), 표에 없는 모델은 고정하지 않는다. 쓴 값은 manifest의 revision에
+    # 남는다.
+    ap.add_argument(
+        "--revision",
+        help="바탕 모델의 HF Hub revision(hf 백엔드). 기본: 고정 표의 커밋, 표에 없는 모델은 고정 없음",
+    )
     ap.add_argument("--schema", action="store_true", help="스키마 강제 JSON 디코딩(ollama 백엔드)")
     ap.add_argument("--shots", type=int, default=0)
     ap.add_argument("--shot-pool", help="few-shot 예시를 뽑을 JSONL(참고 요약이 있어야 한다)")
@@ -373,11 +390,17 @@ def main(argv: list[str] | None = None) -> int:
             ap.error(f"{args.shot_pool} has fewer than {args.shots} examples for {short}")
         shots_for = shots.__getitem__
 
-    # 백엔드에 맞는 실행기를 만든다. --option은 Ollama 요청 옵션이라 hf 백엔드에서는 오류로 막는다. hf에서는
-    # --think on일 때만 채팅 템플릿의 생각 모드를 켠다.
+    # 백엔드에 맞는 실행기를 만든다. --option은 Ollama 요청 옵션이라 hf 백엔드에서는, --revision은 HF Hub
+    # 설정이라 ollama 백엔드에서는 오류로 막는다. hf에서는 --think on일 때만 채팅 템플릿의 생각 모드를 켠다.
+    # revision과 libs(라이브러리 판)는 hf 백엔드에서만 뜻이 있어 ollama에서는 None으로 남긴다. 라이브러리 판은
+    # importlib.metadata로 읽고 CUDA·cuDNN 판만 torch에서 읽으므로 ollama 측정은 torch를 import하지 않는다.
     ollama_options = dict(args.option)
     provider: Provider
+    revision: str | None = None
+    libs: dict | None = None
     if args.backend == "ollama":
+        if args.revision:
+            ap.error("--revision is for the hf backend")
         provider = OllamaProvider(
             model=args.model,
             use_schema=args.schema,
@@ -389,11 +412,14 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if ollama_options:
             ap.error("--option is for the ollama backend")
+        revision = revision_for(args.model, args.revision)
+        libs = library_versions(cuda=True)
         provider = HFProvider(
             model_id=args.model,
             adapter=args.adapter,
             load_4bit=args.load_4bit,
             enable_thinking=args.think == "on",
+            revision=revision,
         )
 
     # 실행 id = 시각-모델 이름(경로 문자 /, :를 _로)-라벨. 공식 실행은 커밋할 reports/에, 나머지는 커밋하지
@@ -404,14 +430,18 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = Path("reports" if args.official else "outputs/runs") / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # manifest는 모델을 돌리기 전에 먼저 쓴다. 실행 조건 전체(실행기 이름, 모델 지문, 데이터 경로와 해시,
-    # shot, 스키마 강제, 프롬프트 판과 지문, 컨텍스트, 생각 모드, Ollama 옵션, 코드 커밋, 명령줄 인자)를 남겨
-    # 결과를 다시 만들 수 있게 한다.
+    # manifest는 모델을 돌리기 전에 먼저 쓴다. 실행 조건 전체(실행기 이름, 모델 지문, 요청한 바탕 revision,
+    # 라이브러리 판, 데이터 경로와 해시, shot, 스키마 강제, 프롬프트 판과 지문, 컨텍스트, 생각 모드, Ollama
+    # 옵션, 코드 커밋, 명령줄 인자)를 남겨 결과를 다시 만들 수 있게 한다. 데이터 경로는 슬래시 꼴(as_posix)로
+    # 적어 다른 OS에서도 그대로 열린다(기록된 예전 manifest의 역슬래시 꼴은 dataset.manifest_data가 읽는다.
+    # compare --paired는 건 id로 짝지으므로 경로 꼴이 달라도 예전 실행과 비교할 수 있다).
     manifest = {
         "run_id": run_id,
         "provider": provider.name,
         "model_fingerprint": model_fingerprint(provider),
-        "data": str(data_path),
+        "revision": revision,
+        "libs": libs,
+        "data": data_path.as_posix(),
         "data_sha": _file_hash(data_path),
         "n_items": len(items),
         "shots": args.shots,

@@ -14,10 +14,13 @@
 # CI가 ScriptedProvider만으로 이 모듈을 쓸 수 있다(README "테스트는 GPU·모델 없이 돈다").
 # [주요 구성] Reply(답과 측정값) / Provider(인터페이스) / ScriptedProvider(테스트용) / OllamaProvider(HTTP) /
 # Ollama 서버 메타데이터 도우미(parse_keep_alive, ollama_model_digest, ollama_version, ollama_fingerprint,
-# ollama_load: 측정 기록의 모델 지문과 서비스의 /health·/ready·예열이 함께 쓴다) / HFProvider(transformers).
+# ollama_load: 측정 기록의 모델 지문과 서비스의 /health·/ready·예열이 함께 쓴다) / HF 재현 조건 도우미
+# (BASE_REVISIONS·revision_for: 바탕 모델의 고정 revision, library_versions: 학습·추론 라이브러리 판) /
+# HFProvider(transformers).
 
 from __future__ import annotations
 
+import importlib.metadata
 import re
 import time
 from collections.abc import Callable
@@ -267,6 +270,60 @@ def ollama_load(base_url: str, model: str, keep_alive: str | int, timeout_s: flo
     httpx.post(f"{base_url}/api/generate", json=body, timeout=timeout_s).raise_for_status()
 
 
+# 바탕 모델(Hugging Face Hub)을 불러올 때 고정하는 커밋 revision. 값은 기록된 모든 학습·평가가 읽은 로컬 캐시
+# 스냅샷의 커밋이다(실행 기록 manifest의 model_fingerprint.base_revision, docs/experiments.md 재측정 결과
+# "바탕 모델 revision 1cfa9a72…"). 커밋 해시 revision은 캐시에 있으면 네트워크를 쓰지 않으므로, 고정해도 지금
+# 캐시에서 같은 파일을 읽는다. revision 없이 불러오면 refs/main을 따라가 저장소 쪽이 가중치·토크나이저·채팅
+# 템플릿을 바꿔 올리면 조용히 다른 모델을 재게 된다(공급망·재현성). 표에 없는 모델(로컬 경로, 다른 바탕)은
+# 고정하지 않아 예전 동작 그대로다.
+BASE_REVISIONS: dict[str, str] = {
+    "Qwen/Qwen3-4B": "1cfa9a7208912126459214e8b04321603b3df60c",
+    "Qwen/Qwen3-1.7B": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+}
+
+
+# 불러올 revision을 정한다. 입력: 모델 id(또는 로컬 경로)와 명령줄 --revision 값. 출력: --revision이 있으면 그
+# 값(커밋 해시, 태그, "main" 모두 그대로), 없으면 BASE_REVISIONS의 값, 표에도 없으면 None(= revision 인자를
+# 주지 않은 예전 동작, refs/main). train·evaluate(hf)·export가 같은 규칙으로 쓰고 결과를 train_config.json과
+# manifest의 revision에 남긴다.
+def revision_for(model_id: str, override: str | None = None) -> str | None:
+    """바탕 모델을 불러올 revision: --revision 값 → BASE_REVISIONS → None(고정 없음)."""
+    if override:
+        return override
+    return BASE_REVISIONS.get(model_id)
+
+
+# 실행 기록에 남기는 학습·추론 라이브러리. 어댑터를 만든 쪽(train)과 잰 쪽(evaluate hf)의 판이 다르면 같은
+# 어댑터라도 결과가 다를 수 있어(transformers의 채팅 템플릿·생성 코드, peft의 LoRA 적용, bitsandbytes의 4bit
+# 커널) 조건의 일부로 적는다.
+LIBS = ("torch", "transformers", "peft", "bitsandbytes", "accelerate")
+
+
+# 설치된 라이브러리 판을 {이름: 판 또는 None}으로 모은다. importlib.metadata로 읽으므로 라이브러리를
+# import하지 않고(torch import는 몇 초가 걸린다), 설치되지 않은 것은 None이다. cuda=True면 torch를 들여와
+# torch.version.cuda (예: "12.8")와 cuDNN 판(정수)을 더한다. torch가 없거나 cuDNN을 쓸 수 없으면 둘 다
+# None이고, 어떤 경우에도 예외를 내지 않는다(기록용 값이라 실행을 멈추지 않는다). 쓰는 곳: evaluate의 hf
+# 백엔드 manifest(libs 키), train의 train_config.json(libs 키). Ollama·scripted 백엔드에서는 부르지 않는다.
+def library_versions(cuda: bool = False) -> dict:
+    """학습·추론 라이브러리의 설치 판(없으면 None). cuda=True면 torch의 CUDA·cuDNN 판도."""
+    out: dict = {}
+    for name in LIBS:
+        try:
+            out[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            out[name] = None
+    if cuda:
+        try:
+            import torch
+
+            out["cuda"] = torch.version.cuda
+            out["cudnn"] = torch.backends.cudnn.version()
+        except Exception:  # noqa: BLE001 - torch 없음(학습 환경 아님)이거나 cuDNN 조회 실패: 기록만 비운다
+            out["cuda"] = None
+            out["cudnn"] = None
+    return out
+
+
 # transformers로 직접 돌리는 실행기. 학습 전 학생의 기준선(Qwen3 fp16)과, GGUF로 바꾸기 전의 학습한 학생(바탕
 # 모델 + PEFT LoRA 어댑터, 4B는 4bit 바탕)을 잴 때 쓴다(evaluate --backend hf).
 # RTX 2080 Ti(Turing)에는 bf16이 없어 fp16으로 돌린다(docs/plan.md).
@@ -282,6 +339,10 @@ class HFProvider:
     # PyTorch가 쓸 GPU 메모리 상한(GB). Windows에서는 VRAM을 넘겨도 오류 없이 시스템 메모리로 새어 나가 몇
     # 배나 느려지므로, train.cap_vram으로 상한을 건다(train.cap_vram docstring).
     max_vram_gb: float | None = 9.5
+    # 바탕 모델을 불러올 Hub revision(커밋 해시 등). None이면 transformers 기본(refs/main)이다. evaluate가
+    # revision_for로 정해 넘기고 manifest의 revision에 같은 값을 남긴다. 실행 이름(name)에는 넣지 않는다:
+    # 이름이 바뀌면 기록된 실행과의 대조(compare)가 깨진다.
+    revision: str | None = None
     _model: object = field(default=None, init=False, repr=False)
     _tok: object = field(default=None, init=False, repr=False)
 
@@ -314,8 +375,10 @@ class HFProvider:
             kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.float16
             )
-        tok = AutoTokenizer.from_pretrained(self.model_id)
-        model = AutoModelForCausalLM.from_pretrained(self.model_id, **kwargs)
+        # 토크나이저와 바탕 가중치를 같은 revision으로 불러온다(None이면 refs/main). 캐시에 그 커밋의 스냅샷이
+        # 있으면 네트워크를 쓰지 않는다.
+        tok = AutoTokenizer.from_pretrained(self.model_id, revision=self.revision)
+        model = AutoModelForCausalLM.from_pretrained(self.model_id, revision=self.revision, **kwargs)
         # 어댑터가 있으면 바탕 위에 LoRA를 얹는다(합치지 않고 그대로 추론). eval()로 dropout 등을 끈다.
         if self.adapter:
             from peft import PeftModel

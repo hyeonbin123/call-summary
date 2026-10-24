@@ -141,12 +141,14 @@ def main(argv: list[str] | None = None) -> int:
         # 공식 실행은 커밋하는 reports/에, 시험 실행은 커밋하지 않는 outputs/runs/에 둔다.
         out_dir = Path("reports" if args.official else "outputs/runs") / run_id
         out_dir.mkdir(parents=True, exist_ok=True)
+        # 데이터 경로는 evaluate와 같이 슬래시 꼴(as_posix)로 적어 다른 OS에서도 그대로 열린다(기록된 예전
+        # manifest의 역슬래시 꼴은 dataset.manifest_data가 읽는다).
         manifest = {
             "run_id": run_id,
             "provider": f"service:{health.get('model')}",
             "service_health": health,
             "url": args.url,
-            "data": str(data_path),
+            "data": data_path.as_posix(),
             "data_sha": _file_hash(data_path),
             "n_items": len(items),
             "prompt_version": "p1",
