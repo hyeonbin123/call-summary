@@ -3,14 +3,19 @@
 # 검사(422)의 정확한 범위, 발화 안 줄바꿈류의 정규화(가짜 화자 줄 막기)와 제어문자 거절, 보안 스캔이
 # 처리기까지 닿는지(OpenAPI 설명, ISO-8859-1 한글, HAR 씨앗), 413·503, 컨텍스트를 다 채운 답(502)과 모델
 # 서버의 컨텍스트 초과 오류(413), 보안 헤더, /stats, 요청별 로그 한 줄(개인정보 없음), 스키마 강제는 켤 때만.
+# 맨 아래 묶음은 입장 제어(동시 모델 호출 상한, 대기열, 503 busy와 Retry-After), 모델 호출 시간 한도, 요청
+# 본문 상한(파싱 전 413), /stats 지연 창을 본다. 동시성 시험은 TestClient 대신 httpx.ASGITransport로 한
+# 이벤트 루프 안에서 요청을 동시에 보낸다(with 없이 쓰는 TestClient는 요청마다 이벤트 루프를 새로 만든다).
 # [왜 중요한가] 서비스는 학습한 모델의 답을 그대로 내보내지 않고 검증·재시도·표시를 거친다(README 5단계). 이
 # 동작과 로그의 개인정보 규칙, 보안 스캔이 처리기 안쪽을 시험할 수 있는 조건이 코드가 바뀌어도 유지되는지
 # 지킨다.
 
 import json
 import logging
+import threading
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -538,7 +543,7 @@ def test_log_counts_normalized_and_marker_turns_without_values(caplog):
     assert "보상금" not in raw and "직접 적었어요" not in raw and "있어요" not in raw
 
 
-# /stats는 처리기가 낼 수 있는 결과를 모두 0부터 센다(새 결과 context_full, context_exceeded 포함).
+# /stats는 처리기가 낼 수 있는 결과를 모두 0부터 센다(context_full, context_exceeded, 입장 제어의 busy 포함).
 def test_stats_count_every_outcome_from_zero():
     assert Stats().snapshot()["requests"] == {
         "ok": 0,
@@ -547,6 +552,7 @@ def test_stats_count_every_outcome_from_zero():
         "model_unavailable": 0,
         "context_full": 0,
         "context_exceeded": 0,
+        "busy": 0,
     }
 
 
@@ -672,3 +678,404 @@ def test_schema_decoding_is_opt_in(monkeypatch):
     assert not TestClient(create_app()).get("/health").json()["model"].endswith(":schema")
     monkeypatch.setenv("CALL_SUMMARY_SCHEMA", "1")
     assert TestClient(create_app()).get("/health").json()["model"].endswith(":schema")
+
+
+# ---- 입장 제어, 모델 호출 시간 한도, 요청 본문 상한, /stats 지연 창 ----
+
+# 입장 제어 설정을 바꾸는 환경 변수 이름들. 시험마다 지우거나 정해 다른 시험의 설정이 새지 않게 한다.
+LIMIT_ENV = (
+    "CALL_SUMMARY_MAX_INFLIGHT",
+    "CALL_SUMMARY_MAX_QUEUE",
+    "CALL_SUMMARY_QUEUE_WAIT_S",
+    "CALL_SUMMARY_MODEL_TIMEOUT",
+    "CALL_SUMMARY_STATS_WINDOW",
+)
+
+
+# 모델 호출을 붙잡아 두는 가짜 provider. gate(threading.Event)가 열릴 때까지(최대 10초) 답하지 않거나,
+# barrier를 주면 그 수만큼의 호출이 동시에 안에 들어올 때까지 기다린다. 지금 안에 있는 호출 수와 그 최댓값,
+# 모두 부른 횟수를 센다(여러 스레드가 함께 고치므로 Lock으로 지킨다). 입장 제어가 모델에 동시에 닿는 요청
+# 수를 실제로 막는지 보는 데 쓴다.
+class GateProvider:
+    """gate가 열릴 때까지(또는 barrier가 찰 때까지) 막혀 있다가 같은 답을 돌려준다."""
+
+    name = "gate"
+
+    def __init__(self, reply: str, barrier: threading.Barrier | None = None):
+        self.reply = reply
+        self.gate = threading.Event()
+        self.barrier = barrier
+        self.lock = threading.Lock()
+        self.active = 0
+        self.max_active = 0
+        self.calls = 0
+
+    def generate(self, messages, json_schema=None):
+        with self.lock:
+            self.calls += 1
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        try:
+            if self.barrier is not None:
+                self.barrier.wait()
+            else:
+                self.gate.wait(10)
+            return Reply(text=self.reply, latency_s=0.0)
+        finally:
+            with self.lock:
+                self.active -= 1
+
+
+# 한 이벤트 루프 안에서 /summarize 요청 n개를 동시에 보내는 비동기 클라이언트(httpx.ASGITransport, 실제
+# 서버 없이 앱을 직접 부른다). 받은 응답은 도착한 순서대로 results에 쌓인다.
+def _asgi_client(app) -> httpx.AsyncClient:
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+
+
+async def _post_summarize(client: httpx.AsyncClient, results: list, domain: str = "shop") -> None:
+    results.append(await client.post("/summarize", json={"domain": domain, "turns": TURNS}))
+
+
+# 조건이 참이 될 때까지 이벤트 루프를 양보하며 기다린다(최대 timeout초, 넘으면 그대로 돌아온다).
+async def _wait_until(cond, timeout: float = 3.0) -> None:
+    with anyio.move_on_after(timeout):
+        while not cond():
+            await anyio.sleep(0.01)
+
+
+# 모델 호출 구간에 동시에 들어가는 요청은 CALL_SUMMARY_MAX_INFLIGHT(여기서 2)개까지다. 나머지 셋은 대기
+# 상한(0.2초) 동안 자리를 얻지 못해 503 {"error": "server busy"}와 Retry-After(대기 상한을 올림한 1초),
+# 보안 헤더를 받고, 로그 줄은 결과 busy·시도 0·입장 대기 queue_s로 남으며 /stats에 busy로 센다. 모델 호출
+# 둘이 막혀 있는 동안에도 이벤트 루프는 막히지 않아 /health가 답한다(모델 호출은 스레드에서 돈다). 고치기
+# 전에는 다섯 건이 모두 모델에 닿았다(입장 제어 없음).
+def test_admission_caps_concurrent_model_calls_and_refuses_the_overflow(monkeypatch, caplog):
+    for name in LIMIT_ENV:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "2")
+    monkeypatch.setenv("CALL_SUMMARY_QUEUE_WAIT_S", "0.2")
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    p = GateProvider(_good())
+    app = create_app(p)
+    results: list[httpx.Response] = []
+    side: dict = {}
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                for _ in range(5):
+                    tg.start_soon(_post_summarize, client, results)
+                await _wait_until(lambda: len(results) >= 3)
+                side["answered_while_blocked"] = len(results)
+                with anyio.fail_after(2):
+                    side["health"] = (await client.get("/health")).status_code
+                p.gate.set()
+            side["stats"] = (await client.get("/stats")).json()
+
+    anyio.run(main)
+    assert p.max_active == 2 and p.calls == 2
+    assert side["answered_while_blocked"] == 3 and side["health"] == 200
+    assert sorted(r.status_code for r in results) == [200, 200, 503, 503, 503]
+    busy = [r for r in results if r.status_code == 503]
+    assert all(r.json()["detail"] == {"error": "server busy"} for r in busy)
+    assert all(r.headers["Retry-After"] == "1" for r in busy)
+    assert all(r.headers["X-Content-Type-Options"] == "nosniff" for r in busy)
+    assert side["stats"]["requests"]["busy"] == 3 and side["stats"]["requests"]["ok"] == 2
+    lines = _log_lines(caplog)
+    assert (
+        sorted((x["outcome"], x["status"], x["attempts"]) for x in lines)
+        == [("busy", 503, 0)] * 3 + [("ok", 200, 1)] * 2
+    )
+    assert all(x["queue_s"] >= 0.1 for x in lines if x["outcome"] == "busy")
+    assert all(x["queue_s"] < 0.1 for x in lines if x["outcome"] == "ok")
+
+
+# 대기열이 차 있으면(CALL_SUMMARY_MAX_QUEUE=1칸에 이미 한 건) 새 요청은 기다리지 않고 바로 503이다. 기다리던
+# 요청은 앞 요청이 끝나면 자리를 얻어 200을 받는다. 업종 검사 같은 값싼 입력 검사는 대기열과 상관없이 바로
+# 끝난다(목록 밖 업종은 대기열이 차 있어도 422). Retry-After는 대기 상한 30초다.
+def test_a_full_queue_refuses_at_once_and_the_waiting_request_runs_next(monkeypatch):
+    for name in LIMIT_ENV:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "1")
+    monkeypatch.setenv("CALL_SUMMARY_MAX_QUEUE", "1")
+    monkeypatch.setenv("CALL_SUMMARY_QUEUE_WAIT_S", "30")
+    p = GateProvider(_good())
+    app = create_app(p)
+    results: list[httpx.Response] = []
+    side: dict = {}
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                for _ in range(3):
+                    tg.start_soon(_post_summarize, client, results)
+                await _wait_until(lambda: len(results) >= 1)
+                side["first"] = [(r.status_code, r.headers.get("Retry-After")) for r in results]
+                with anyio.fail_after(2):
+                    side["unknown_domain"] = (
+                        await client.post("/summarize", json={"domain": "bank", "turns": TURNS})
+                    ).status_code
+                p.gate.set()
+
+    anyio.run(main)
+    assert side["first"] == [(503, "30")]
+    assert side["unknown_domain"] == 422
+    assert sorted(r.status_code for r in results) == [200, 200, 503]
+    assert p.max_active == 1 and p.calls == 2
+
+
+# 기본값(동시 4건, 대기열 16칸, 대기 30초)에서는 동시 4건이 모두 바로 모델에 닿는다(넷이 동시에 안에 들어와야
+# 풀리는 barrier). 기록된 부하 시험(동시 1·2·4, docs/experiments.md 5단계)의 조건이 입장 제어에 걸리지
+# 않음을 지킨다.
+def test_default_limits_admit_four_concurrent_requests(monkeypatch):
+    for name in LIMIT_ENV:
+        monkeypatch.delenv(name, raising=False)
+    p = GateProvider(_good(), barrier=threading.Barrier(4, timeout=5))
+    app = create_app(p)
+    results: list[httpx.Response] = []
+    side: dict = {}
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                for _ in range(4):
+                    tg.start_soon(_post_summarize, client, results)
+            side["stats"] = (await client.get("/stats")).json()
+
+    anyio.run(main)
+    assert [r.status_code for r in results] == [200] * 4
+    assert p.max_active == 4
+    assert side["stats"]["requests"]["busy"] == 0 and side["stats"]["requests"]["ok"] == 4
+
+
+# 서비스가 만드는 OllamaProvider의 HTTP 시간 한도는 CALL_SUMMARY_MODEL_TIMEOUT(기본 120초)이고, 재시도
+# provider도 같은 값을 물려받는다(목록 밖 라벨로 두 번 부르게 함). 고치기 전에는 교사·판정용 기본값 600초를
+# 그대로 썼다. 시간 한도를 넘긴 호출(httpx.ReadTimeout)은 다른 모델 서버 실패처럼 재시도 없이 503이다.
+def test_model_call_timeout_comes_from_the_environment(monkeypatch):
+    for name in LIMIT_ENV:
+        monkeypatch.delenv(name, raising=False)
+    off_list = json.loads(_good())
+    off_list["category"] = "기타"
+    timeouts: list = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": json.dumps(off_list, ensure_ascii=False)}}
+
+    def fake_post(url, **kw):
+        timeouts.append(kw["timeout"])
+        return Resp()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    assert (
+        TestClient(create_app()).post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code
+        == 502
+    )
+    monkeypatch.setenv("CALL_SUMMARY_MODEL_TIMEOUT", "7.5")
+    assert (
+        TestClient(create_app()).post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code
+        == 502
+    )
+    assert timeouts == [120.0, 120.0, 7.5, 7.5]
+
+    def slow_post(url, **kw):
+        timeouts.append(kw["timeout"])
+        raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr(httpx, "post", slow_post)
+    c = TestClient(create_app())
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 503
+    assert timeouts[4:] == [7.5]  # 시간 초과는 다시 묻지 않는다
+    assert c.get("/stats").json()["requests"]["model_unavailable"] == 1
+
+
+# 요청 본문 상한(1 MiB): 정확히 상한인 본문(공백으로 채운 맞는 JSON)은 그대로 처리되고, 한 바이트라도 넘으면
+# 본문을 파싱하기 전에 413이다(상한 값을 알리고 보안 헤더가 붙음). 길이를 미리 알리지 않는 본문(chunked)도
+# 받은 바이트로 센다. 413은 처리기에 닿지 않으므로 모델을 부르지 않고 로그 줄도 없다(본문 검사 422와 같음).
+# 고치기 전에는 상한이 없어 몇십 MB 본문도 끝까지 읽고 파싱했다.
+def test_request_body_over_the_limit_is_413_before_parsing(caplog):
+    caplog.set_level(logging.INFO, logger="call_summary.service")
+    p = ScriptedProvider([_good(), _good()])
+    c = TestClient(create_app(p))
+    head = {"Content-Type": "application/json"}
+    body = json.dumps({"domain": "shop", "turns": TURNS}).encode()
+    at_limit = body + b" " * (service.MAX_BODY_BYTES - len(body))
+    assert c.post("/summarize", content=at_limit, headers=head).status_code == 200
+    over = at_limit + b" "
+    for content in (over, iter([over[:600_000], over[600_000:]])):
+        r = c.post("/summarize", content=content, headers=head)
+        assert r.status_code == 413
+        assert str(service.MAX_BODY_BYTES) in r.json()["detail"]
+        assert r.headers["X-Content-Type-Options"] == "nosniff" and r.headers["Cache-Control"] == "no-store"
+    assert len(p.calls) == 1
+    assert [x["outcome"] for x in _log_lines(caplog)] == ["ok"]
+
+
+# 본문 상한 미들웨어만 따로 ASGI로 부른다(상한 10바이트). (1) Content-Length가 상한을 넘으면 본문을 한
+# 조각도 읽지 않고 안쪽 앱도 부르지 않은 채 413. (2) 길이 표시 없이 조각으로 오면 상한을 넘는 조각에서 읽기를
+# 멈추고 413. (3) 상한 안이면 받은 조각을 이어 한 메시지로 안쪽 앱에 넘기고, 그 뒤의 receive는 원래 것(연결
+# 끊김 알림)으로 이어 준다. (4) 숫자가 아닌 Content-Length는 무시하고 받은 바이트로 센다.
+def test_body_limit_middleware_reads_no_further_than_the_limit():
+    async def run(headers, chunks):
+        seen: dict = {"received": 0, "app": None}
+        sent: list = []
+        queue = list(chunks)
+
+        async def receive():
+            seen["received"] += 1
+            if queue:
+                part = queue.pop(0)
+                return {"type": "http.request", "body": part, "more_body": bool(queue)}
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            sent.append(message)
+
+        async def inner(scope, receive, send):
+            seen["app"] = [await receive(), await receive()]
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        scope = {"type": "http", "method": "POST", "path": "/summarize", "headers": headers}
+        await service.BodySizeLimit(inner, max_bytes=10)(scope, receive, send)
+        return seen, sent
+
+    seen, sent = anyio.run(run, [(b"content-length", b"11")], [b"x" * 11])
+    assert (seen["received"], seen["app"], sent[0]["status"]) == (0, None, 413)
+    seen, sent = anyio.run(run, [], [b"x" * 6, b"x" * 6, b"x" * 6])
+    assert (seen["received"], seen["app"], sent[0]["status"]) == (2, None, 413)
+    seen, sent = anyio.run(run, [(b"content-length", b"10")], [b"x" * 4, b"y" * 6])
+    assert seen["app"] == [
+        {"type": "http.request", "body": b"xxxxyyyyyy", "more_body": False},
+        {"type": "http.disconnect"},
+    ]
+    assert sent[0]["status"] == 200
+    seen, sent = anyio.run(run, [(b"content-length", b"abc")], [b"x" * 11])
+    assert (seen["app"], sent[0]["status"]) == (None, 413)
+
+
+# /stats의 지연 분포는 최근 window건(여기서 3)만으로 낸다: 99초를 포함한 다섯 건을 넣으면 n은 3이고 최근 세
+# 건(2, 3, 4초)으로 계산한다(p50 = v[1], p95 = v[int(0.95·2)] = v[1]). 결과별 수는 창과 상관없이 전체를 센다.
+def test_stats_latencies_cover_only_the_most_recent_window():
+    st = Stats(window=3)
+    for sec in (99.0, 1.0, 2.0, 3.0, 4.0):
+        st.add("ok", sec)
+    snap = st.snapshot()
+    assert snap["window"] == 3 and snap["requests"]["ok"] == 5
+    assert snap["latency_s"] == {"n": 3, "p50": 3.0, "p95": 3.0, "max": 4.0}
+
+
+# 여러 스레드가 결과를 더하는 동안 찍은 snapshot마다 결과별 수와 지연 표본 수가 같은 순간의 값이다: 창이 차기
+# 전에는 ok + retried_ok == n. 고치기 전에는 지연 목록만 잠금 안에서 복사하고 수는 잠금 밖에서 복사해 두 값이
+# 어긋날 수 있었다.
+def test_stats_snapshot_counts_and_latencies_agree_under_concurrent_adds():
+    st = Stats()
+    done = threading.Event()
+    bad: list = []
+
+    def writer(outcome: str) -> None:
+        for i in range(2000):
+            st.add(outcome, i / 1000)
+
+    def reader() -> None:
+        while not done.is_set():
+            snap = st.snapshot()
+            n = snap["latency_s"]["n"] if snap["latency_s"] else 0
+            if snap["requests"]["ok"] + snap["requests"]["retried_ok"] != n:
+                bad.append(snap["requests"])
+
+    threads = [threading.Thread(target=writer, args=(o,)) for o in ("ok", "retried_ok", "ok")]
+    watcher = threading.Thread(target=reader)
+    watcher.start()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    done.set()
+    watcher.join()
+    assert bad == []
+    final = st.snapshot()
+    assert final["latency_s"]["n"] == 6000 and final["requests"]["ok"] == 4000
+
+
+# /stats 응답의 window는 CALL_SUMMARY_STATS_WINDOW(기본 10,000, 빈 값이면 기본값)이고, 창을 넘는 요청이 오면
+# 지연 표본은 창 크기만큼만 남는다.
+def test_stats_window_is_set_by_the_environment(monkeypatch):
+    monkeypatch.setenv("CALL_SUMMARY_STATS_WINDOW", "")
+    assert TestClient(create_offline_app()).get("/stats").json()["window"] == 10_000
+    monkeypatch.setenv("CALL_SUMMARY_STATS_WINDOW", "2")
+    c = TestClient(create_offline_app())
+    for _ in range(3):
+        assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 200
+    st = c.get("/stats").json()
+    assert st["window"] == 2 and st["latency_s"]["n"] == 2 and st["requests"]["ok"] == 3
+
+
+# 잘못된 한도 설정(0 이하의 동시 수·창, 음수 대기열·대기, 0 이하의 시간 한도, 숫자가 아님, 무한대·NaN, 정수
+# 자리의 소수)은 앱을 만들 때 그 변수 이름과 함께 ValueError로 멈춘다. 조용히 기본값으로 돌면 운영자가 정한
+# 한도가 적용됐다고 잘못 믿게 된다. 빈 값은 설정하지 않은 것으로 본다(compose의 ${VAR:-} 꼴).
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("CALL_SUMMARY_MAX_INFLIGHT", "0"),
+        ("CALL_SUMMARY_MAX_INFLIGHT", "two"),
+        ("CALL_SUMMARY_MAX_QUEUE", "-1"),
+        ("CALL_SUMMARY_QUEUE_WAIT_S", "-0.5"),
+        ("CALL_SUMMARY_QUEUE_WAIT_S", "inf"),
+        ("CALL_SUMMARY_MODEL_TIMEOUT", "0"),
+        ("CALL_SUMMARY_MODEL_TIMEOUT", "nan"),
+        ("CALL_SUMMARY_STATS_WINDOW", "0"),
+        ("CALL_SUMMARY_STATS_WINDOW", "2.5"),
+    ],
+)
+def test_bad_limit_settings_stop_the_app_at_startup(name, value, monkeypatch):
+    for other in LIMIT_ENV:
+        monkeypatch.delenv(other, raising=False)
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=name):
+        create_offline_app()
+
+
+# 대기 상한 0초면 자리가 없을 때 기다리지 않고 바로 503이고 Retry-After는 최소 1초다. 모델 호출이 실패해
+# 503(model_unavailable)으로 끝난 요청도 finally에서 자리를 돌려주므로 다음 요청이 바로 들어간다: 자리가 새면
+# 동시 1 설정에서 두 번째 요청부터 영원히 busy가 된다.
+def test_zero_wait_refuses_at_once_and_failed_calls_release_their_slot(monkeypatch):
+    for name in LIMIT_ENV:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "1")
+    monkeypatch.setenv("CALL_SUMMARY_QUEUE_WAIT_S", "0")
+
+    class Flaky:
+        name = "flaky"
+        calls = 0
+
+        def generate(self, messages, json_schema=None):
+            self.calls += 1
+            if self.calls == 1:
+                raise ConnectionError("refused")
+            return Reply(text=_good(), latency_s=0.0)
+
+    c = TestClient(create_app(Flaky()))
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 503
+    assert c.post("/summarize", json={"domain": "shop", "turns": TURNS}).status_code == 200
+    counts = c.get("/stats").json()["requests"]
+    assert (counts["model_unavailable"], counts["ok"], counts["busy"]) == (1, 1, 0)
+
+    p = GateProvider(_good())
+    app = create_app(p)
+    results: list[httpx.Response] = []
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                for _ in range(2):
+                    tg.start_soon(_post_summarize, client, results)
+                await _wait_until(lambda: len(results) >= 1)
+                p.gate.set()
+
+    anyio.run(main)
+    assert sorted(r.status_code for r in results) == [200, 503]
+    (busy,) = [r for r in results if r.status_code == 503]
+    assert busy.headers["Retry-After"] == "1" and p.calls == 1
