@@ -56,8 +56,8 @@ CALL_SUMMARY_KEEP_ALIVE(기본 30m)는 요청 뒤 모델을 메모리에 남겨 
 # 번 올려 첫 요청의 콜드 스타트를 시작 시점으로 앞당긴다.
 # [보안·개인정보] 응답에 보안 헤더를 붙이고, 문서 페이지는 기본으로 숨긴다. 요청 로그에는 전사·기록·번호 값을
 # 남기지 않는다(개인정보). 발화 글의 줄바꿈류는 공백으로 바꿔 가짜 화자 줄을 막고 그 밖의 제어문자는 거절한다.
-# 모델 없는 오프라인 모드(create_offline_app)는 HawkScan 보안 스캔용이다(docs/experiments.md "보안 스캔
-# 기록").
+# 모델 없는 오프라인 모드(create_offline_app)는 보안 스캔용이다(2026-10-24부터 OWASP ZAP, zap/automation.yaml·
+# zap/run_zap.sh. 그 전에는 HawkScan. docs/experiments.md "보안 스캔 기록").
 # [부하 경계] 모델 호출은 동시 상한(CapacityLimiter)과 짧은 대기열 뒤에서만 돌고 넘치면 503 busy다. 들어간
 # 모델 호출은 상한과 같은 수의 전용 작업 스레드 자리에서 돌아 anyio 기본 작업 스레드 풀을 쓰지 않는다. Ollama
 # 호출의 시간 한도는 서비스용 값(기본 120초)이고, 요청 본문은 1 MiB 상한의 ASGI 미들웨어(BodySizeLimit)가 파싱
@@ -269,8 +269,8 @@ def is_context_exceeded(exc: BaseException) -> bool:
 
 
 # OpenAPI 설명에 넣는 요청 예시. 보안 스캐너가 OpenAPI만 보고도 입력 검사를 통과하는 요청을 만들 수 있게
-# 붙였다(커밋 a13fcb6, docs/experiments.md "보안 스캔 기록" 2026-10-03). hawk/summarize.har 씨앗 본문도 이
-# 예시와 같다(tests/test_service.py가 확인).
+# 붙였다(커밋 a13fcb6, docs/experiments.md "보안 스캔 기록" 2026-10-03). HawkScan의 hawk/summarize.har와
+# 2026-10-24부터 쓰는 ZAP 계획 zap/automation.yaml의 씨앗 본문도 이 예시와 같다(tests/test_service.py가 확인).
 EXAMPLE_REQUEST = {
     "domain": "shop",
     "turns": [
@@ -1055,7 +1055,7 @@ class CannedProvider:
         return Reply(text=record_to_json(record), latency_s=0.0)
 
 
-# 보안 스캔(HawkScan)과 시연용 앱: CannedProvider + OpenAPI 공개. 스캐너가 OpenAPI로 경로와 요청 꼴을
-# 알아낸다(docs/experiments.md "보안 스캔 기록").
+# 보안 스캔(2026-10-24부터 OWASP ZAP, zap/automation.yaml. 그 전에는 HawkScan)과 시연용 앱: CannedProvider +
+# OpenAPI 공개. 스캐너가 OpenAPI로 경로와 요청 꼴을 알아낸다(docs/experiments.md "보안 스캔 기록").
 def create_offline_app() -> FastAPI:
     return create_app(provider=CannedProvider(), expose_openapi=True)

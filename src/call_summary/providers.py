@@ -261,7 +261,8 @@ def ollama_fingerprint(base_url: str, model: str, timeout_s: float = 10.0) -> di
 # 적재 요청으로 처리하고 토큰을 만들지 않는다(응답의 done_reason "load"). keep_alive 0이면 같은 요청이 모델을
 # 내린다(bench.unload가 그렇게 쓴다). 서비스의 선택 예열(CALL_SUMMARY_WARMUP=1)이 시작할 때 한 번 부른다.
 # 실패한 HTTP 상태와 연결 오류는 httpx 예외로 올라온다. timeout_s는 디스크에서 가중치를 읽는 시간까지 덮어야
-# 한다(기록: q8_0 콜드 적재 최대 약 68초).
+# 한다(기록: 콜드 적재 19~68초(q4_K_M 19.2초 ~ f16 67.6초). 서빙 q8_0은 적재 40.1초, 첫 요청 52.9초.
+# docs/experiments.md "효율 추가 측정 결과").
 def ollama_load(base_url: str, model: str, keep_alive: str | int, timeout_s: float = 120.0) -> None:
     """모델을 메모리에 올린다(프롬프트 없는 /api/generate). 실패하면 httpx 예외."""
     import httpx
