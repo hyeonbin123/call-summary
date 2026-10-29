@@ -36,8 +36,12 @@ jobs:
           persist-credentials: false
 
       # setup-uv는 움직이는 큰 버전 태그(v10 같은)를 내지 않으므로 정확한 릴리스 하나의 SHA로 고정한다.
+      # version: 설치할 uv 판. 없으면 setup-uv가 pyproject.toml의 required-version(하한만 적음)에서 가장 높은 판, 곧
+      # 최신 uv를 받는다. 개발 PC와 Dockerfile의 uv와 같은 판으로 고정한다(올릴 때는 셋을 함께 바꾼다.
+      # tests/test_container.py가 확인한다).
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
+          version: "0.13.1"
           enable-cache: true
 
       - name: Install dependencies
@@ -75,7 +79,10 @@ jobs:
         with:
           persist-credentials: false
 
+      # version은 test 작업과 같은 이유로 고정한다(uv export의 출력 꼴도 uv 판을 따른다).
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.13.1"
 
       # shell: bash는 pipefail을 켠다(기본 셸은 bash -e뿐이라 파이프 앞쪽 명령이 실패해도 지나간다).
       - name: Audit the locked dependencies

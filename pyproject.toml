@@ -32,6 +32,13 @@ train = [
     "sentencepiece>=0.2",
 ]
 
+[tool.uv]
+# 이 저장소를 다룰 uv의 가장 낮은 판. uv.lock을 쓴 판(0.13.1)보다 낮은 uv가 잠금 파일을 읽거나 다시 쓰지 못하게
+# 한다. 하한만 둔다: `~=0.13.1`처럼 위를 막으면 개발 PC의 uv를 0.14로 올리는 순간 이 저장소의 모든 uv 명령이
+# 멈춘다. 정확한 판은 CI(setup-uv의 version)와 Dockerfile(uv 이미지)에서 고정하고 tests/test_container.py가 셋을
+# 함께 본다.
+required-version = ">=0.13.1"
+
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
