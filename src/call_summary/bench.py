@@ -20,9 +20,10 @@ size_vram을, Ollama 서버 로그가 층 배치와 GPU 버퍼 크기를 알려 
 # [설계 이유] 지연은 다른 프로그램의 GPU 사용에 크게 흔들리므로, 재기 전에 CPU·GPU가 쉬는 상태를 기다리고(최대
 # --wait-idle분) 그래도 아니면 그대로 재되 그 조건을 보고서에 남긴다. 첫 요청은 모델 적재가 들어가 따로
 # 적는다. --reference로 예전 실행과 답이 글자까지 같은지 대 보아, 탐욕적 디코딩에서 실행기 버전이 바뀌어도
-# 답이 같은지 확인한다(240/240 같았다).
-# [흐름] 다른 모델이 올라가 있으면 거부 → 쉬는 상태 대기 → 기준 표본(모델 올리기 전) → 표본기를 켜고 한 건씩
-# 요청 → 첫 요청 뒤 /api/ps와 서버 로그 읽기 → 모델 내리기 → 채점·답 대조 → 보고서 저장.
+# 답이 같은지 확인한다(240/240 같았다). 시스템 CPU는 psutil로만 잴 수 있어, psutil이 없으면 바로 멈춘다
+# (--allow-no-cpu면 CPU 없이 재고 쉬는 상태는 기다리지 않는다. 아래 cpu_percent_fn).
+# [흐름] psutil 확인 → 다른 모델이 올라가 있으면 거부 → 쉬는 상태 대기 → 기준 표본(모델 올리기 전) → 표본기를
+# 켜고 한 건씩 요청 → 첫 요청 뒤 /api/ps와 서버 로그 읽기 → 모델 내리기 → 채점·답 대조 → 보고서 저장.
 
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 # 서비스와 같은 요청을 만들려고 프롬프트(build_messages, p1 0-shot)와 서비스의 NUM_CTX(4,096)를 그대로
@@ -153,6 +154,28 @@ def _stats(vals: Sequence[float]) -> dict | None:
     return {"min": min(vals), "mean": round(statistics.fmean(vals), 1), "max": max(vals)}
 
 
+# psutil이 없을 때 오류 메시지와 보고서(idle_check.reason)에 남기는 이유.
+NO_CPU_REASON = (
+    "psutil could not be imported, so system CPU is not sampled and the idle rule "
+    f"(1-minute mean CPU below {IDLE_CPU:g}%) cannot be checked"
+)
+
+
+# 시스템 CPU 사용률 함수(psutil.cpu_percent)를 돌려준다. psutil을 import할 수 없으면 None.
+# 쉬는 상태 규칙의 "1분 평균 CPU 15% 미만"은 이 함수로만 잴 수 있다. 예전에는 psutil이 없으면 CPU를 조용히
+# 빼고 GPU만 쟀는데, 그러면 is_idle이 모든 표본을 "쉬지 않음"으로 보아 wait_idle이 --wait-idle(기본 60분)을
+# 끝까지 기다린 뒤 CPU 없이 쟀다. 그래서 main은 psutil이 없으면 바로 멈추고(--allow-no-cpu로만 통과),
+# wait_idle은 기다리지 않고 판정 못 함(idle None)과 이유를 돌려준다. psutil은 pyproject.toml dev 그룹에 직접
+# 선언되어 있다(예전에는 train 그룹의 accelerate가 끌어오는 전이 의존성일 뿐이었다).
+# 주의: 설치는 되었지만 import가 깨진 psutil(확장 모듈 오류 등)도 ImportError라 없는 것으로 친다.
+def cpu_percent_fn() -> Callable[..., float] | None:
+    try:
+        import psutil
+    except ImportError:
+        return None
+    return psutil.cpu_percent
+
+
 # GPU·CPU 표본기. nvidia-smi를 -lms(밀리초 반복) 모드로 한 번 띄워 0.5초마다 나오는 줄을 읽고, 줄마다 psutil의
 # 시스템 CPU 사용률을 함께 적는다.
 # Windows(WDDM)에서는 프로세스별 GPU 메모리가 나오지 않아 전체 사용량을 재고, 모델을 올리기 전 기준값을 빼서
@@ -169,15 +192,11 @@ class Sampler:
         self._thread: threading.Thread | None = None
 
     def start(self) -> Sampler:
-        # psutil이 없으면 CPU는 기록하지 않고 GPU만 잰다. cpu_percent(None)을 한 번 먼저 불러 기준점을 잡아야
-        # 다음 호출부터 의미 있는 값이 나온다.
-        try:
-            import psutil
-
-            psutil.cpu_percent(None)
-            cpu = psutil.cpu_percent
-        except ImportError:  # 이때는 CPU를 기록하지 않는다
-            cpu = None
+        # psutil이 없으면(main이 --allow-no-cpu로 연 경우뿐이다) CPU는 기록하지 않고 GPU만 잰다.
+        # cpu_percent(None)을 한 번 먼저 불러 기준점을 잡아야 다음 호출부터 의미 있는 값이 나온다.
+        cpu = cpu_percent_fn()
+        if cpu is not None:
+            cpu(None)
         self._proc = subprocess.Popen(
             [
                 "nvidia-smi",
@@ -243,9 +262,15 @@ def is_idle(sample: dict) -> bool:
 # 돌려주고 측정은 계속한다(쉬지 않은 조건은 보고서의 idle_check에 남는다). 실제 측정에서는 60분 동안 기준을
 # 맞추지 못해 그대로 재고 조건을 문서에 적었다(docs/experiments.md "효율 추가 측정 결과").
 # 기본값은 규칙의 60분이고 --wait-idle로 바꿀 수 있다.
+# psutil이 없으면 CPU 조건을 판정할 수 없어 아무리 기다려도 쉬는 상태가 되지 않으므로, 표본을 재지 않고 바로
+# {"idle": None, "checks": 0, "sample": None, "reason": ...}을 돌려준다(None = 판정 못 함. False와 구별).
 def wait_idle(max_minutes: float, poll_s: float = 180.0, sample_s: float = 60.0) -> dict:
     """1분 동안 표본을 잰다. 쉬는 상태가 되거나 `max_minutes`가 지날 때까지 `poll_s`마다 되풀이하고
-    마지막 표본을 돌려준다."""
+    마지막 표본을 돌려준다. psutil이 없으면 기다리지 않고 idle None과 이유를 돌려준다."""
+    if cpu_percent_fn() is None:
+        print(f"idle check skipped: {NO_CPU_REASON}", file=sys.stderr, flush=True)
+        at = time.strftime("%Y-%m-%d %H:%M:%S")
+        return {"idle": None, "checks": 0, "sample": None, "reason": NO_CPU_REASON, "at": at}
     deadline = time.monotonic() + max_minutes * 60
     tries = 0
     while True:
@@ -294,7 +319,24 @@ def main(argv: list[str] | None = None) -> int:
         default=str(Path(os.environ.get("LOCALAPPDATA", "")) / "Ollama" / "server.log"),
         help="Ollama 서버 로그. 층 배치와 GPU 버퍼 크기를 읽는다",
     )
+    ap.add_argument(
+        "--allow-no-cpu",
+        action="store_true",
+        help=(
+            "psutil이 없어도 잰다. 시스템 CPU 표본 없이 GPU만 재고, 쉬는 상태 규칙의 CPU 조건을 "
+            "판정할 수 없어 쉬는 상태를 기다리지 않는다(보고서에 cpu_unavailable: true, "
+            "idle_check.idle: null과 이유). 이 옵션이 없으면 psutil이 없을 때 데이터를 읽거나 "
+            "Ollama에 묻기 전에 바로 멈춘다"
+        ),
+    )
     args = ap.parse_args(argv)
+
+    # psutil이 없으면 쉬는 상태 규칙의 CPU 조건을 잴 수 없다. 예전처럼 --wait-idle을 헛되이 다 기다린 뒤
+    # CPU 없이 재지 않도록, 아무것도 하기 전에 멈춘다. --allow-no-cpu일 때만 그대로 재고 보고서에 그 사실을
+    # 남긴다.
+    cpu_unavailable = cpu_percent_fn() is None
+    if cpu_unavailable and not args.allow_no_cpu:
+        ap.error(f"{NO_CPU_REASON}; install psutil (in the dev dependency group) or pass --allow-no-cpu")
 
     items = load_items(args.data)[: args.limit]
     log_path = Path(args.server_log) if args.server_log else None
@@ -400,6 +442,10 @@ def main(argv: list[str] | None = None) -> int:
         "started": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - run_s)),
         "run_s": round(run_s, 1),
         "idle_check": idle,
+        # psutil이 없어 시스템 CPU를 재지 못한 실행인지(--allow-no-cpu). true면 baseline·during의 cpu_pct가
+        # null이고 idle_check는 판정 못 함(idle null)과 이유다. 이 키가 없는 기록된 보고서
+        # (reports/s5c-bench-*.json 셋)는 psutil이 있는 환경에서 돌아 CPU 표본이 있다.
+        "cpu_unavailable": cpu_unavailable,
         "baseline": baseline,
         "during": during,
         # 최대 GPU 메모리 = 실행 중 nvidia-smi 최대값 − 모델을 올리기 전 기준 최대값. 다른 프로그램의 몫을 빼

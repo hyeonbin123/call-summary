@@ -14,9 +14,13 @@ dependencies = [
 dev = [
     "pytest>=8.2",
     "ruff>=0.6",
+    # 효율 측정(call_summary.bench)이 쉬는 상태 규칙의 시스템 CPU 사용률을 psutil로 잰다. 없으면 bench가 바로
+    # 멈춘다(--allow-no-cpu로만 CPU 없이 잼). 전에는 train 그룹의 accelerate가 끌어오는 전이 의존성일 뿐이라
+    # 선언이 없었다.
+    "psutil>=5.9",
 ]
-# Training and transformers inference (GPU). Nothing in the base package imports these at module level,
-# and the tests run without them.
+# 학습과 transformers 추론(GPU)용. 기본 패키지의 어떤 모듈도 이것들을 모듈 수준에서 import하지 않고,
+# 테스트도 이것들 없이 돈다.
 train = [
     "torch==2.11.0",
     "transformers>=5.0,<6",
@@ -24,7 +28,7 @@ train = [
     "accelerate>=1.10",
     "bitsandbytes>=0.47",
     "safetensors>=0.5",
-    # llama.cpp convert_hf_to_gguf.py (stage 5 export)
+    # llama.cpp의 convert_hf_to_gguf.py가 쓴다(5단계 GGUF 내보내기)
     "sentencepiece>=0.2",
 ]
 
@@ -55,7 +59,7 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-# Korean prompt text is data; wrapping it would change the prompt.
+# 한국어 프롬프트 글은 데이터다. 줄을 감싸면 프롬프트가 바뀌므로 줄 길이 검사(E501)를 끈다.
 "src/call_summary/prompts.py" = ["E501"]
 "src/call_summary/gen.py" = ["E501"]
 "src/call_summary/judge.py" = ["E501"]

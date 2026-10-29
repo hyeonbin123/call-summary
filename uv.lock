@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -87,6 +87,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "psutil" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -110,6 +111,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "psutil", specifier = ">=5.9" },
     { name = "pytest", specifier = ">=8.2" },
     { name = "ruff", specifier = ">=0.6" },
 ]
