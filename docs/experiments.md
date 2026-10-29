@@ -16,6 +16,7 @@
 - 불확실성: 건 단위 부트스트랩 95% 구간 (2,000회). 두 모델 비교는 같은 건끼리 짝지은 부트스트랩으로 차이의 구간을 낸다
 - 디코딩: 모든 모델 탐욕적(temperature 0). Qwen3 계열은 생각 모드를 끈다
 - 실행 기록: `reports/<run_id>/` (manifest, 건별 출력·채점, 요약). 공식 측정은 `--official`로 깨끗한 작업 트리에서만 돈다
+  - (2026-10-30 덧붙임) 서비스 경유 측정(`service_eval`)은 이제 시작할 때 서비스의 `/ready`를 먼저 불러 그 응답(HTTP 상태, 모델 digest, Ollama 버전, 기대 digest)을 manifest의 `service_ready`에, 그 뒤에 받은 `/health`를 `service_health`에 남긴다. `/health`의 digest는 서비스가 시작할 때 한 번 조회한 값이라 서비스가 모델 서버보다 먼저 떴으면 비어 있고, `/ready`가 모델 서버를 다시 확인하면 채워진다. `/ready`가 200이 아니면 `--official`은 요청을 보내지 않고 멈춘다. 기록된 서비스 경유 실행 넷(2026-09-29·30)의 manifest에는 `/health`(모델 이름, `prompt_hash`)만 있다
 - 시각 (2026-10-29 덧붙임): 이 문서에 적은 시각과 실행 기록의 시각(manifest의 `started`·`run_id`, 효율 측정 보고서의 `started`, 판정 요약·meta의 `started`·`finished`)은 시간대를 적지 않은 한국 표준시(KST, UTC+9)다. 음성 조건 v3 전사(`datasets/dev-asr-v3-th-itn.jsonl`, `dev-asr-v3-l-itn.jsonl`)의 `meta.asr.started_at`은 UTC ISO 8601이다 (예: `2026-10-05T09:29:52+00:00`은 KST 18:29:52). 시간대를 함께 적은 시각(`+09:00`, `+00:00`)은 적힌 대로 읽는다
 
 ## 계획과 달라진 것

@@ -4,6 +4,9 @@
     uv run python -m call_summary.service_eval --data datasets/dev.jsonl --official --label s5-svc
 
 서비스가 거절한(502) 요청이나 실패한(그 밖의 상태) 요청은 형식 실패로 채점한다.
+
+시작할 때 서비스의 /ready를 먼저 불러(모델 서버 접속, 모델 태그, digest 확인) 그 응답을 /health와 함께
+manifest에 남긴다. 공식 실행(--official)은 /ready가 200일 때만 돈다.
 """
 
 # [파일 역할] 띄워 둔 서비스에 데이터셋의 건을 하나씩 POST /summarize로 보내고, 돌아온 기록을 evaluate.py와
@@ -11,8 +14,8 @@
 # [왜 필요한가] 모델을 직접 잰 점수와 서비스(프롬프트 조립·검증·재시도·HTTP)를 거친 점수가 같은지 확인해야
 # "서비스 경로가 품질을 잃지 않음"을 판정할 수 있다(docs/experiments.md 5단계 "다시 재기": 서비스 dev exact −
 # 직접 잰 dev exact의 짝지은 차이 하한 > −3%p). 형식이 같으므로 compare.py --paired로 바로 짝지어 비교한다.
-# [흐름] main: 인수·test 보호·공식 실행 확인 → /health로 모델·프롬프트 지문 기록 → run_service_items(건마다
-# 요청·채점) → /stats → service_summary → 파일 쓰기.
+# [흐름] main: 인수·test 보호·공식 실행 확인 → service_identity(/ready → /health: 모델·프롬프트·가중치 지문.
+# 공식 실행은 /ready 200일 때만) → run_service_items(건마다 요청·채점) → /stats → service_summary → 파일 쓰기.
 
 from __future__ import annotations
 
@@ -82,6 +85,26 @@ def run_service_items(
     return rows, scores
 
 
+# 서비스가 어떤 모델·프롬프트·가중치로 도는지 받아 manifest에 남길 두 값을 돌려준다. 입력: client(get()을 가진
+# 객체: httpx.Client, FastAPI TestClient). 출력: (/ready 기록, /health 응답 JSON). /ready 기록은 응답
+# JSON(status ready·not_ready, reason, model, model_digest, ollama_version, expected_digest)에 HTTP 상태
+# http_status를 더한 dict이고, 보내지 못했거나 답이 JSON 객체가 아니면
+# {"http_status": "error:<예외 이름>"}이다(/ready가 없는 예전 서비스는 404로 남는다).
+# /ready를 /health보다 먼저 부르는 이유: /health의 model_digest·ollama_version은 서비스가 시작할 때 한
+# 번(요청마다 2초 한도) 조회한 값이고 /ready가 모델 서버를 다시 확인할 때만 갱신된다. 서비스가 모델 서버보다
+# 먼저 떴으면 null로 남아 있어, /health만 남기면 잰 모델과 서빙 모델을 digest로 맞춰 볼 수 없는 실행이 생긴다.
+# /ready가 모델 서버에 닿으면 그 지문이 뒤이어 받는 /health에도 들어간다. /health 요청이 실패하면 전처럼
+# 예외가 올라온다(서비스가 없으면 잴 수 없다).
+def service_identity(client) -> tuple[dict, dict]:
+    try:
+        r = client.get("/ready")
+        ready = {"http_status": r.status_code, **r.json()}
+    except Exception as exc:  # noqa: BLE001 - 닿지 못했거나 JSON 객체가 아닌 답: 준비 안 됨으로 기록한다
+        ready = {"http_status": f"error:{type(exc).__name__}"}
+    health = client.get("/health").json()
+    return ready, health
+
+
 # evaluate.summary_table(지표와 구간)에 서비스 쪽 집계를 더한다: 200 응답의 왕복 지연 p50·p95(scoring.pctl),
 # 상태 코드별 수, 시도 횟수별 수(재시도·거절 비율을 문서에 적는 근거, docs/experiments.md 5단계
 # "재시도 0, 거절 0").
@@ -106,7 +129,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--label", default="service")
     ap.add_argument("--limit", type=int)
     ap.add_argument(
-        "--official", action="store_true", help="깨끗한 작업 트리에서만 돌고 결과를 reports/에 쓴다"
+        "--official",
+        action="store_true",
+        help="깨끗한 작업 트리에서만, 서비스의 /ready가 200일 때만 돌고 결과를 reports/에 쓴다",
     )
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--timeout", type=float, default=300.0)
@@ -133,9 +158,21 @@ def main(argv: list[str] | None = None) -> int:
     items = items[: args.limit]
 
     with httpx.Client(base_url=args.url, timeout=args.timeout) as client:
-        # 서비스가 어떤 모델과 프롬프트로 돌고 있는지 /health에서 받아 manifest에 남긴다. 서비스는 늘 p1
-        # 프롬프트를 쓰므로 prompt_version은 p1로 적는다.
-        health = client.get("/health").json()
+        # 서비스가 어떤 모델과 프롬프트, 가중치(digest)로 돌고 있는지 /ready와 /health에서 받아 manifest에
+        # 남긴다(service_identity의 주석). 서비스는 늘 p1 프롬프트를 쓰므로 prompt_version은 p1로 적는다.
+        ready, health = service_identity(client)
+        # /ready가 200이 아니면(모델 서버에 닿지 못함, 모델 태그 없음, digest가 기대값과 다름, 예열 중) 공식
+        # 실행은 요청을 하나도 보내지 않고 멈춘다: 어느 가중치를 쟀는지 남길 수 없거나 다른 가중치를 재는
+        # 실행을 공식 기록으로 두지 않는다. 시험 실행은 경고만 찍고 돈다(그 응답이 manifest에 남는다).
+        # 서비스는 /ready의 조회 결과를 10초 동안 캐시하므로 모델 서버를 막 띄웠으면 잠시 뒤에 다시 돌린다.
+        if ready["http_status"] != 200:
+            why = f"service /ready answered {ready['http_status']} (reason: {ready.get('reason')})"
+            if args.official:
+                ap.error(
+                    f"{why}; --official needs a ready service (model server reachable, model tag present, "
+                    "digest as expected). /ready results are cached for 10 s: retry shortly"
+                )
+            print(f"warning: {why}; recorded in the manifest as service_ready", file=sys.stderr)
         stamp = time.strftime("%Y%m%d-%H%M%S")
         run_id = f"{stamp}-service-{args.label}"
         # 공식 실행은 커밋하는 reports/에, 시험 실행은 커밋하지 않는 outputs/runs/에 둔다.
@@ -147,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
             "run_id": run_id,
             "provider": f"service:{health.get('model')}",
             "service_health": health,
+            "service_ready": ready,
             "url": args.url,
             "data": data_path.as_posix(),
             "data_sha": _file_hash(data_path),
