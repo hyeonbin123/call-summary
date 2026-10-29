@@ -506,7 +506,8 @@ def make_variant(items: Sequence[Item], variant: str, seed: int, source_sha: str
     if variant not in VARIANTS:
         raise ValueError(f"unknown variant {variant!r} (expected one of {VARIANTS})")
     for it in items:
-        # dev 전용: test 세트를 보며 고치지 않는다는 규칙(AGENTS·docs의 공통 규칙)을 도구가 지킨다.
+        # dev 전용: docs/experiments.md 첫머리의 규칙(test 세트는 단계가 끝날 때 고른 것만 한 번 재고, 실패
+        # 분석은 dev로만 한다)을 도구가 지킨다.
         if it.split != "dev":
             raise ValueError(f"{it.item_id}: only dev items are perturbed (split {it.split!r})")
         if "perturb" in it.meta:
