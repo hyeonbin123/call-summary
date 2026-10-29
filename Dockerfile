@@ -15,12 +15,21 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# uv 캐시(받은 휠과 풀어 둔 패키지)는 BuildKit 캐시 마운트에 둔다. 이미지 레이어에 남지 않고(전에는
+# /root/.cache/uv가 이미지에 그대로 남았다), 다시 빌드할 때는 받아 둔 것을 쓴다. 경로는 빌드 단계 사용자(root)의
+# uv 기본 캐시 위치다. 캐시 마운트는 이미지와 다른 파일 시스템이라 uv가 하드링크를 걸 수 없으므로 위 ENV의
+# UV_LINK_MODE=copy로 복사한다. RUN --mount에는 BuildKit이 필요하다(Docker Desktop과 Docker Engine 23.0 이후의
+# 기본 빌더).
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
 COPY src ./src
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
 RUN useradd -r -u 10001 app
 USER app
 EXPOSE 8072
-# Start from the venv, not through `uv run`: the app user has no home directory for uv's cache.
+# `uv run`이 아니라 가상환경의 uvicorn으로 바로 시작한다: app 사용자는 홈 디렉터리가 없어 uv가 캐시 폴더를 만들지
+# 못하고 컨테이너가 바로 죽었다(위 ENV의 PATH가 가상환경의 bin을 앞에 둔다).
+# --host 0.0.0.0은 컨테이너 안의 주소다. 바깥에서는 포트 게시를 거쳐야 닿고, 호스트의 어느 주소에 열릴지는 그
+# 게시가 정한다(compose.yaml은 127.0.0.1:8072, docker run이면 -p 127.0.0.1:8072:8072. README "실행"의 컨테이너
+# 문단).
 CMD ["uvicorn", "call_summary.service:create_app", "--factory", "--host", "0.0.0.0", "--port", "8072"]

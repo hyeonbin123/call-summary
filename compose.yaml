@@ -5,8 +5,12 @@ services:
       # 루프백에만 연다: API에 인증이 없고 요청마다 공유 GPU를 쓴다.
       - "127.0.0.1:8072:8072"
     environment:
-      # 모델은 호스트의 Ollama(GPU)가 서빙하고, 컨테이너에는 API만 있다.
-      OLLAMA_URL: http://host.docker.internal:11434
+      # 모델은 호스트의 Ollama(GPU)가 서빙하고, 컨테이너에는 API만 있다. 기본 주소의 host.docker.internal은 아래
+      # extra_hosts의 host-gateway로 호스트를 가리킨다. Docker Desktop(Windows에서 확인)에서는 127.0.0.1에만 듣는
+      # 호스트의 Ollama에 그대로 닿지만, Linux의 Docker Engine에서는 host-gateway가 기본 브리지(docker0)의 주소로
+      # 풀려 127.0.0.1에만 듣는 Ollama에는 닿지 않는다(바꾸는 방법은 README "실행"의 컨테이너 문단). 셸의 OLLAMA_URL을 그대로 넘기므로, 호스트에서
+      # 쓰는 http://127.0.0.1:11434를 셸에 두면 컨테이너 안에서는 컨테이너 자신을 가리켜 닿지 않는다.
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
       CALL_SUMMARY_MODEL: ${CALL_SUMMARY_MODEL:-qwen2.5:7b-instruct}
       CALL_SUMMARY_NUM_GPU: ${CALL_SUMMARY_NUM_GPU:-}
       # 아래 변수는 셸에 없으면 빈 값으로 넘어가고, 서비스는 빈 값을 "설정하지 않음"으로 보아 기본값을 쓴다.
@@ -25,6 +29,22 @@ services:
       CALL_SUMMARY_STATS_WINDOW: ${CALL_SUMMARY_STATS_WINDOW:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # 권한 축소: 서비스는 파일을 쓰지 않고(로그는 stderr) 1024보다 큰 포트를 일반 사용자(app)로 연다. 그래서 루트
+    # 파일 시스템을 읽기 전용으로 두고(임시 파일을 쓰는 라이브러리를 위해 /tmp만 메모리 위의 tmpfs), Linux
+    # capability를 모두 빼고, setuid 프로그램 등으로 권한을 올리지 못하게 한다(no-new-privileges). 서비스가 뚫려도
+    # 컨테이너 안에서 할 수 있는 일을 줄인다.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # 메모리 상한: 모델은 컨테이너 밖에 있어 서비스가 쓰는 메모리는 작다(2026-10-29 확인: 띄운 직후 약 43 MiB, 1 MB에
+    # 가까운 본문 24건을 동시에 받는 동안 최대 약 170 MiB). 본문 하나는 1 MiB까지만 받지만, 본문을 읽고 파싱하는
+    # 동안 쓰는 메모리는 동시에 들어온 요청 수만큼 늘어난다. 상한을 넘으면 커널이 컨테이너의 프로세스를 끝내고(OOM),
+    # restart 정책이 없으므로 다시 띄워야 한다.
+    mem_limit: 512m
     # healthcheck는 liveness인 /health(프로세스가 답하는지. 모델 서버는 보지 않는다)로 둔다. readiness인
     # /ready(모델 서버에 태그가 있고 digest가 맞는지)를 여기에 걸면, unhealthy를 재시작으로 처리하는
     # 오케스트레이터에서 Ollama가 잠깐 꺼질 때마다 컨테이너가 재시작되는 고리가 생긴다. 모델 서버 상태는 /ready를

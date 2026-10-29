@@ -1,12 +1,23 @@
+# 빌드 컨텍스트(docker build가 빌드 데몬에 보내는 파일)에서 뺄 것. Dockerfile이 COPY하는 것은 pyproject.toml,
+# uv.lock, src뿐이라 나머지는 보낼 필요가 없다(보내는 데 시간이 들고, COPY를 넓히면 이미지에 섞여 들어간다).
+# 패턴은 컨텍스트 맨 위 기준이고 `**/`가 붙어야 하위 폴더까지 맞는다.
 .git
+.github
 .venv*
 .pytest-tmp*
+.pytest_cache
 .ruff_cache
-__pycache__
+**/__pycache__
 data
+datasets
 outputs
 work
 reports
+scripts
+hawk
+zap
+stackhawk.yml
+compose.yaml
 tests
 docs
 *.md

@@ -73,3 +73,47 @@ def test_uv_version_is_the_same_in_the_image_and_ci_and_meets_the_project_floor(
     assert floor
     assert {m.group(1) for m in ci_versions} == {image.group(1)}
     assert _version(image.group(1)) >= _version(floor.group(1))
+
+
+# 빌드 단계에서 uv가 받은 패키지 캐시를 이미지 레이어에 남기지 않는다: `uv sync`를 부르는 RUN마다 빌드
+# 사용자(root)의 uv 기본 캐시 위치 /root/.cache/uv에 BuildKit 캐시 마운트를 건다. 전에는 그 캐시가 이미지에
+# 그대로 남았다. `uv sync` RUN이 하나도 없어도 실패한다.
+def test_uv_sync_keeps_its_cache_out_of_the_image():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    runs = re.findall(r"^RUN (.*\buv sync\b.*)$", dockerfile, re.M)
+    assert runs and all(run.startswith("--mount=type=cache,target=/root/.cache/uv ") for run in runs)
+
+
+# compose 서비스의 권한 축소가 빠지지 않았는지 본다: 읽기 전용 루트 파일 시스템과 /tmp tmpfs, Linux capability
+# 모두 빼기, 권한 상승 막기(no-new-privileges), 메모리 상한. 주석 줄의 같은 낱말에 걸리지 않게 서비스 설정의
+# 들여쓰기(네 칸)와 목록 항목의 들여쓰기(여섯 칸)까지 맞춰 찾는다.
+def test_compose_runs_the_service_read_only_without_capabilities():
+    compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    assert re.search(r"^    read_only: true$", compose, re.M)
+    assert re.search(r"^    tmpfs:\n      - /tmp$", compose, re.M)
+    assert re.search(r"^    cap_drop:\n      - ALL$", compose, re.M)
+    assert re.search(r"^    security_opt:\n      - no-new-privileges:true$", compose, re.M)
+    assert re.search(r"^    mem_limit: \d+[mg]$", compose, re.M)
+
+
+# 모델 서버 주소는 셸에서 덮을 수 있어야 한다(Linux의 Docker Engine에서는 기본값이 127.0.0.1에만 듣는 Ollama에
+# 닿지 않는다). `${OLLAMA_URL:-기본값}` 꼴이고 기본값은 전과 같은 host.docker.internal이다.
+def test_compose_lets_the_shell_override_the_ollama_url():
+    compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    url = re.search(r"^      OLLAMA_URL: (.+)$", compose, re.M)
+    assert url and url.group(1) == "${OLLAMA_URL:-http://host.docker.internal:11434}"
+
+
+# 빌드 컨텍스트(빌드 데몬에 보내는 파일)에서 이미지가 쓰지 않는 것을 뺀다: 비밀값(.env), 데이터(data·datasets·
+# outputs), 스캔·스크립트·CI 파일. `**/__pycache__`는 하위 폴더의 __pycache__까지 뺀다(`__pycache__`만 쓰면
+# 컨텍스트 맨 위의 것만 빠져 src의 것이 이미지에 들어갔다). 거꾸로 Dockerfile이 COPY하는 것은 빠지면 안 된다.
+# 패턴은 줄 그대로 비교한다.
+def test_build_context_leaves_out_what_the_image_does_not_copy():
+    ignore = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    patterns = {line.strip() for line in ignore if line.strip() and not line.startswith("#")}
+    secrets_and_data = {".env*", "data", "datasets", "outputs"}
+    unused = {"hawk", "zap", "scripts", "stackhawk.yml", "compose.yaml", ".github", "**/__pycache__"}
+    assert secrets_and_data | unused <= patterns
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    copied = {src for args in re.findall(r"^COPY (?!--)(.+)$", dockerfile, re.M) for src in args.split()[:-1]}
+    assert copied and not copied & patterns
