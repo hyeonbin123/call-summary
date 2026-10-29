@@ -1,9 +1,10 @@
 # CI: main에 push할 때와 pull request마다 돈다. Actions 탭의 'Run workflow'로 손으로도 돌릴 수 있다(workflow_dispatch).
-# 두 작업은 서로 기다리지 않고 나란히 돈다.
+# 세 작업은 서로 기다리지 않고 나란히 돈다.
 # - test: 기본 의존성과 dev 그룹(uv가 기본으로 설치하는 그룹)으로 ruff 린트·포맷 확인과 pytest. 학습용 train 그룹(torch
 #   등)·모델·GPU는 쓰지 않는다
 # - audit: uv.lock에 고정된 모든 패키지를 pip-audit으로 공개 취약점 권고와 대조한다. 알리기만 하고 워크플로를 막지 않는다
 #   (아래 audit 작업의 설명)
+# - container: compose.yaml 그대로 서비스 이미지를 만들어 띄우고 /health가 200인지 본다(아래 container 작업의 설명)
 #
 # 공급망 설정 (GitHub 문서 "Security hardening for GitHub Actions"의 권고):
 # - permissions: 모든 작업의 GITHUB_TOKEN을 저장소 내용 읽기로만 줄인다. 이 워크플로는 저장소에 아무것도 쓰지 않는다
@@ -102,3 +103,35 @@ jobs:
               --ignore-vuln PYSEC-2025-194 --ignore-vuln PYSEC-2026-3447 --ignore-vuln GHSA-xmj3-9gf7-h52w || status=1
           done
           exit "$status"
+
+  # 컨테이너 기동 확인. compose.yaml 그대로(읽기 전용 루트 파일 시스템, capability 모두 빼기, 메모리 상한, 포트는
+  # 127.0.0.1:8072에만) 이미지를 만들고(Dockerfile의 digest로 고정한 베이스·uv 이미지) 이미지의 기본 명령으로 서비스를
+  # 띄운다. 이미지나 compose만 바뀌어 서비스가 뜨지 않게 되는 회귀는 글만 읽는 정적 검사(tests/test_container.py)로
+  # 다 잡을 수 없어 실제로 띄워 본다. 예: 커밋 966276e에서 고친 것처럼 홈 디렉터리가 없는 app 사용자로 `uv run`을
+  # 부르면 캐시 폴더를 만들지 못해 컨테이너가 바로 죽었다.
+  # - 실행기에는 Ollama가 없다. /health는 모델 서버에 닿지 않는 liveness라 Ollama 없이도 200이다. 시작할 때의 모델 지문
+  #   조회는 닿지 못해 null로 남고 서비스는 그래도 뜬다(README "실행"의 상태 경로 문단)
+  # - --wait: compose.yaml의 healthcheck(컨테이너 안에서 /health를 부름)가 healthy가 될 때까지 기다리고, 그 전에
+  #   컨테이너가 죽거나 unhealthy가 되면 실패한다. 그다음 호스트 쪽에서 게시한 포트로 /health를 한 번 더 부른다
+  # - 컨테이너 로그는 성공·실패와 상관없이 남기고, 끝나면 컨테이너와 네트워크를 지운다(실행기는 매번 새것이다)
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and start the service container
+        run: docker compose up --build --detach --wait --wait-timeout 180
+
+      - name: Check /health from the host
+        run: curl --fail --silent --show-error http://127.0.0.1:8072/health
+
+      - name: Container log
+        if: always()
+        run: docker compose logs --no-color
+
+      - name: Remove the container
+        if: always()
+        run: docker compose down
