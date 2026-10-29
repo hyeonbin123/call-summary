@@ -1,0 +1,579 @@
+# README 머리말과 결과 요약의 평가 실행 수치를 실행 기록(reports/<run_id>/)에 묶는 선언.
+#
+# 확인 (저장소 뿌리에서, 모델·GPU 없이 몇 초):
+#   uv run --no-sync python -m call_summary.compare --check docs/numbers.toml
+# 선언마다 (1) where 파일의 section 절에 context 글이 꼭 한 번 있고 그 글이 value로 끝나는지 (2) run(짝지은
+# 차이면 run과 base)의 건별 점수(items.jsonl)에서 다시 낸 값을 places 자리로 반올림하면 value와 같은지
+# (3) 측정 때 evaluate가 쓴 summary.json도 같은 값인지를 보고, 하나라도 어긋나면 종료 코드 1로 끝난다.
+# tests/test_numbers.py가 같은 검사를 돌리므로 CI가 push마다 확인한다.
+#
+# 키
+#   where    숫자가 적힌 파일 (저장소 뿌리 기준)
+#   section  그 파일의 제목 글(# 없이). 이 제목 아래, 다음 같은 수준 이상의 제목 전까지에서 context를 찾는다.
+#            코드 울타리 안의 # 줄은 제목이 아니다. 빼면 파일 전체
+#   context  그 자리에 그대로 있어야 할 글. 선언한 값으로 끝나야 하고(값 뒤의 %, %p, ], **, |는 붙어도 된다)
+#            그 절에서 꼭 한 번 나와야 한다. 같은 숫자가 다른 곳에 있어서 통과하는 일을 막으려는 것이다.
+#            표의 칸은 그 행의 앞에서부터 그 칸까지를 적는다
+#   kind     point  = 점 추정 하나
+#            ci     = [점 추정, 95% 하한, 상한]. 건 단위 부트스트랩 seed 0, 2,000번 (evaluate와 같다)
+#            paired = 짝지은 차이 run − base (%p). 차이 하나 또는 [차이, 하한, 상한]. 같은 건 id를 양쪽에서
+#                     함께 다시 뽑는 부트스트랩 seed 0, 2,000번 (compare --paired와 같다)
+#   metric   scoring.METRICS의 이름 (exact, hallucination 등). 값은 백분율이다
+#   run      실행 폴더. paired면 빼는 쪽 base도 적는다
+#   value    README에 적힌 값 (+ 기호 없이, 빼기는 음수로)
+#   places   README에 적힌 소수 자리 수 (기본 1)
+#
+# 범위: README 머리말과 결과 요약의 평가 실행 수치(표의 exact와 구간, 본문의 짝지은 차이와 환각 비율)만
+# 선언한다.
+# 아직 다시 내지 않는 것: 지연·효율(bench, loadtest), 요약 판정(judge_run, judge_calib, value_facts), 번호
+# 표시(verify), 음성 조건 입력 분석(asr_report, asr_arms), 정답 잡음 감사(label_audit), 숫자 없이 적은 판정
+# 문장("구간 하한이 모두 0보다 크다", "구간 모두 ±3%p 안" 등), 범위 글("0~1.5%")의 가운데 값(양 끝 값만 선언),
+# 진단 실행(outputs/, 커밋하지 않음)에서 나온 "약 7%p". README에 평가 실행 수치를 더하거나 고칠 때는 이 파일도
+# 함께 고친다.
+
+
+# ---------------------------------------------------------------------------
+# 머리말: 2026-10-13 버그 고침 뒤 다시 학습한 두 학생과 기록의 짝지은 차이 (docs/experiments.md "재측정 결과")
+# ---------------------------------------------------------------------------
+
+# 깨끗한 학생 dev: 고친 코드로 다시 학습한 final − 기록된 2 epoch. 이 셋은 제목 아래가 아니라 README 머리말에
+# 있어 section 없이 파일 전체에서 찾는다
+[[number]]
+where = "README.md"
+context = "같은 범위였다 (짝지은 차이 0.0,"
+kind = "paired"
+metric = "exact"
+run = "reports/20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final"
+base = "reports/20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2"
+value = 0.0
+
+# 섞어 학습한 학생 dev-asr(v1)
+[[number]]
+where = "README.md"
+context = "같은 범위였다 (짝지은 차이 0.0, 0.0,"
+kind = "paired"
+metric = "exact"
+run = "reports/20261015-214458-Qwen_Qwen3-4B-fix-s4-dev-asr-mixed-final"
+base = "reports/20260929-171049-Qwen_Qwen3-4B-s4-dev-asr-mixed-e2"
+value = 0.0
+
+# 섞어 학습한 학생 dev (transformers 4bit + 어댑터)
+[[number]]
+where = "README.md"
+context = "같은 범위였다 (짝지은 차이 0.0, 0.0, +0.4"
+kind = "paired"
+metric = "exact"
+run = "reports/20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed"
+base = "reports/20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed"
+value = 0.4
+
+
+# ---------------------------------------------------------------------------
+# 3단계 표: test-a·b·c의 exact (모델마다 한 행, 칸은 행 앞에서부터 그 칸까지)
+# ---------------------------------------------------------------------------
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 7B | 9.7 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-083519-qwen2.5_7b-instruct-s2-testa-q7"
+value = 9.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 7B | 9.7 | 13.3 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-214941-qwen2.5_7b-instruct-s3-test-b-q7"
+value = 13.3
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 7B | 9.7 | 13.3 | 3.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-215240-qwen2.5_7b-instruct-s3-test-c-q7"
+value = 3.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B | 26.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-085325-qwen2.5_14b-instruct-s2-testa-q14"
+value = 26.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B | 26.0 | 30.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-220111-qwen2.5_14b-instruct-s3-test-b-q14"
+value = 30.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B | 26.0 | 30.0 | 14.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-221159-qwen2.5_14b-instruct-s3-test-c-q14"
+value = 14.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B + 기록 기준 프롬프트 | 29.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-224629-qwen2.5_14b-instruct-s3-test-a-q14-p2"
+value = 29.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B + 기록 기준 프롬프트 | 29.0 | 33.3 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-234132-qwen2.5_14b-instruct-s3-test-b-q14-p2"
+value = 33.3
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| qwen2.5 14B + 기록 기준 프롬프트 | 29.0 | 33.3 | 23.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-235149-qwen2.5_14b-instruct-s3-test-c-q14-p2"
+value = 23.0
+
+# 학습 전 Qwen3-4B: test-a·b는 2-shot, test-c는 예시 없이 (README 표 아래 "실행 조건")
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| Qwen3-4B 학습 전 | 17.3 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-072533-Qwen_Qwen3-4B-s2-testa-qwen3-4b-2s"
+value = 17.3
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| Qwen3-4B 학습 전 | 17.3 | 26.7 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-014953-Qwen_Qwen3-4B-s3-test-b-qwen3-4b-2s"
+value = 26.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| Qwen3-4B 학습 전 | 17.3 | 26.7 | 5.5 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-015748-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-0s"
+value = 5.5
+
+# 학습한 4B (글 전사 1,500건, 2 epoch, transformers 4bit + 어댑터)
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| **Qwen3-4B QLoRA (1,500건 학습)** | **95.7** [93.3, 97.7] |"
+kind = "ci"
+metric = "exact"
+run = "reports/20260929-002710-Qwen_Qwen3-4B-s3-test-a-qwen3-4b-qlora-e2"
+value = [95.7, 93.3, 97.7]
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| **Qwen3-4B QLoRA (1,500건 학습)** | **95.7** [93.3, 97.7] | **90.0** [81.7, 96.7] |"
+kind = "ci"
+metric = "exact"
+run = "reports/20260929-011326-Qwen_Qwen3-4B-s3-test-b-qwen3-4b-qlora-e2"
+value = [90.0, 81.7, 96.7]
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "| **Qwen3-4B QLoRA (1,500건 학습)** | **95.7** [93.3, 97.7] | **90.0** [81.7, 96.7] | **55.0** [48.0, 62.0] |"
+kind = "ci"
+metric = "exact"
+run = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = [55.0, 48.0, 62.0]
+
+
+# ---------------------------------------------------------------------------
+# 3단계 본문: 2026년 기준 비교 대상(qwen3.5:4b, dev로 고른 설정)과 서빙 학생(GGUF q8_0)
+# (docs/experiments.md "2026년 기준 프롬프트 전용 비교 대상"의 test 결과)
+# ---------------------------------------------------------------------------
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-a 18.7"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-030457-qwen3.5_4b-base0-test-a-cmp"
+value = 18.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-a 18.7 대 95.7"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-033303-call-summary-4b-dq_q8_0-base0-test-a-student"
+value = 95.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-c 4.5"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-032441-qwen3.5_4b-base0-test-c-cmp"
+value = 4.5
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-c 4.5 대 49.5"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-034613-call-summary-4b-dq_q8_0-base0-test-c-student"
+value = 49.5
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-d v2 13.3"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-031452-qwen3.5_4b-base0-test-d-v2-cmp"
+value = 13.3
+
+# 서빙 학생의 test-d v2는 음성 조건 v2 때 잰 기록을 그대로 쓴다 (규칙대로 다시 재지 않음)
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "test-d v2 13.3 대 79.3"
+kind = "point"
+metric = "exact"
+run = "reports/20261004-091305-call-summary-4b-dq_q8_0-p2-test-d-v2-A"
+value = 79.3
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "서빙 모델의 test-c는 표의 55.0"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = 55.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "보다 낮은 49.5"
+kind = "point"
+metric = "exact"
+run = "reports/20261005-034613-call-summary-4b-dq_q8_0-base0-test-c-student"
+value = 49.5
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "대화에 없는 값을 적는 비율도 6.2"
+kind = "point"
+metric = "hallucination"
+run = "reports/20261005-034613-call-summary-4b-dq_q8_0-base0-test-c-student"
+value = 6.2
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "표의 모델(1.5"
+kind = "point"
+metric = "hallucination"
+run = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = 1.5
+
+# 같은 test-c 200건에서 서빙 학생 − 표의 학습한 4B, 환각
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "(+4.7%p [2.4, 7.2]"
+kind = "paired"
+metric = "hallucination"
+run = "reports/20261005-034613-call-summary-4b-dq_q8_0-base0-test-c-student"
+base = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = [4.7, 2.4, 7.2]
+
+# 생성기·업종이 바뀔 때 이득이 주는 정도 (표의 학습한 4B)
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "생성기가 달라지면 조금(95.7"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-002710-Qwen_Qwen3-4B-s3-test-a-qwen3-4b-qlora-e2"
+value = 95.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "조금(95.7 → 90.0"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-011326-Qwen_Qwen3-4B-s3-test-b-qwen3-4b-qlora-e2"
+value = 90.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "업종이 바뀌면 크게(→ 55.0"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = 55.0
+
+# 환각 범위: 양 끝 값만 선언한다. 학습한 4B는 test-b(0)와 test-c(1.5), 14B는 기본 프롬프트 test-b(0)와
+# test-c(28.1을 0자리로). 가운데 값(학습한 4B test-a 0.7, 14B test-a 3.6, 기록 기준 14B 2.1·0.0·22.4)은
+# 범위 안이지만 이 검사로 확인하지 않는다
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "표의 학습한 4B 0"
+kind = "point"
+metric = "hallucination"
+run = "reports/20260929-011326-Qwen_Qwen3-4B-s3-test-b-qwen3-4b-qlora-e2"
+value = 0
+places = 0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "표의 학습한 4B 0~1.5"
+kind = "point"
+metric = "hallucination"
+run = "reports/20260929-012208-Qwen_Qwen3-4B-s3-test-c-qwen3-4b-qlora-e2"
+value = 1.5
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "0~1.5%, 14B 0"
+kind = "point"
+metric = "hallucination"
+run = "reports/20260928-220111-qwen2.5_14b-instruct-s3-test-b-q14"
+value = 0
+places = 0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (3단계)"
+context = "0~1.5%, 14B 0~28"
+kind = "point"
+metric = "hallucination"
+run = "reports/20260928-221159-qwen2.5_14b-instruct-s3-test-c-q14"
+value = 28
+places = 0
+
+
+# ---------------------------------------------------------------------------
+# 4단계 표와 본문: 음성 인식을 거친 전사 (test-d v1·v2)
+# ---------------------------------------------------------------------------
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| qwen2.5 14B | 26.0 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260928-085325-qwen2.5_14b-instruct-s2-testa-q14"
+value = 26.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| qwen2.5 14B | 26.0 | 14.7 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-203929-qwen2.5_14b-instruct-s4-test-d-q14"
+value = 14.7
+
+# 글 전사로만 학습한 4B = 3단계 표의 학습한 4B
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| Qwen3-4B, 글 전사로만 학습 | 95.7 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-002710-Qwen_Qwen3-4B-s3-test-a-qwen3-4b-qlora-e2"
+value = 95.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| Qwen3-4B, 글 전사로만 학습 | 95.7 | 51.7 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-180435-Qwen_Qwen3-4B-s4-test-d-clean"
+value = 51.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| **Qwen3-4B, 학습 데이터 절반을 음성 인식 전사로 바꿔 학습** | **95.7** |"
+kind = "point"
+metric = "exact"
+run = "reports/20260929-195451-Qwen_Qwen3-4B-s4-test-a-mixed"
+value = 95.7
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| **Qwen3-4B, 학습 데이터 절반을 음성 인식 전사로 바꿔 학습** | **95.7** | 80.7 [76.0, 85.3] |"
+kind = "ci"
+metric = "exact"
+run = "reports/20260929-190509-Qwen_Qwen3-4B-s4-test-d-mixed"
+value = [80.7, 76.0, 85.3]
+
+# v2는 서빙하는 GGUF q8_0(Ollama 0.35.1)으로 쟀다
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "| **Qwen3-4B, 학습 데이터 절반을 음성 인식 전사로 바꿔 학습** | **95.7** | 80.7 [76.0, 85.3] | **79.3** [74.7, 84.0] |"
+kind = "ci"
+metric = "exact"
+run = "reports/20261004-091305-call-summary-4b-dq_q8_0-p2-test-d-v2-A"
+value = [79.3, 74.7, 84.0]
+
+# 조건만 바꾼 효과: 같은 서빙 모델의 dev 음성 조건, v2 − v1 (docs/experiments.md "음성 조건 v2 결과"의 A − R)
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "dev 음성 조건에서 −1.7%p [−5.8, +2.1]"
+kind = "paired"
+metric = "exact"
+run = "reports/20261004-090139-call-summary-4b-dq_q8_0-p2-A-dev-asr-v2"
+base = "reports/20261004-085010-call-summary-4b-dq_q8_0-p2-R-dev-asr-v1"
+value = [-1.7, -5.8, 2.1]
+
+# 글 전사로만 학습한 모델이 음성 조건(v1)에서 떨어지는 폭: 같은 300건의 test-a − test-d (test-d는 test-a의
+# 발화를 합성·인식한 것이라 건 id가 같다)
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "들린 대로 옮겨 적어 44"
+kind = "paired"
+metric = "exact"
+run = "reports/20260929-002710-Qwen_Qwen3-4B-s3-test-a-qwen3-4b-qlora-e2"
+base = "reports/20260929-180435-Qwen_Qwen3-4B-s4-test-d-clean"
+value = 44
+places = 0
+
+# 섞어 학습 − 깨끗한 학생, test-d (v1)
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "음성 조건이 29"
+kind = "paired"
+metric = "exact"
+run = "reports/20260929-190509-Qwen_Qwen3-4B-s4-test-d-mixed"
+base = "reports/20260929-180435-Qwen_Qwen3-4B-s4-test-d-clean"
+value = 29
+places = 0
+
+# 음성 조건 v3 단계 B: 같은 서빙 모델, dev-asr 240건, 인식기 팔 − 기준 T (docs/experiments.md "단계 B 결과와
+# 판정"). large-v3 + 번호 규칙(L+I), 업종 카탈로그 hotwords turbo + 번호 규칙(Th+I)
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "서빙 모델의 exact 차이는 +2.9%p [−1.7, +7.5]"
+kind = "paired"
+metric = "exact"
+run = "reports/20261005-210806-call-summary-4b-dq_q8_0-v3-l-itn-dev-asr"
+base = "reports/20261005-203517-call-summary-4b-dq_q8_0-v3-T-dev-asr"
+value = [2.9, -1.7, 7.5]
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (4단계: 음성 인식을 거친 전사)"
+context = "+2.9%p [−1.7, +7.5], +0.8%p [−2.5, +4.6]"
+kind = "paired"
+metric = "exact"
+run = "reports/20261005-205204-call-summary-4b-dq_q8_0-v3-th-itn-dev-asr"
+base = "reports/20261005-203517-call-summary-4b-dq_q8_0-v3-T-dev-asr"
+value = [0.8, -2.5, 4.6]
+
+
+# ---------------------------------------------------------------------------
+# 5단계 표와 본문: 서빙 (dev 240건)
+# ---------------------------------------------------------------------------
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "| 학습한 모델 그대로 (transformers, 4bit + LoRA) | 94.6 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed"
+value = 94.6
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "| **GGUF q8_0, 서비스 경유** | **94.6** |"
+kind = "point"
+metric = "exact"
+run = "reports/20260930-025504-service-s5b-svc-dev-q8_0"
+value = 94.6
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "| GGUF q4_K_M | 66.2 |"
+kind = "point"
+metric = "exact"
+run = "reports/20260930-023534-call-summary-4b-dq_q4_k_m-s5b-dev-dq-q4_k_m"
+value = 66.2
+
+# 서비스 경로 − 같은 GGUF q8_0을 evaluate로 직접 잰 것 (docs/experiments.md "다시 잰 결과"의 서비스 경로 표)
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "품질이 그대로다 (dev 0.0"
+kind = "paired"
+metric = "exact"
+run = "reports/20260930-025504-service-s5b-svc-dev-q8_0"
+base = "reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+value = 0.0
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "음성 조건(v1) dev −0.4"
+kind = "paired"
+metric = "exact"
+run = "reports/20260930-030601-service-s5b-svc-dev-asr-q8_0"
+base = "reports/20260930-024404-call-summary-4b-dq_q8_0-s5b-dev-asr-dq-q8_0"
+value = -0.4
+
+# 정답 잡음 감사의 서빙 실행 (95.0은 감사 결과라 선언하지 않는다)
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "exact 점 추정 95.0%라 94.6"
+kind = "point"
+metric = "exact"
+run = "reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+value = 94.6
