@@ -68,6 +68,16 @@ test-a의 발화를 합성 음성(MeloTTS) → 전화 음질(8 kHz μ-law) → W
 
 데이터는 모두 생성한 가상 데이터다. 업종 4개(쇼핑몰, 통신사, 택배사, 카드사)와 회사 이름, 상품, 요금제는 모두 지어낸 것이다.
 
+## 수치 다시 내기
+
+위 머리말과 결과 요약에 적은 평가 실행 수치(표의 exact와 95% 구간, 본문의 짝지은 차이와 환각 비율)는 [docs/numbers.toml](docs/numbers.toml)에 하나씩 실행 기록(`reports/<run_id>/`)과 묶어 두었다. 아래 명령은 선언마다 실행 기록의 건별 점수(`items.jsonl`)에서 값을 다시 계산해(구간은 evaluate와 같은 seed 0, 2,000번 부트스트랩이라 그대로 다시 나온다) README에 적힌 소수 자리까지 같은지, 그 숫자를 둘러싼 글(`context`)이 README의 그 절에 꼭 한 번 있는지, 측정 때 쓴 `summary.json`도 같은 값인지 보고, 하나라도 어긋나면 종료 코드 1로 끝난다. 모델·GPU 없이 몇 초 걸린다. `tests/test_numbers.py`가 같은 검사를 돌리므로 CI가 push마다 확인한다.
+
+```bash
+uv run --no-sync python -m call_summary.compare --check docs/numbers.toml
+```
+
+선언 하나는 파일과 절(`where`, `section`), 그 자리에 그대로 있어야 할 글(`context`, 선언한 값으로 끝난다), 실행 기록(`run`, 짝지은 차이면 빼는 쪽 `base`도), 지표(`metric`), 종류(`kind`: `point` 점 추정, `ci` 점 추정과 구간, `paired` 짝지은 차이 run − base), 값(`value`)과 소수 자리(`places`)다. 지연·효율과 부하, 요약 판정, 번호 표시, 음성 조건 입력 분석, 정답 잡음 감사의 수치와 숫자 없이 적은 판정 문장(구간 하한이 0보다 크다 등)은 아직 이 검사로 다시 내지 않는다. README에 평가 실행 수치를 더하거나 고칠 때는 선언도 함께 더하거나 고친다.
+
 ## 데이터를 만드는 방식
 
 정답을 먼저 만들고 대화를 나중에 만든다.
