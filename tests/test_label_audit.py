@@ -10,6 +10,7 @@
 import dataclasses
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -391,3 +392,32 @@ def test_registered_targets_match_the_committed_runs(monkeypatch):
             k: v for k, v in want.items() if k != "review"
         }
         assert list(got["review"]) == want["fields"]
+
+
+# 결과 절(docs/experiments.md "dev 남은 오류의 정답 잡음 감사"의 "결과")과 README의 숫자를 커밋한 검토
+# 양식으로 다시 낸다: 검토 대상 14건 중 정답 잡음 1, 모델 오류 5, 애매 8. 서빙 모델 오류 13건은 정답 잡음
+# 1(dev-telecom-00088), 모델 오류 4, 애매 8. 교차 묶음 후보 9건 중 정답 잡음 1(11.1%, 가설 맞지 않음). 참고
+# 천장 95.0%. 1단계 판단은 필드 17개 중 뒷받침 7, 어긋남 2, 애매 8이고 모델 답을 본 뒤 바꾼 필드는
+# 1개(dev-shop-00045 처리 목록)다.
+def test_documented_review_result_matches_the_committed_review():
+    audit = json.loads(AUDIT_FILE.read_text(encoding="utf-8"))
+    review = list(read_jsonl(REVIEW_FILE))
+    got = label_audit.tally(audit, review)
+    assert got["labels"] == {"정답 잡음": 1, "모델 오류": 5, "애매": 8}
+    assert got["serving_labels"] == {"정답 잡음": 1, "모델 오류": 4, "애매": 8}
+    assert got["candidate_labels"] == {"정답 잡음": 1, "모델 오류": 3, "애매": 5}
+    assert got["hypothesis_met"] is False and f"{100 * got['candidate_noise_share']:.1f}" == "11.1"
+    assert f"{100 * got['ceiling']:.1f}" == "95.0" and got["exact"] == [227, 240]
+    assert [it["item_id"] for it in got["items"] if it["label"] == "정답 잡음"] == ["dev-telecom-00088"]
+    readings = Counter(cell["reading"] for row in review for cell in row["review"].values())
+    assert readings == {"뒷받침": 7, "어긋남": 2, "애매": 8}
+    changed = [
+        (row["item_id"], field)
+        for row in review
+        for field, cell in row["review"].items()
+        if cell["class"] != label_audit.DEFAULT_CLASS[cell["reading"]]
+    ]
+    assert (got["fields"], got["changed"], changed) == (17, 1, [("dev-shop-00045", "actions_taken")])
+    assert label_audit.conclusion(got).splitlines()[0] == (
+        "검토 대상 14건 중 정답 잡음 1, 모델 오류 5, 애매 8. 서빙 모델 dev 오류 13건 중 1건이 정답 잡음이다."
+    )
