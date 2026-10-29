@@ -1,0 +1,2131 @@
+{
+ "data": "datasets/dev.jsonl",
+ "data_sha": "cb64eb0a5431",
+ "n_items": 240,
+ "groups": {
+  "clean4b": [
+   "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+   "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final"
+  ],
+  "mixed4b": [
+   "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+   "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+   "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+  ],
+  "lora17b": [
+   "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+  ]
+ },
+ "errors_of": "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0",
+ "errors_of_exact": [
+  227,
+  240
+ ],
+ "min_groups": 2,
+ "counts": {
+  "serving_errors": 13,
+  "cross_group": 9,
+  "all_groups": 1,
+  "both": 8,
+  "targets": 14
+ },
+ "targets": [
+  {
+   "item_id": "dev-parcel-00013",
+   "domain": "parcel",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "resolution"
+   ],
+   "gold": {
+    "category": "배송 일정 변경",
+    "resolution": "미해결",
+    "entities": [
+     {
+      "type": "운송장번호",
+      "value": "6073-5264-4528"
+     },
+     {
+      "type": "날짜",
+      "value": "11월 18일"
+     }
+    ],
+    "actions_taken": [
+     "배송 조회"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "배송 일정 변경",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "운송장번호",
+       "value": "6073-5264-4528"
+      },
+      {
+       "type": "날짜",
+       "value": "11월 18일"
+      }
+     ],
+     "actions_taken": [
+      "배송 조회"
+     ],
+     "follow_up": {
+      "required": false,
+      "codes": []
+     }
+    },
+    "diff": {
+     "resolution": {
+      "gold": "미해결",
+      "pred": "해결"
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6073-5264-4528"
+       },
+       {
+        "type": "날짜",
+        "value": "11월 18일"
+       }
+      ],
+      "actions_taken": [
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "미해결",
+       "pred": "해결"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-parcel-00021",
+   "domain": "parcel",
+   "reasons": [
+    "serving_error"
+   ],
+   "fields": [
+    "follow_up"
+   ],
+   "gold": {
+    "category": "배송 일정 변경",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "운송장번호",
+      "value": "6245-9828-3038"
+     },
+     {
+      "type": "날짜",
+      "value": "9월 10일"
+     }
+    ],
+    "actions_taken": [
+     "배송 일정 변경"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "배송 일정 변경",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "운송장번호",
+       "value": "6245-9828-3038"
+      },
+      {
+       "type": "날짜",
+       "value": "9월 10일"
+      }
+     ],
+     "actions_taken": [
+      "배송 일정 변경"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "재배송 예정"
+      ]
+     }
+    },
+    "diff": {
+     "follow_up": {
+      "gold": {
+       "required": false,
+       "codes": []
+      },
+      "pred": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6245-9828-3038"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 10일"
+       }
+      ],
+      "actions_taken": [
+       "배송 일정 변경"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "재배송 예정"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "groups": [
+      "clean4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6245-9828-3038"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 10일"
+       }
+      ],
+      "actions_taken": [
+       "배송 일정 변경"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "콜백 예약"
+       ]
+      }
+     },
+     "diff": {
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "콜백 예약"
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-parcel-00061",
+   "domain": "parcel",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "resolution",
+    "follow_up"
+   ],
+   "gold": {
+    "category": "배송 일정 변경",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "운송장번호",
+      "value": "6828-2606-4418"
+     },
+     {
+      "type": "날짜",
+      "value": "9월 5일"
+     }
+    ],
+    "actions_taken": [
+     "배송 일정 변경"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "배송 일정 변경",
+     "resolution": "부분 해결",
+     "entities": [
+      {
+       "type": "운송장번호",
+       "value": "6828-2606-4418"
+      },
+      {
+       "type": "날짜",
+       "value": "9월 5일"
+      }
+     ],
+     "actions_taken": [
+      "배송 일정 변경"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "재배송 예정"
+      ]
+     }
+    },
+    "diff": {
+     "resolution": {
+      "gold": "해결",
+      "pred": "부분 해결"
+     },
+     "follow_up": {
+      "gold": {
+       "required": false,
+       "codes": []
+      },
+      "pred": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "부분 해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6828-2606-4418"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 5일"
+       }
+      ],
+      "actions_taken": [
+       "배송 일정 변경"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "해결",
+       "pred": "부분 해결"
+      },
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "재배송 예정"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6828-2606-4418"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 5일"
+       }
+      ],
+      "actions_taken": [
+       "배송 일정 변경"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "재배송 예정"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "groups": [
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "부분 해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6828-2606-4418"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 5일"
+       }
+      ],
+      "actions_taken": [
+       "배송 일정 변경"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "수거 예정"
+       ]
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "해결",
+       "pred": "부분 해결"
+      },
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "수거 예정"
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-parcel-00089",
+   "domain": "parcel",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "resolution"
+   ],
+   "gold": {
+    "category": "배송 지연",
+    "resolution": "부분 해결",
+    "entities": [
+     {
+      "type": "운송장번호",
+      "value": "6044-4333-9868"
+     },
+     {
+      "type": "날짜",
+      "value": "9월 30일"
+     },
+     {
+      "type": "시간",
+      "value": "오전 9시 30분"
+     }
+    ],
+    "actions_taken": [
+     "배송 조회",
+     "지점 확인 요청"
+    ],
+    "follow_up": {
+     "required": true,
+     "codes": [
+      "콜백 예약"
+     ]
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "배송 지연",
+     "resolution": "이관",
+     "entities": [
+      {
+       "type": "운송장번호",
+       "value": "6044-4333-9868"
+      },
+      {
+       "type": "날짜",
+       "value": "9월 30일"
+      },
+      {
+       "type": "시간",
+       "value": "오전 9시 30분"
+      }
+     ],
+     "actions_taken": [
+      "배송 조회",
+      "지점 확인 요청"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "콜백 예약"
+      ]
+     }
+    },
+    "diff": {
+     "resolution": {
+      "gold": "부분 해결",
+      "pred": "이관"
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "배송 지연",
+      "resolution": "이관",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6044-4333-9868"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 30일"
+       },
+       {
+        "type": "시간",
+        "value": "오전 9시 30분"
+       }
+      ],
+      "actions_taken": [
+       "배송 조회",
+       "지점 확인 요청"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "콜백 예약"
+       ]
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "부분 해결",
+       "pred": "이관"
+      }
+     }
+    },
+    {
+     "groups": [
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 지연",
+      "resolution": "부분 해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "6044-4333-9868"
+       },
+       {
+        "type": "날짜",
+        "value": "9월 30일 오전 9시 30분"
+       }
+      ],
+      "actions_taken": [
+       "배송 조회",
+       "지점 확인 요청"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "콜백 예약"
+       ]
+      }
+     },
+     "diff": {
+      "entities": {
+       "missing": [
+        [
+         "시간",
+         "09:30"
+        ]
+       ],
+       "extra": []
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-parcel-00093",
+   "domain": "parcel",
+   "reasons": [
+    "serving_error"
+   ],
+   "fields": [
+    "resolution",
+    "follow_up"
+   ],
+   "gold": {
+    "category": "배송 일정 변경",
+    "resolution": "미해결",
+    "entities": [
+     {
+      "type": "운송장번호",
+      "value": "5265-7827-4914"
+     },
+     {
+      "type": "날짜",
+      "value": "10월 11일"
+     }
+    ],
+    "actions_taken": [
+     "배송 조회"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "배송 일정 변경",
+     "resolution": "부분 해결",
+     "entities": [
+      {
+       "type": "운송장번호",
+       "value": "5265-7827-4914"
+      },
+      {
+       "type": "날짜",
+       "value": "10월 11일"
+      }
+     ],
+     "actions_taken": [
+      "배송 조회"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "재배송 예정"
+      ]
+     }
+    },
+    "diff": {
+     "resolution": {
+      "gold": "미해결",
+      "pred": "부분 해결"
+     },
+     "follow_up": {
+      "gold": {
+       "required": false,
+       "codes": []
+      },
+      "pred": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 일정 변경",
+      "resolution": "부분 해결",
+      "entities": [
+       {
+        "type": "운송장번호",
+        "value": "5265-7827-4914"
+       },
+       {
+        "type": "날짜",
+        "value": "10월 11일"
+       }
+      ],
+      "actions_taken": [
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "미해결",
+       "pred": "부분 해결"
+      },
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "재배송 예정"
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00001",
+   "domain": "shop",
+   "reasons": [
+    "serving_error"
+   ],
+   "fields": [
+    "category",
+    "resolution"
+   ],
+   "gold": {
+    "category": "주문 취소",
+    "resolution": "미해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D4377805"
+     },
+     {
+      "type": "상품명",
+      "value": "남성 방수 등산화 270"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "배송 조회"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "반품 신청",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "주문번호",
+       "value": "D4377805"
+      },
+      {
+       "type": "상품명",
+       "value": "남성 방수 등산화 270"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "배송 조회"
+     ],
+     "follow_up": {
+      "required": false,
+      "codes": []
+     }
+    },
+    "diff": {
+     "category": {
+      "gold": "주문 취소",
+      "pred": "반품 신청"
+     },
+     "resolution": {
+      "gold": "미해결",
+      "pred": "해결"
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "반품 신청",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D4377805"
+       },
+       {
+        "type": "상품명",
+        "value": "남성 방수 등산화 270"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "category": {
+       "gold": "주문 취소",
+       "pred": "반품 신청"
+      },
+      "resolution": {
+       "gold": "미해결",
+       "pred": "해결"
+      }
+     }
+    },
+    {
+     "groups": [
+      "clean4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "주문 취소",
+      "resolution": "미해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D4377805"
+       },
+       {
+        "type": "상품명",
+        "value": "방수 등산화 270"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "entities": {
+       "missing": [
+        [
+         "상품명",
+         "남성방수등산화270"
+        ]
+       ],
+       "extra": [
+        [
+         "상품명",
+         "방수등산화270"
+        ]
+       ]
+      },
+      "actions_taken": {
+       "missing": [
+        "배송 조회"
+       ],
+       "extra": []
+      }
+     }
+    },
+    {
+     "groups": [
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "배송 문의",
+      "resolution": "미해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D4377805"
+       },
+       {
+        "type": "상품명",
+        "value": "방수 등산화 270"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "category": {
+       "gold": "주문 취소",
+       "pred": "배송 문의"
+      },
+      "entities": {
+       "missing": [
+        [
+         "상품명",
+         "남성방수등산화270"
+        ]
+       ],
+       "extra": [
+        [
+         "상품명",
+         "방수등산화270"
+        ]
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00018",
+   "domain": "shop",
+   "reasons": [
+    "serving_error"
+   ],
+   "fields": [
+    "actions_taken"
+   ],
+   "gold": {
+    "category": "반품 신청",
+    "resolution": "미해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D9352718"
+     },
+     {
+      "type": "상품명",
+      "value": "러닝화 250"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "반품 신청",
+     "resolution": "미해결",
+     "entities": [
+      {
+       "type": "주문번호",
+       "value": "D9352718"
+      },
+      {
+       "type": "상품명",
+       "value": "러닝화 250"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "배송 조회"
+     ],
+     "follow_up": {
+      "required": false,
+      "codes": []
+     }
+    },
+    "diff": {
+     "actions_taken": {
+      "missing": [],
+      "extra": [
+       "배송 조회"
+      ]
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "반품 신청",
+      "resolution": "미해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D9352718"
+       },
+       {
+        "type": "상품명",
+        "value": "러닝화 250"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "actions_taken": {
+       "missing": [],
+       "extra": [
+        "배송 조회"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00034",
+   "domain": "shop",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "category"
+   ],
+   "gold": {
+    "category": "반품 신청",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D4378469"
+     },
+     {
+      "type": "상품명",
+      "value": "러닝화 250"
+     },
+     {
+      "type": "날짜",
+      "value": "10월 20일"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "반품 접수",
+     "수거 예약"
+    ],
+    "follow_up": {
+     "required": true,
+     "codes": [
+      "수거 예정"
+     ]
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "교환 신청",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "주문번호",
+       "value": "D4378469"
+      },
+      {
+       "type": "상품명",
+       "value": "러닝화 250"
+      },
+      {
+       "type": "날짜",
+       "value": "10월 20일"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "반품 접수",
+      "수거 예약"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "수거 예정"
+      ]
+     }
+    },
+    "diff": {
+     "category": {
+      "gold": "반품 신청",
+      "pred": "교환 신청"
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "교환 신청",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D4378469"
+       },
+       {
+        "type": "상품명",
+        "value": "러닝화 250"
+       },
+       {
+        "type": "날짜",
+        "value": "10월 20일"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "반품 접수",
+       "수거 예약"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "수거 예정"
+       ]
+      }
+     },
+     "diff": {
+      "category": {
+       "gold": "반품 신청",
+       "pred": "교환 신청"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00045",
+   "domain": "shop",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "actions_taken"
+   ],
+   "gold": {
+    "category": "상품 불량",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D9547365"
+     },
+     {
+      "type": "상품명",
+      "value": "전기 그릴 팬"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "불량 접수",
+     "수거 예약"
+    ],
+    "follow_up": {
+     "required": true,
+     "codes": [
+      "재배송 예정"
+     ]
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "상품 불량",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "주문번호",
+       "value": "D9547365"
+      },
+      {
+       "type": "상품명",
+       "value": "전기 그릴 팬"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "불량 접수",
+      "택배사 확인 요청",
+      "수거 예약"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "재배송 예정"
+      ]
+     }
+    },
+    "diff": {
+     "actions_taken": {
+      "missing": [],
+      "extra": [
+       "택배사 확인 요청"
+      ]
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "상품 불량",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D9547365"
+       },
+       {
+        "type": "상품명",
+        "value": "전기 그릴 팬"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "불량 접수",
+       "택배사 확인 요청",
+       "수거 예약"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "actions_taken": {
+       "missing": [],
+       "extra": [
+        "택배사 확인 요청"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00048",
+   "domain": "shop",
+   "reasons": [
+    "cross_group"
+   ],
+   "fields": [
+    "entities"
+   ],
+   "gold": {
+    "category": "배송 문의",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D4660318"
+     },
+     {
+      "type": "상품명",
+      "value": "무선 이어폰 소리방울 2"
+     },
+     {
+      "type": "날짜",
+      "value": "10월 4일"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "배송 조회"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": null,
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "배송 문의",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D4660318"
+       },
+       {
+        "type": "상품명",
+        "value": "무선 이어폰 소리방울 2인"
+       },
+       {
+        "type": "날짜",
+        "value": "10월 4일"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "배송 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "entities": {
+       "missing": [
+        [
+         "상품명",
+         "무선이어폰소리방울2"
+        ]
+       ],
+       "extra": [
+        [
+         "상품명",
+         "무선이어폰소리방울2인"
+        ]
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-shop-00067",
+   "domain": "shop",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "entities"
+   ],
+   "gold": {
+    "category": "교환 신청",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "주문번호",
+      "value": "D6325707"
+     },
+     {
+      "type": "상품명",
+      "value": "원목 모니터 받침대"
+     }
+    ],
+    "actions_taken": [
+     "교환 접수",
+     "수거 예약"
+    ],
+    "follow_up": {
+     "required": true,
+     "codes": [
+      "재배송 예정"
+     ]
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "교환 신청",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "주문번호",
+       "value": "D6325707"
+      },
+      {
+       "type": "상품명",
+       "value": "원목 모니터 받침대"
+      },
+      {
+       "type": "날짜",
+       "value": "금요일"
+      }
+     ],
+     "actions_taken": [
+      "교환 접수",
+      "수거 예약"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "재배송 예정"
+      ]
+     }
+    },
+    "diff": {
+     "entities": {
+      "missing": [],
+      "extra": [
+       [
+        "날짜",
+        null,
+        "금요일"
+       ]
+      ]
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "교환 신청",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D6325707"
+       },
+       {
+        "type": "상품명",
+        "value": "원목 모니터 받침대"
+       },
+       {
+        "type": "날짜",
+        "value": "금요일"
+       }
+      ],
+      "actions_taken": [
+       "교환 접수",
+       "수거 예약"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "entities": {
+       "missing": [],
+       "extra": [
+        [
+         "날짜",
+         null,
+         "금요일"
+        ]
+       ]
+      }
+     }
+    },
+    {
+     "groups": [
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "교환 신청",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "주문번호",
+        "value": "D6325707"
+       },
+       {
+        "type": "상품명",
+        "value": "원목 모니터 받침대"
+       },
+       {
+        "type": "색상",
+        "value": "녹색"
+       },
+       {
+        "type": "날짜",
+        "value": "금요일 오전"
+       }
+      ],
+      "actions_taken": [
+       "교환 접수",
+       "수거 예약"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "재배송 예정"
+       ]
+      }
+     },
+     "diff": {
+      "entities": {
+       "missing": [],
+       "extra": [
+        [
+         "날짜",
+         null,
+         "금요일 오전"
+        ],
+        [
+         "색상",
+         null,
+         "녹색"
+        ]
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-telecom-00015",
+   "domain": "telecom",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "follow_up"
+   ],
+   "gold": {
+    "category": "기기 할부 문의",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "기기명",
+      "value": "은하폰 S12"
+     },
+     {
+      "type": "금액",
+      "value": "7만 8,500원"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "할부 내역 조회",
+     "할부금 완납 접수"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "기기 할부 문의",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "기기명",
+       "value": "은하폰 S12"
+      },
+      {
+       "type": "금액",
+       "value": "7만 8,500원"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "할부 내역 조회",
+      "할부금 완납 접수"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "환불 처리 대기"
+      ]
+     }
+    },
+    "diff": {
+     "follow_up": {
+      "gold": {
+       "required": false,
+       "codes": []
+      },
+      "pred": {
+       "required": true,
+       "codes": [
+        "환불 처리 대기"
+       ]
+      }
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "기기 할부 문의",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "기기명",
+        "value": "은하폰 S12"
+       },
+       {
+        "type": "금액",
+        "value": "7만 8,500원"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "할부 내역 조회",
+       "할부금 완납 접수"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "환불 처리 대기"
+       ]
+      }
+     },
+     "diff": {
+      "follow_up": {
+       "gold": {
+        "required": false,
+        "codes": []
+       },
+       "pred": {
+        "required": true,
+        "codes": [
+         "환불 처리 대기"
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-telecom-00080",
+   "domain": "telecom",
+   "reasons": [
+    "serving_error"
+   ],
+   "fields": [
+    "actions_taken"
+   ],
+   "gold": {
+    "category": "요금 문의",
+    "resolution": "부분 해결",
+    "entities": [
+     {
+      "type": "금액",
+      "value": "141,800원"
+     },
+     {
+      "type": "시간",
+      "value": "오후 4시 30분"
+     }
+    ],
+    "actions_taken": [
+     "본인 확인",
+     "요금 내역 조회",
+     "요금 이의 신청"
+    ],
+    "follow_up": {
+     "required": true,
+     "codes": [
+      "콜백 예약"
+     ]
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "요금 문의",
+     "resolution": "부분 해결",
+     "entities": [
+      {
+       "type": "금액",
+       "value": "141,800원"
+      },
+      {
+       "type": "시간",
+       "value": "오후 4시 30분"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "요금 내역 조회"
+     ],
+     "follow_up": {
+      "required": true,
+      "codes": [
+       "콜백 예약"
+      ]
+     }
+    },
+    "diff": {
+     "actions_taken": {
+      "missing": [
+       "요금 이의 신청"
+      ],
+      "extra": []
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "mixed4b"
+     ],
+     "runs": [
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "요금 문의",
+      "resolution": "부분 해결",
+      "entities": [
+       {
+        "type": "금액",
+        "value": "141,800원"
+       },
+       {
+        "type": "시간",
+        "value": "오후 4시 30분"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "요금 내역 조회"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "콜백 예약"
+       ]
+      }
+     },
+     "diff": {
+      "actions_taken": {
+       "missing": [
+        "요금 이의 신청"
+       ],
+       "extra": []
+      }
+     }
+    },
+    {
+     "groups": [
+      "clean4b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "요금 문의",
+      "resolution": "미해결",
+      "entities": [
+       {
+        "type": "금액",
+        "value": "141,800원"
+       },
+       {
+        "type": "시간",
+        "value": "오후 4시 30분"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "요금 내역 조회"
+      ],
+      "follow_up": {
+       "required": true,
+       "codes": [
+        "콜백 예약"
+       ]
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "부분 해결",
+       "pred": "미해결"
+      },
+      "actions_taken": {
+       "missing": [
+        "요금 이의 신청"
+       ],
+       "extra": []
+      }
+     }
+    },
+    {
+     "groups": [
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": false,
+     "record": {
+      "category": "요금 문의",
+      "resolution": "미해결",
+      "entities": [
+       {
+        "type": "금액",
+        "value": "141,800원"
+       },
+       {
+        "type": "시간",
+        "value": "오후 4시 30분"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "요금 내역 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "resolution": {
+       "gold": "부분 해결",
+       "pred": "미해결"
+      },
+      "actions_taken": {
+       "missing": [
+        "요금 이의 신청"
+       ],
+       "extra": []
+      },
+      "follow_up": {
+       "gold": {
+        "required": true,
+        "codes": [
+         "콜백 예약"
+        ]
+       },
+       "pred": {
+        "required": false,
+        "codes": []
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "item_id": "dev-telecom-00088",
+   "domain": "telecom",
+   "reasons": [
+    "serving_error",
+    "cross_group"
+   ],
+   "fields": [
+    "actions_taken"
+   ],
+   "gold": {
+    "category": "요금 문의",
+    "resolution": "해결",
+    "entities": [
+     {
+      "type": "금액",
+      "value": "85,700원"
+     }
+    ],
+    "actions_taken": [
+     "요금 내역 조회"
+    ],
+    "follow_up": {
+     "required": false,
+     "codes": []
+    }
+   },
+   "serving": {
+    "record": {
+     "category": "요금 문의",
+     "resolution": "해결",
+     "entities": [
+      {
+       "type": "금액",
+       "value": "85,700원"
+      }
+     ],
+     "actions_taken": [
+      "본인 확인",
+      "요금 내역 조회"
+     ],
+     "follow_up": {
+      "required": false,
+      "codes": []
+     }
+    },
+    "diff": {
+     "actions_taken": {
+      "missing": [],
+      "extra": [
+       "본인 확인"
+      ]
+     }
+    }
+   },
+   "answers": [
+    {
+     "groups": [
+      "clean4b",
+      "mixed4b",
+      "lora17b"
+     ],
+     "runs": [
+      "20260928-210805-Qwen_Qwen3-4B-s3-qwen3-4b-qlora-e2",
+      "20261014-172808-Qwen_Qwen3-4B-fix-s3-qwen3-4b-qlora-final",
+      "20260930-013127-Qwen_Qwen3-4B-s5b-dev-hf4bit-mixed",
+      "20261015-222131-Qwen_Qwen3-4B-fix-s5-dev-hf4bit-mixed",
+      "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0",
+      "20260928-171039-Qwen_Qwen3-1.7B-s3-qwen3-1.7b-lora-e2"
+     ],
+     "agreed": true,
+     "record": {
+      "category": "요금 문의",
+      "resolution": "해결",
+      "entities": [
+       {
+        "type": "금액",
+        "value": "85,700원"
+       }
+      ],
+      "actions_taken": [
+       "본인 확인",
+       "요금 내역 조회"
+      ],
+      "follow_up": {
+       "required": false,
+       "codes": []
+      }
+     },
+     "diff": {
+      "actions_taken": {
+       "missing": [],
+       "extra": [
+        "본인 확인"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
