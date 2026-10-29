@@ -99,6 +99,9 @@ uv run python -m call_summary.gen --specs data/specs/dev.jsonl --out data/raw/de
 # 분할 확정: 업종마다 통과한 앞의 N건, train과 번호가 겹치는 test 건 제외, 거절 비율 보고
 uv run python -m call_summary.finalize
 
+# 정답 기록 전체가 train의 한 건과 글자까지 같은 건 세기 (보고만, 분할은 그대로). --run을 주면 그 실행의 exact를 겹친 건과 나머지로 나눔
+uv run --no-sync python -m call_summary.overlap datasets/dev.jsonl datasets/test-a.jsonl --run reports/<run_id>
+
 # 평가 (Ollama 또는 transformers). 결과는 outputs/runs/<run_id>/, --official이면 reports/
 uv run python -m call_summary.evaluate --data data/dev.jsonl --backend ollama --model qwen2.5:7b-instruct
 uv run --no-sync python -m call_summary.evaluate --data data/dev.jsonl --backend hf --model Qwen/Qwen3-1.7B --batch 4

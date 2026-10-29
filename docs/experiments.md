@@ -81,6 +81,7 @@ dev 분할 명세 12건(업종당 4건)을 같은 지시문(w1)으로 두 교사
 | test-b | 60 (Claude 작성) | 60 | - | 0 | 0 | 60 (업종당 20) |
 
 - train 거절 이유 상위: 턴 수 부족 25, 요약이 핵심 값 누락 34, 명세에 없는 금액 12, 고치기 전 값을 요약에 씀 7
+- (2026-10-29 덧붙임) 위 표의 "train과 번호 겹침"은 번호 유형(주문번호·운송장번호·접수번호·카드 끝자리)의 값만 본다 (`finalize.py`, 규칙의 "겹침 확인"). 정답 기록 전체(업종, 유형, 처리 결과, 핵심 값과 그 말투, 처리, 후속 조치. 참고 요약은 뺌)가 train의 어떤 건과 글자까지 같은 건을 따로 세면 dev 18/240(7.5%), test-a 23/300(7.7%), test-b 2/60, test-c 0/200이다. 겹친 건은 모두 통신 업종이고 핵심 값에 번호가 없다 (dev: 분실·정지 8, 요금제 변경 8, 데이터 소진 2. test-a: 요금제 변경 10, 분실·정지 8, 데이터 소진 5. test-b: 요금제 변경 2). 핵심 값이 요금제(6개)나 기기(5개) 이름뿐이라 명세 생성기가 train과 같은 조합을 다시 뽑기 쉬운 건들이고, 대화와 대화 중 사건은 건마다 따로 생성됐다. 학습한 모델의 exact를 겹친 건과 나머지로 나누면 3단계 학습한 학생이 test-a 22/23(95.7%) 대 265/277(95.7%), test-b 2/2 대 52/58(89.7%), dev 17/18 대 207/222(93.2%)이고, 서빙 모델(q8_0)이 dev 18/18 대 209/222(94.1%)다. 겹친 건을 빼도 exact는 0.5%p 안에서만 바뀐다 (test-a 95.7 → 95.7, test-b 90.0 → 89.7, dev 93.3 → 93.2, 서빙 모델 dev 94.6 → 94.1). 분할과 기록 수치는 바꾸지 않는다. 다시 내는 명령: `uv run --no-sync python -m call_summary.overlap datasets/dev.jsonl datasets/test-a.jsonl datasets/test-b.jsonl datasets/test-c.jsonl --run reports/*-s3-qwen3-4b-qlora-e2 reports/*-s3-test-a-qwen3-4b-qlora-e2 reports/*-s3-test-b-qwen3-4b-qlora-e2 reports/*-s5b-dev-dq-q8_0` (`tests/test_overlap.py`가 이 숫자를 확인한다)
 
 ### 사람 점검 (train 무작위 30건, seed 0)
 Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
