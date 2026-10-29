@@ -348,6 +348,12 @@ Claude가 읽고 셌다. 건별 기록은 `reports/human_check/train30.jsonl`.
 ### 내보내기
 - 3단계에서 고른 학생(4단계에서 섞어 학습한 학생이 판정을 모두 통과하면 그것)의 어댑터를 fp16 바탕 모델에 합친다 → llama.cpp로 GGUF f16 → Ollama에서 q8_0, q4_K_M으로 양자화 (`call_summary.export`)
 - QLoRA 어댑터는 4bit 바탕 위에서 학습했으므로 fp16에 합친 모델은 평가한 모델과 똑같지 않다. HF(4bit + 어댑터)와 GGUF f16의 차이를 "합치기 + 실행기 차이"로 따로 보고한다
+- 2026-10-29 덧붙임 (도구 판): 서빙 모델 `call-summary-4b-dq:q8_0`(Ollama digest `52a2d2f65261`)을 만든 2026-09-30 내보내기(아래 "다시 재기"의 새 내보내기)에 쓴 도구다. 위 첫 줄의 "Ollama에서 양자화"는 초안 그대로이고, 실제로는 Ollama 0.34부터 GGUF를 가져올 때 양자화하지 않아 llama.cpp의 `llama-quantize`로 양자화했다 (`bd33a2a`)
+  - f16 변환: llama.cpp 커밋 `81bc6b8`의 `convert_hf_to_gguf.py` (같은 체크아웃의 `gguf-py`, 이 프로젝트 환경의 파이썬). 커밋은 그 내보내기의 `export.json`(`llama_cpp`)에 남아 있다
+  - 양자화: llama.cpp 릴리스 `b11255`(태그 커밋 `31385c9`, 2026-09-29)의 Windows CPU 배포 `llama-b11255-bin-win-cpu-x64.zip`(19,165,044바이트, sha256 `13bef0d15c315b153603a610a6652e2460ae9202bb1b22832eed225ccbc7fcc7`, GitHub 릴리스의 파일 digest와 같다)에 든 `llama-quantize.exe`(sha256 `e5e2e8eaad4f405acf4c2fb40680222915115ec140c218c66aae857193660d4e`). 그 내보내기 로그(커밋하지 않음)에 양자화 두 번(Q8_0, Q4_K_M) 모두 `version: 0.5.0-dev (build 11255, commit 31385c9ce)`가 찍혔다. 이 배포의 `llama-quantize.exe`는 양자화 코드가 든 `llama-quantize-impl.dll`을 부르는 작은 실행 파일이다
+  - 결과: q8_0 GGUF 4,280,404,832바이트, sha256 `d1f9e2689e635f4724630c5b1f67264df4c9b948f85067f391a2fae988174525` (Ollama manifest의 모델 층 digest와 같다)
+  - Ollama 등록(`ollama create`): 같은 날 측정 기록과 같은 0.34.2. 2026-10-04부터의 측정은 0.35.1이고 digest는 그대로다
+  - 같은 GGUF가 다시 나오는지는 다시 만들어 확인하지 않았다 (4bit 바탕을 풀어 합치는 단계에 GPU가 든다). 2026-10-29부터 `export.json`에 `llama_quantize`(실행 파일의 경로와 sha256, 양자화 때 도구가 찍은 판 줄, 그 실행에서 양자화한 형태)가 더 남는다. 그 실행에서 양자화한 것이 없으면(예전 양자화 파일을 다시 씀) 판 줄은 null이고 sha256은 지금 설정된 도구의 것이다
 
 ### 양자화 손실 (dev 240건, p1, 0-shot, 스키마 강제 없음)
 - 후보: GGUF f16, q8_0, q4_K_M (Ollama, 모델 전체를 GPU에). 비교 기준은 3단계의 HF 4bit + 어댑터 dev 실행
