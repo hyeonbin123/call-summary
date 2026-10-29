@@ -620,3 +620,22 @@ def test_main_report_writes_the_result(tmp_path, dev_items, capsys):
     saved = json.loads(dest.read_text(encoding="utf-8"))
     assert saved == json.loads(json.dumps(perturb.report(control, run), ensure_ascii=False))
     assert saved["verdict"]["sentence"] in capsys.readouterr().out
+
+
+# 커밋한 변형 파일과 통계 파일은 docs/experiments.md "반사실·메타모픽 강건성"의 명령(dev, seed 0)으로
+# 바이트까지 다시 나온다. 그 절의 파일 표에 적은 sha256 앞 12자리도 실제 파일과 같다. 도구나 dev 파일이 바뀌면
+# 이 시험이 먼저 알린다(재기 전에 커밋한 파일과 다른 파일로 재는 일을 막는다).
+@pytest.mark.parametrize("variant", perturb.VARIANTS)
+def test_committed_variant_files_are_reproducible(variant, tmp_path, monkeypatch):
+    committed = ROOT / "datasets" / "perturb" / f"dev-{variant}.jsonl"
+    out = tmp_path / f"dev-{variant}.jsonl"
+    monkeypatch.chdir(ROOT)
+    argv = ["make", "--data", "datasets/dev.jsonl", "--variant", variant, "--seed", "0", "--out", str(out)]
+    assert perturb.main(argv) == 0
+    assert out.read_bytes() == committed.read_bytes()
+    assert out.with_suffix(".stats.json").read_bytes() == committed.with_suffix(".stats.json").read_bytes()
+    docs = (ROOT / "docs" / "experiments.md").read_text(encoding="utf-8")
+    row = next(
+        line for line in docs.splitlines() if line.startswith(f"| `datasets/perturb/dev-{variant}.jsonl`")
+    )
+    assert f"`{hashlib.sha256(committed.read_bytes()).hexdigest()[:12]}`" in row

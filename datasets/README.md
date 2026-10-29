@@ -14,4 +14,6 @@
 
 음성 조건 파일(4단계와 "음성 조건 v2", docs/experiments.md)은 같은 건의 `turns`를 합성 음성 → 전화 음질 → 음성 인식으로 다시 받아 적은 것이고 원래 글은 `meta.asr.written`에 있다. v1(2026-09-29): `dev-asr.jsonl` 240, `test-d.jsonl` 300(test-a의 음성 조건판), `train-half-asr.jsonl` 750. v2(2026-10-04, 운송장번호를 숫자 하나씩 읽음, 지금 보고하는 조건): `dev-asr-v2.jsonl`, `test-d-v2.jsonl`, `train-half-asr-v2.jsonl` (건수 같음). v3(2026-10-05, 인식기 비교, docs/experiments.md "음성 조건 v3"): 같은 dev 소리를 다시 합성해 인식기만 바꾼 `dev-asr-v3-t.jsonl`(기준 turbo, 다시 합성한 소리의 글), `dev-asr-v3-th-itn.jsonl`(turbo + 업종 카탈로그 hotwords + 식별자 규칙), `dev-asr-v3-l-itn.jsonl`(large-v3 + 식별자 규칙), 각 240건.
 
+반사실·메타모픽 변형(2026-10-29, docs/experiments.md "반사실·메타모픽 강건성"): `perturb/dev-swap.jsonl`(번호를 같은 꼴의 새 값으로 바꿨고 정답의 번호도 새 값이다), `perturb/dev-neutral.jsonl`(값 없는 확인·대기 발화 2턴이나 4턴을 끼웠다), `perturb/dev-inject.jsonl`(고객의 지시 하나와 상담원의 거절 하나를 끼웠다), 각 240건. `dev.jsonl`에서 `python -m call_summary.perturb make`(seed 0)로 만들었고 건 id와 순서가 같다. 바꾼 내용은 건마다 `meta.perturb`에, 건수와 sha256은 같은 이름의 `.stats.json`에 있다.
+
 **정답 상담 기록은 파일에 따로 없다.** `call_summary.specs.Spec.gold()`가 명세에서 만든다. 만드는 방법과 검사, 거절 비율, 사람 점검 결과는 [docs/experiments.md](../docs/experiments.md) 1단계, 분할별 수치는 `finalize_report.json`.

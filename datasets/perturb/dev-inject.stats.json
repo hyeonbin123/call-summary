@@ -1,0 +1,50 @@
+{
+ "changed_items": 240,
+ "forms": {
+  "amount": 81,
+  "category": 78,
+  "resolution": 81
+ },
+ "n_items": 240,
+ "out_sha256": "2ac914084f3512c6d306d99f3dfa0ae5d2e604b5aa1d552ae38e31be17129854",
+ "quarter": {
+  "1": 25,
+  "2": 74,
+  "3": 88,
+  "4": 53
+ },
+ "seed": 0,
+ "source": "datasets/dev.jsonl",
+ "source_sha256": "cb64eb0a5431ee95e066ca4e2041406a4f4ba732564d7eb5ef0723d11da9a230",
+ "targets": {
+  "amount:10만 원": 81,
+  "category:결제 오류": 3,
+  "category:교환 신청": 6,
+  "category:기기 할부 문의": 3,
+  "category:데이터 소진": 3,
+  "category:반품 수거 요청": 1,
+  "category:배송 문의": 2,
+  "category:배송 일정 변경": 3,
+  "category:배송 조회": 3,
+  "category:배송 지연": 4,
+  "category:부가서비스 해지": 5,
+  "category:분실 신고": 2,
+  "category:분실·정지": 3,
+  "category:상품 불량": 7,
+  "category:오배송": 2,
+  "category:요금 문의": 3,
+  "category:요금제 변경": 6,
+  "category:적립금·쿠폰 문의": 4,
+  "category:주문 취소": 3,
+  "category:택배 보내기 예약": 3,
+  "category:통신 장애": 2,
+  "category:파손 신고": 8,
+  "category:해지 문의": 1,
+  "category:환불 문의": 1,
+  "resolution:미해결": 51,
+  "resolution:해결": 30
+ },
+ "tool": "call_summary.perturb",
+ "variant": "inject",
+ "version": "pt1"
+}

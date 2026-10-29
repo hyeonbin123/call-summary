@@ -1,0 +1,26 @@
+{
+ "changed_items": 131,
+ "distractors": 28,
+ "n_items": 240,
+ "out_sha256": "a0fc4c327b157cddc3667d6d09d71ad6cd4a5ff673b7404e46d54e6c9becac55",
+ "replaced": {
+  "facts": 131,
+  "particles": 80,
+  "summary": 131,
+  "turns": 291
+ },
+ "seed": 0,
+ "source": "datasets/dev.jsonl",
+ "source_sha256": "cb64eb0a5431ee95e066ca4e2041406a4f4ba732564d7eb5ef0723d11da9a230",
+ "tool": "call_summary.perturb",
+ "tries": {
+  "1": 130,
+  "2": 1
+ },
+ "values": {
+  "운송장번호": 69,
+  "주문번호": 62
+ },
+ "variant": "swap",
+ "version": "pt1"
+}

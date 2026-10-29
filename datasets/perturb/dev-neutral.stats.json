@@ -1,0 +1,35 @@
+{
+ "changed_items": 240,
+ "first_speaker": {
+  "고객": 110,
+  "상담원": 130
+ },
+ "inserted": {
+  "2": 124,
+  "4": 116
+ },
+ "lines": {
+  "고객-0": 41,
+  "고객-1": 47,
+  "고객-2": 33,
+  "고객-3": 37,
+  "상담원-0": 52,
+  "상담원-1": 42,
+  "상담원-2": 60,
+  "상담원-3": 44
+ },
+ "n_items": 240,
+ "out_sha256": "a1a270206d726be39d1c8a724aa8767061efa8fc5bd9ae210bb8dc18c2ad6c21",
+ "quarter": {
+  "1": 37,
+  "2": 58,
+  "3": 77,
+  "4": 68
+ },
+ "seed": 0,
+ "source": "datasets/dev.jsonl",
+ "source_sha256": "cb64eb0a5431ee95e066ca4e2041406a4f4ba732564d7eb5ef0723d11da9a230",
+ "tool": "call_summary.perturb",
+ "variant": "neutral",
+ "version": "pt1"
+}
