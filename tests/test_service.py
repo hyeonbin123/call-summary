@@ -1038,13 +1038,16 @@ def test_stats_window_is_set_by_the_environment(monkeypatch):
     assert st["window"] == 2 and st["latency_s"]["n"] == 2 and st["requests"]["ok"] == 3
 
 
-# 잘못된 한도 설정(0 이하의 동시 수·창, 음수 대기열·대기, 0 이하의 시간 한도, 숫자가 아님, 무한대·NaN, 정수
-# 자리의 소수)은 앱을 만들 때 그 변수 이름과 함께 ValueError로 멈춘다. 조용히 기본값으로 돌면 운영자가 정한
-# 한도가 적용됐다고 잘못 믿게 된다. 빈 값은 설정하지 않은 것으로 본다(compose의 ${VAR:-} 꼴).
+# 잘못된 한도 설정(0 이하의 동시 수·창, 동시 수 상한 40(service.MAX_INFLIGHT_LIMIT)을 넘는 값, 음수
+# 대기열·대기, 0 이하의 시간 한도, 숫자가 아님, 무한대·NaN, 정수 자리의 소수)은 앱을 만들 때 그 변수 이름과
+# 함께 ValueError로 멈춘다. 조용히 기본값으로 돌면 운영자가 정한 한도가 적용됐다고 잘못 믿게 된다. 빈 값은
+# 설정하지 않은 것으로 본다(compose의 ${VAR:-} 꼴). 상한 40 자체는 받는다(뒤의
+# test_admitted_model_calls_do_not_wait_for_anyio_worker_threads 등이 40으로 띄운다).
 @pytest.mark.parametrize(
     "name,value",
     [
         ("CALL_SUMMARY_MAX_INFLIGHT", "0"),
+        ("CALL_SUMMARY_MAX_INFLIGHT", "41"),
         ("CALL_SUMMARY_MAX_INFLIGHT", "two"),
         ("CALL_SUMMARY_MAX_QUEUE", "-1"),
         ("CALL_SUMMARY_QUEUE_WAIT_S", "-0.5"),
@@ -1171,16 +1174,55 @@ def _poll(cond, timeout: float = 5.0) -> None:
         time.sleep(0.01)
 
 
-# 상태 경로(/health, /stats, /domains)는 작업 스레드를 쓰지 않는다(async, 막히는 I/O가 없다). 기본 한도(동시
-# 4)에서는 입장 제어가 스레드를 비워 두므로, 여기서는 동시 상한을 45로 올려 모델 호출 45건을 한 번에 들인다:
-# anyio의 작업 스레드 40개가 모두 모델 호출에 묶이고 다섯 건은 스레드를 기다린다. 그동안에도 세 상태 경로는
-# 0.2초 안에 200으로 답해야 한다. 고치기 전에는 셋이 일반 def라 빈 스레드를 모델 호출 뒤에 FIFO로 기다려 2초
-# 안에 답하지 못했다.
-def test_status_routes_answer_while_every_worker_thread_runs_a_model_call(monkeypatch):
+# anyio의 기본 작업 스레드 limiter(이벤트 루프마다 하나, 토큰 40. FastAPI가 일반 def 처리기를 돌리는 풀)의
+# 자리를 모두 막아 두는 도우미. 자리 수만큼 release(threading.Event)가 열릴 때까지(최대 10초) 자는 함수를 작업
+# 스레드로 보내고, 모든 자리가 빌려질 때까지 기다린다. 서비스의 상태 경로·모델 호출·모델 서버 조회가 이 풀의
+# 빈 자리 없이도 도는지 보는 데 쓴다. release는 부르는 쪽이 finally에서 연다.
+async def _fill_default_thread_pool(tg, release: threading.Event) -> None:
+    pool = anyio.to_thread.current_default_thread_limiter()
+    for _ in range(int(pool.total_tokens)):
+        tg.start_soon(anyio.to_thread.run_sync, release.wait, 10)
+    await _wait_until(lambda: pool.borrowed_tokens == pool.total_tokens)
+    assert pool.borrowed_tokens == pool.total_tokens
+
+
+# Ollama의 POST /api/chat(모델 호출)을 흉내 내는 httpx.post 대용. gate가 열릴 때까지(최대 10초) 답하지 않다가
+# reply를 모델 답으로 돌려주고, 지금 안에 있는 호출 수(active)를 센다(여러 작업 스레드가 함께 고치므로
+# Lock으로 지킨다). OllamaProvider로 만든 앱(/ready가 실제로 모델 서버를 조회하는 앱)에서 모델 호출을 막아
+# 두는 데 쓴다(GateProvider는 OllamaProvider가 아니라 /ready가 조회하지 않는다).
+class ChatGate:
+    """gate가 열릴 때까지 막혀 있다가 같은 답을 주는 /api/chat 흉내."""
+
+    def __init__(self, reply: str):
+        self.reply = reply
+        self.gate = threading.Event()
+        self.lock = threading.Lock()
+        self.active = 0
+
+    def __call__(self, url, **kw):
+        assert url.endswith("/api/chat"), url
+        with self.lock:
+            self.active += 1
+        try:
+            self.gate.wait(10)
+            payload = {"message": {"content": self.reply}}
+            return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+        finally:
+            with self.lock:
+                self.active -= 1
+
+
+# 상태 경로(/health, /stats, /domains)는 작업 스레드를 쓰지 않는다(async, 막히는 I/O가 없다). anyio 기본 작업
+# 스레드 풀의 자리를 모두 막아 두고(_fill_default_thread_pool) 모델 호출 40건(동시 상한 40)을 띄운 동안에도 세
+# 상태 경로는 0.2초 안에 200으로 답해야 하고, 풀을 풀면 모델 호출 40건이 모두 200으로 끝난다. 고치기 전에는
+# 셋이 일반 def라 빈 스레드를 FIFO로 기다려 2초 안에 답하지 못했다. 모델 호출은 이제 이 풀을 쓰지 않으므로
+# (바로 아래 시험) 풀은 자는 함수로 채운다.
+def test_status_routes_answer_while_every_worker_thread_is_busy(monkeypatch):
     _clear_env(monkeypatch)
-    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "45")
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "40")
     p = GateProvider(_good())
     app = create_app(p)
+    release = threading.Event()
     results: list[httpx.Response] = []
     timings: dict[str, float] = {}
 
@@ -1188,10 +1230,10 @@ def test_status_routes_answer_while_every_worker_thread_runs_a_model_call(monkey
         async with _asgi_client(app) as client:
             async with anyio.create_task_group() as tg:
                 try:
-                    for _ in range(45):
+                    await _fill_default_thread_pool(tg, release)
+                    for _ in range(40):
                         tg.start_soon(_post_summarize, client, results)
                     await _wait_until(lambda: p.active >= 40, timeout=5)
-                    assert p.active == 40
                     for path in ("/health", "/stats", "/domains"):
                         t0 = time.perf_counter()
                         with anyio.fail_after(2):
@@ -1200,10 +1242,91 @@ def test_status_routes_answer_while_every_worker_thread_runs_a_model_call(monkey
                         assert r.status_code == 200, path
                 finally:
                     p.gate.set()
+                    release.set()
 
     anyio.run(main)
     assert all(t < 0.2 for t in timings.values()), timings
-    assert [r.status_code for r in results] == [200] * 45 and p.calls == 45
+    assert [r.status_code for r in results] == [200] * 40 and p.calls == 40
+
+
+# 입장 제어를 지난 모델 호출은 anyio 기본 작업 스레드 풀(토큰 40)이 아니라 CALL_SUMMARY_MAX_INFLIGHT만큼의
+# 전용 자리에서 돈다. 그래서 기본 풀이 모두 차 있어도 동시 상한(40)까지의 모델 호출이 한 번에 모델에
+# 닿는다(넷이 아니라 마흔이 동시에 안에 있다). 고치기 전에는 모델 호출이 기본 풀의 빈 자리를 기다려 하나도
+# 닿지 못했고, 동시 상한을 40 넘게 두면 넘친 요청이 입장 제어 대기열(CALL_SUMMARY_MAX_QUEUE·QUEUE_WAIT_S)이
+# 아니라 스레드 대기에서 기다렸다.
+def test_admitted_model_calls_do_not_wait_for_anyio_worker_threads(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "40")
+    p = GateProvider(_good())
+    app = create_app(p)
+    release = threading.Event()
+    results: list[httpx.Response] = []
+    side: dict = {}
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                try:
+                    await _fill_default_thread_pool(tg, release)
+                    for _ in range(40):
+                        tg.start_soon(_post_summarize, client, results)
+                    await _wait_until(lambda: p.active >= 40, timeout=5)
+                    side["active"] = p.active
+                finally:
+                    p.gate.set()
+                    release.set()
+
+    anyio.run(main)
+    assert side["active"] == 40
+    assert [r.status_code for r in results] == [200] * 40 and p.calls == 40
+
+
+# /ready의 모델 서버 조회는 전용 자리(동시 1)의 작업 스레드에서 돈다(시작 조회도 같다). anyio 기본 작업 스레드
+# 풀이 모두 차 있고 모델 호출 40건(동시 상한)이 막혀 있는 동안에도, 캐시가 만료된 /ready(READY_TTL_S를 0으로
+# 두어 부를 때마다 조회)는 조회 한도 READY_TIMEOUT_S 안에 모델 서버를 다시 확인해 200으로 답하고(두 번 모두
+# /api/tags를 다시 부른다), 다른 상태 경로도 답한다. 고치기 전에는 조회가 기본 풀의 빈 자리를 기다렸으므로,
+# 모델 호출이 기본 풀을 모두 쓰면(동시 상한 40 이상) 길게는 모델 호출 시간 한도(기본 120초)까지 답하지 못했다.
+def test_ready_answers_while_model_calls_and_worker_threads_are_all_busy(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MAX_INFLIGHT", "40")
+    monkeypatch.setattr(service, "READY_TTL_S", 0.0)
+    gets = _fake_ollama_get(monkeypatch, SERVED)
+    chat = ChatGate(_good())
+    monkeypatch.setattr(httpx, "post", chat)
+    app = create_app(OllamaProvider(model="m:q8_0"))
+    release = threading.Event()
+    results: list[httpx.Response] = []
+    answers: list[tuple[str, int | None, float]] = []
+
+    async def main():
+        async with _asgi_client(app) as client:
+            async with anyio.create_task_group() as tg:
+                try:
+                    await _fill_default_thread_pool(tg, release)
+                    for _ in range(40):
+                        tg.start_soon(_post_summarize, client, results)
+                    await _wait_until(lambda: chat.active >= 40, timeout=5)
+                    for path in ("/ready", "/ready", "/health", "/stats", "/domains"):
+                        t0 = time.perf_counter()
+                        status = None
+                        with anyio.move_on_after(service.READY_TIMEOUT_S):
+                            status = (await client.get(path)).status_code
+                        answers.append((path, status, time.perf_counter() - t0))
+                finally:
+                    chat.gate.set()
+                    release.set()
+
+    anyio.run(main)
+    assert [(path, status) for path, status, _ in answers] == [
+        ("/ready", 200),
+        ("/ready", 200),
+        ("/health", 200),
+        ("/stats", 200),
+        ("/domains", 200),
+    ], answers
+    assert sum(u.endswith("/api/tags") for u in gets) == 2
+    assert all(t < 0.2 for path, _, t in answers if path != "/ready"), answers
+    assert [r.status_code for r in results] == [200] * 40
 
 
 # /ready는 모델 서버에 모델 태그가 있고 digest가 기대값(CALL_SUMMARY_MODEL_DIGEST, 앞자리)과 맞을 때만

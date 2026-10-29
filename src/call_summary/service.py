@@ -10,11 +10,13 @@
 413(context exceeded), 답의 프롬프트 + 생성 토큰이 컨텍스트(4,096)를 다 채웠으면 입력이 잘렸을 수 있으므로
 다시 묻지 않고 502(context exhausted)를 준다.
 
-부하 경계: 모델 호출 구간에 동시에 들어가는 요청은 CALL_SUMMARY_MAX_INFLIGHT(기본 4)개까지다. 자리가 없으면
-CALL_SUMMARY_MAX_QUEUE(기본 16)개까지만 줄을 서서 CALL_SUMMARY_QUEUE_WAIT_S(기본 30초) 동안 기다리고, 줄이 다
-찼거나 그 시간이 지나면 모델을 부르지 않고 503(server busy)과 Retry-After를 준다. 모델 서버 호출 하나의 시간
-한도는 CALL_SUMMARY_MODEL_TIMEOUT(기본 120초)이다. 요청 본문은 1 MiB까지만 받는다(넘으면 본문을 읽어 파싱하기
-전에 413). /stats의 지연 분포는 최근 CALL_SUMMARY_STATS_WINDOW(기본 10,000)건으로 낸다.
+부하 경계: 모델 호출 구간에 동시에 들어가는 요청은 CALL_SUMMARY_MAX_INFLIGHT(기본 4, 1~40)개까지다. 자리가
+없으면 CALL_SUMMARY_MAX_QUEUE(기본 16)개까지만 줄을 서서 CALL_SUMMARY_QUEUE_WAIT_S(기본 30초) 동안 기다리고,
+줄이 다 찼거나 그 시간이 지나면 모델을 부르지 않고 503(server busy)과 Retry-After를 준다. 들어간 모델 호출은
+그만큼의 전용 작업 스레드 자리에서 돌고, 모델 서버 상태 조회도 따로 한 자리를 쓴다(서로 기다리지 않는다).
+모델 서버 호출 하나의 시간 한도는 CALL_SUMMARY_MODEL_TIMEOUT(기본 120초)이다. 요청 본문은 1 MiB까지만
+받는다(넘으면 본문을 읽어 파싱하기 전에 413). /stats의 지연 분포는 최근 CALL_SUMMARY_STATS_WINDOW(기본
+10,000)건으로 낸다.
 
 상태 경로: GET /health는 liveness다. 모델 서버에 닿지 않고 프로세스가 답하는지만 보이며, 모델 이름, 프롬프트
 지문(prompt_hash), 마지막으로 확인한 서빙 모델의 digest와 Ollama 버전(시작 때 한 번 조회하고 /ready가
@@ -46,8 +48,8 @@ CALL_SUMMARY_KEEP_ALIVE(기본 30m)는 요청 뒤 모델을 메모리에 남겨 
 # [엔드포인트] GET /health(liveness: 모델 이름·프롬프트 지문·마지막으로 확인한 모델 digest·Ollama 버전), GET
 # /ready(readiness: 모델 서버 접속·모델 태그·digest 확인), GET /stats(요청 수·지연 분포), GET /domains(업종별
 # 라벨 목록), POST /summarize(본 기능). 상태 경로 넷은 async def다: /health·/stats·/domains는 작업 스레드를
-# 쓰지 않아 모델 호출이 스레드를 모두 차지해도 답하고, /ready는 캐시가 없을 때만 모델 서버 조회 한 번을
-# 스레드로 보낸다.
+# 쓰지 않아 모델 호출이 스레드를 모두 차지해도 답하고, /ready는 캐시가 없을 때만 모델 서버 조회 한 번을 조회
+# 전용 자리의 스레드로 보낸다(모델 호출과 자리를 나누지 않아 그 뒤에 줄을 서지 않는다).
 # [모델 지문·예열] 측정 기록(manifest의 model_fingerprint, evaluate.model_fingerprint)과 같은
 # 함수(providers.ollama_model_digest·ollama_version)로 서빙 중인 모델의 digest를 시작 때와 /ready에서 확인해,
 # 잰 모델과 서빙 모델이 같은 가중치인지 보인다. 선택 예열(CALL_SUMMARY_WARMUP=1)은 시작할 때 뒤에서 모델을 한
@@ -56,7 +58,8 @@ CALL_SUMMARY_KEEP_ALIVE(기본 30m)는 요청 뒤 모델을 메모리에 남겨 
 # 남기지 않는다(개인정보). 발화 글의 줄바꿈류는 공백으로 바꿔 가짜 화자 줄을 막고 그 밖의 제어문자는 거절한다.
 # 모델 없는 오프라인 모드(create_offline_app)는 HawkScan 보안 스캔용이다(docs/experiments.md "보안 스캔
 # 기록").
-# [부하 경계] 모델 호출은 동시 상한(CapacityLimiter)과 짧은 대기열 뒤에서만 돌고 넘치면 503 busy다. Ollama
+# [부하 경계] 모델 호출은 동시 상한(CapacityLimiter)과 짧은 대기열 뒤에서만 돌고 넘치면 503 busy다. 들어간
+# 모델 호출은 상한과 같은 수의 전용 작업 스레드 자리에서 돌아 anyio 기본 작업 스레드 풀을 쓰지 않는다. Ollama
 # 호출의 시간 한도는 서비스용 값(기본 120초)이고, 요청 본문은 1 MiB 상한의 ASGI 미들웨어(BodySizeLimit)가 파싱
 # 전에 자른다. /stats의 지연은 고정 크기 창(deque)으로 모아 메모리가 자라지 않는다.
 # [연결] service_eval.py·loadtest.py가 이 서비스에 요청을 보내 품질과 부하를 재고, Dockerfile·compose.yaml이
@@ -86,9 +89,9 @@ from collections import deque
 from contextlib import asynccontextmanager
 from typing import Literal
 
-# anyio: 입장 제어(CapacityLimiter, move_on_after), 모델 호출 구간과 모델 서버 조회를 스레드로 보내는
-# to_thread.run_sync, /ready 조회를 한 번에 하나만 돌리는 Lock. Starlette의 필수 의존성이라 FastAPI와 함께
-# 설치되고, FastAPI가 일반 def 처리기를 돌리는 스레드 풀도 같은 anyio 것이다.
+# anyio: 입장 제어와 작업 스레드 자리(CapacityLimiter, move_on_after), 모델 호출 구간과 모델 서버 조회를
+# 각자의 자리로 스레드에 보내는 to_thread.run_sync, /ready 조회를 한 번에 하나만 돌리는 Lock. Starlette의 필수
+# 의존성이라 FastAPI와 함께 설치되고, FastAPI가 일반 def 처리기를 돌리는 기본 스레드 풀도 같은 anyio 것이다.
 import anyio
 
 # httpx: 모델 서버의 HTTP 오류(httpx.HTTPStatusError, OllamaProvider의 raise_for_status가 낸다)가 컨텍스트
@@ -143,6 +146,12 @@ MAX_CHARS = 4_000
 # 정상 요청에 닿지 않고, 그보다 큰 본문은 어차피 413(too_long)이나 422가 될 것을 메모리에 다 올리지 않게 하는
 # 것이다.
 MAX_BODY_BYTES = 1 << 20
+# CALL_SUMMARY_MAX_INFLIGHT(모델 호출 구간의 동시 상한)가 받는 가장 큰 값. 들어간 모델 호출은 끝날 때까지 작업
+# 스레드 하나씩을 잡는다(create_app의 model_threads). 40은 anyio 기본 작업 스레드 풀의 크기라, 모델 호출이 그
+# 풀에서 돌던 동안에도 동시에 40개를 넘게 돌 수는 없었다(더 큰 값은 받기만 하고 넘친 요청이 스레드를
+# 기다렸다). Ollama가 요청을 하나씩 처리하므로(README 5단계) 이보다 올려도 처리량은 늘지 않고 스레드와 한
+# 요청의 지연만 늘어, 더 큰 값은 설정 실수로 보고 시작할 때 거절한다.
+MAX_INFLIGHT_LIMIT = 40
 # /ready와 시작 조회가 모델 서버(/api/tags, /api/version)에 보내는 요청 하나의 시간 한도(초). 상태 확인은 빨리
 # 끝나야 하므로 측정 도구의 10초보다 짧다. 시작 조회가 기동을 이 시간의 두 배 넘게 늦추지는 않는다(두 요청).
 READY_TIMEOUT_S = 2.0
@@ -333,18 +342,19 @@ def _retry_provider(p: Provider) -> Provider:
 
 # 환경 변수 하나를 정수 한도로 읽는다. 비어 있거나 없으면 default다(compose의 `${VAR:-}` 꼴이 빈 문자열을
 # 넘기므로 빈 값은 "설정하지 않음"으로 본다. CALL_SUMMARY_NUM_GPU와 같은 처리). 정수가 아니거나(소수 포함)
-# minimum보다 작으면 변수 이름이 든 ValueError로 앱 만들기를 멈춘다: 조용히 기본값으로 돌면 운영자가 정한
-# 한도가 걸렸다고 잘못 믿게 된다.
-def _env_int(name: str, default: int, minimum: int) -> int:
+# minimum보다 작거나 maximum(주었을 때만)보다 크면 변수 이름과 받는 범위가 든 ValueError로 앱 만들기를 멈춘다:
+# 조용히 기본값으로 돌면 운영자가 정한 한도가 걸렸다고 잘못 믿게 된다.
+def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
     raw = os.environ.get(name, "").strip()
     if not raw:
         return default
+    bound = f">= {minimum}" if maximum is None else f"between {minimum} and {maximum}"
     try:
         value = int(raw)
     except ValueError:
-        raise ValueError(f"{name} must be an integer >= {minimum}, got {raw!r}") from None
-    if value < minimum:
-        raise ValueError(f"{name} must be an integer >= {minimum}, got {raw!r}")
+        raise ValueError(f"{name} must be an integer {bound}, got {raw!r}") from None
+    if value < minimum or (maximum is not None and value > maximum):
+        raise ValueError(f"{name} must be an integer {bound}, got {raw!r}")
     return value
 
 
@@ -365,10 +375,10 @@ def _env_float(name: str, default: float, minimum: float, exclusive: bool = Fals
 
 
 # 서비스의 부하 한도. 모두 환경 변수로 바꿀 수 있고 기본값은 아래와 같다(README 서비스 문단).
-# - max_inflight(CALL_SUMMARY_MAX_INFLIGHT, 4): 모델 호출 구간에 동시에 들어가는 요청 수. 기록된 부하 시험의
-#   동시 1·2·4(docs/experiments.md 5단계 부하 시험)가 한도에 걸리지 않게 4다. Ollama는 요청을 하나씩
-#   처리하므로 이 값을 올려도 처리량은 늘지 않고 한 요청의 지연만 는다(기록: 동시 1·2·4에서 처리량이 평평하고
-#   p50이 동시 수에 비례).
+# - max_inflight(CALL_SUMMARY_MAX_INFLIGHT, 4, 1~MAX_INFLIGHT_LIMIT(40)): 모델 호출 구간에 동시에 들어가는
+#   요청 수. 기록된 부하 시험의 동시 1·2·4(docs/experiments.md 5단계 부하 시험)가 한도에 걸리지 않게 4다.
+#   Ollama는 요청을 하나씩 처리하므로 이 값을 올려도 처리량은 늘지 않고 한 요청의 지연만 는다(기록: 동시
+#   1·2·4에서 처리량이 평평하고 p50이 동시 수에 비례). 위쪽 한도의 이유는 MAX_INFLIGHT_LIMIT의 주석.
 # - max_queue(CALL_SUMMARY_MAX_QUEUE, 16): 자리를 기다릴 수 있는 요청 수. 한 건이 약 2.5초라 16건이면 약 40초
 #   안에 차례가 온다.
 # - queue_wait_s(CALL_SUMMARY_QUEUE_WAIT_S, 30초): 자리를 기다리는 시간의 상한. 넘으면 503 busy. 0이면 자리가
@@ -389,7 +399,9 @@ class Limits:
     @classmethod
     def from_env(cls) -> Limits:
         return cls(
-            max_inflight=_env_int("CALL_SUMMARY_MAX_INFLIGHT", cls.max_inflight, minimum=1),
+            max_inflight=_env_int(
+                "CALL_SUMMARY_MAX_INFLIGHT", cls.max_inflight, minimum=1, maximum=MAX_INFLIGHT_LIMIT
+            ),
             max_queue=_env_int("CALL_SUMMARY_MAX_QUEUE", cls.max_queue, minimum=0),
             queue_wait_s=_env_float("CALL_SUMMARY_QUEUE_WAIT_S", cls.queue_wait_s, minimum=0.0),
             model_timeout_s=_env_float(
@@ -633,9 +645,18 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     }
     # 입장 제어의 동시 상한. 처리기가 모델 호출 구간에 들어갈 때 손으로 잡고(acquire) 끝나면 놓는다(release).
     # anyio.to_thread.run_sync의 limiter 인자로 같은 객체를 넘기지 않는다: 같은 태스크가 두 번 잡으려 해
-    # RuntimeError가 난다. 작업 스레드는 anyio의 기본 limiter(40)로 돌리므로 모델 호출이 상한까지 차 있어도
-    # /ready의 모델 서버 조회가 쓸 스레드 자리는 남는다. 상태 경로 자체는 async라 스레드를 쓰지 않는다.
+    # RuntimeError가 난다. 상태 경로 자체는 async라 스레드를 쓰지 않는다.
     limiter = anyio.CapacityLimiter(limits.max_inflight)
+    # 모델 호출 구간을 돌리는 작업 스레드의 자리: limiter와 크기가 같은 다른 객체다. 입장 제어를 지난 요청만
+    # 여기에 오고 호출이 끝나야 limiter를 놓으므로 자리는 늘 남아 기다리는 일이 없다. anyio의 기본
+    # limiter(이벤트 루프마다 토큰 40)를 쓰지 않는 이유: 그 풀은 스레드를 쓰는 다른 일과 함께 쓰므로, 모델
+    # 호출이 자리를 모두 차지하면 다른 일이 모델 호출 뒤에 줄을 서고, 동시 상한이 풀보다 크면 넘친 요청이 입장
+    # 제어 대기열(MAX_QUEUE·QUEUE_WAIT_S)이 아니라 스레드 대기에서 기다리기 때문이다.
+    model_threads = anyio.CapacityLimiter(limits.max_inflight)
+    # 모델 서버 조회(시작 조회와 /ready) 전용 작업 스레드 자리(동시 1. /ready의 조회는 ready_lock 때문에
+    # 어차피 한 번에 하나다). 모델 호출이나 기본 풀을 쓰는 다른 일이 스레드를 모두 차지하고 있어도 조회가 그
+    # 뒤에 줄을 서지 않아, /ready가 조회 한도(READY_TIMEOUT_S, 요청마다) 안에 답한다.
+    probe_threads = anyio.CapacityLimiter(1)
     # /ready의 모델 서버 조회를 한 번에 하나만 돌리는 잠금: 캐시가 만료된 순간 여러 /ready가 겹쳐 와도 모델
     # 서버를 한 번만 묻고 나머지는 그 결과를 쓴다.
     ready_lock = anyio.Lock()
@@ -673,18 +694,18 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             state["warming"] = False
             log.info(json.dumps(line, ensure_ascii=False))
 
-    # 시작·종료 동작. 시작할 때 모델 서버의 지문을 한 번 조회해(작업 스레드, 요청마다 READY_TIMEOUT_S 한도)
-    # /health와 시작 로그 한 줄(event startup: 모델 이름, digest, Ollama 버전, prompt_hash, 기대 digest,
-    # keep_alive, 예열 여부, 부하 한도)에 넣는다. 조회에 실패해도 서비스는 뜬다(두 값은 None). 그 뒤 예열이
-    # 켜져 있으면 스레드를 띄우고 요청을 받기 시작한다. 종료할 때 할 일은 없다. with 없이 쓰는
-    # TestClient에서는 이 함수가 돌지 않는다.
+    # 시작·종료 동작. 시작할 때 모델 서버의 지문을 한 번 조회해(조회 전용 자리의 작업 스레드, 요청마다
+    # READY_TIMEOUT_S 한도) /health와 시작 로그 한 줄(event startup: 모델 이름, digest, Ollama 버전,
+    # prompt_hash, 기대 digest, keep_alive, 예열 여부, 부하 한도)에 넣는다. 조회에 실패해도 서비스는 뜬다(두
+    # 값은 None). 그 뒤 예열이 켜져 있으면 스레드를 띄우고 요청을 받기 시작한다. 종료할 때 할 일은 없다. with
+    # 없이 쓰는 TestClient에서는 이 함수가 돌지 않는다.
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         if ollama is not None:
             # /ready와 같은 조회(probe_model_server: 서버에 닿지 못하면 버전은 묻지 않아 기동이 한도의 두
             # 배까지 늦어지지 않는다). 결과는 /ready의 첫 캐시로도 쓴다.
             probe = await anyio.to_thread.run_sync(
-                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S
+                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S, limiter=probe_threads
             )
             state["ready_probe"] = (time.monotonic(), probe)
             state["fingerprint"] = {"ollama_digest": probe["digest"], "ollama_version": probe["version"]}
@@ -745,10 +766,10 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             "ollama_version": fp["ollama_version"],
         }
 
-    # /ready의 모델 서버 조회(probe_model_server)를 작업 스레드에서 하고 결과를 READY_TTL_S 동안 캐시한다.
-    # 캐시가 살아 있으면 바로 돌려주고, 없거나 오래되면 ready_lock 안에서 다시 확인한 뒤(겹친 요청은 한 번만
-    # 조회) 조회한다. 모델 서버에 닿았으면 /health가 보이는 지문도 갱신한다. 동기 httpx 호출을 이벤트 루프에서
-    # 직접 부르지 않는다(루프가 멈춰 다른 요청까지 기다리게 된다).
+    # /ready의 모델 서버 조회(probe_model_server)를 조회 전용 자리(probe_threads)의 작업 스레드에서 하고
+    # 결과를 READY_TTL_S 동안 캐시한다. 캐시가 살아 있으면 바로 돌려주고, 없거나 오래되면 ready_lock 안에서
+    # 다시 확인한 뒤(겹친 요청은 한 번만 조회) 조회한다. 모델 서버에 닿았으면 /health가 보이는 지문도
+    # 갱신한다. 동기 httpx 호출을 이벤트 루프에서 직접 부르지 않는다(루프가 멈춰 다른 요청까지 기다리게 된다).
     async def ready_probe() -> dict:
         assert ollama is not None
         cached = state["ready_probe"]
@@ -759,7 +780,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             if cached is not None and time.monotonic() - cached[0] < READY_TTL_S:
                 return cached[1]
             probe = await anyio.to_thread.run_sync(
-                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S
+                probe_model_server, ollama.base_url, ollama.model, READY_TIMEOUT_S, limiter=probe_threads
             )
             state["ready_probe"] = (time.monotonic(), probe)
             if probe["reachable"]:
@@ -831,8 +852,8 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     # 남긴다. 본문 형식 검사(빠진 필드, 허용되지 않은 발화자, 발화 글의 제어문자)에서 걸린 422와 본문 상한의
     # 413은 처리기에 닿지 않아 줄이 없다(README 서비스 문단).
     # async def인 이유: 입장 제어의 대기는 이벤트 루프에서 하고(기다리는 요청이 스레드를 잡지 않는다), 모델
-    # 호출처럼 막히는 구간만 anyio.to_thread.run_sync로 작업 스레드에 보낸다. 처리기 안에 동기 I/O를 두면
-    # 이벤트 루프가 멈추므로 모델 호출은 반드시 스레드로 보낸다.
+    # 호출처럼 막히는 구간만 anyio.to_thread.run_sync로 작업 스레드(전용 자리 model_threads)에 보낸다. 처리기
+    # 안에 동기 I/O를 두면 이벤트 루프가 멈추므로 모델 호출은 반드시 스레드로 보낸다.
     @app.post("/summarize", response_model=SummarizeResponse)
     async def summarize(req: SummarizeRequest) -> SummarizeResponse:
         p: Provider = state["provider"]
@@ -1000,7 +1021,7 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             finish("busy", 503)
             raise HTTPException(503, {"error": "server busy"}, headers={"Retry-After": limits.retry_after})
         try:
-            return await anyio.to_thread.run_sync(run_model)
+            return await anyio.to_thread.run_sync(run_model, limiter=model_threads)
         finally:
             limiter.release()
 
