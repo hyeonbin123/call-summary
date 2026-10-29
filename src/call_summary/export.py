@@ -4,6 +4,7 @@
 -> GGUF마다 `ollama create`. Ollama 0.34는 GGUF를 가져올 때 더는 양자화하지 않으므로 양자화 파일은
 llama.cpp 자체 도구(work/llama-bin의 공식 배포 바이너리, 커밋하지 않음)로 만든다.
 llama.cpp 체크아웃은 work/llama.cpp에 있고(커밋하지 않음) 그 커밋은 export.json에 기록한다.
+llama-quantize는 실행 파일의 sha256과 양자화 때 찍는 판 줄을 export.json에 기록한다.
 --out의 합친 가중치와 F16 GGUF는 바탕과 어댑터 가중치가 같을 때만 다시 쓴다(out/source.json).
 export.json에는 evaluate의 manifest가 기록하는 어댑터 해시가 들어간다.
 """
@@ -23,8 +24,10 @@ export.json에는 evaluate의 manifest가 기록하는 어댑터 해시가 들�
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +43,11 @@ from .providers import revision_for
 # bd33a2a).
 LLAMA_CPP = Path("work/llama.cpp")
 LLAMA_QUANTIZE = Path("work/llama-bin/llama-quantize.exe")
+
+# llama-quantize가 양자화를 시작할 때 stderr에 찍는 판 줄의 머리. llama.cpp common의 build-info가
+# "version: 0.5.0-dev (build 11255, commit 31385c9ce)" 꼴로 쓴다(서빙 모델을 만든 2026-09-30 내보내기 로그에
+# 양자화마다 찍혔다). build 번호와 commit이 그 실행 파일이 나온 llama.cpp 릴리스를 가리킨다.
+BUILD_LINE_PREFIX = "version:"
 
 
 # 어댑터 옆의 train_config.json(train.py가 남김)에서 qlora 값을 읽어 4bit 바탕으로 학습한 어댑터인지 판단한다.
@@ -124,6 +132,56 @@ def modelfile(gguf: Path, num_ctx: int) -> str:
     return f"FROM {gguf.resolve()}\nPARAMETER temperature 0\nPARAMETER num_ctx {num_ctx}\n"
 
 
+# llama-quantize로 src(f16 GGUF)를 qtype(Q8_0, Q4_K_M 등)으로 양자화해 dst에 쓴다. 도구의 stderr(텐서별 진행
+# 표시 등)는 한 줄씩 그대로 이 프로세스의 stderr로 흘려보내 실행 중에 보이게 하고, 그 가운데 판 줄의 내용
+# (BUILD_LINE_PREFIX 뒤, 예: "0.5.0-dev (build 11255, commit 31385c9ce)")을 돌려준다. 판 줄이 없으면 None.
+# 판 줄을 여기서 받는 이유: llama-quantize는 `--version`을 모르는 인수로 보고 사용법만 찍고 끝나므로(llama.cpp
+# tools/quantize/quantize.cpp의 인수 처리), 판은 실제로 양자화할 때 찍는 이 줄로만 알 수 있다.
+# stdout은 그대로 콘솔에 두고 stderr만 파이프로 받는다: 둘 다 파이프로 받고 한쪽만 읽으면 다른 쪽이
+# 차서 도구가 멈출 수 있다. 바이트는 UTF-8로 읽고 못 읽는 바이트는 바꿔 보인다(Windows에서 도구가 ANSI
+# 코드 페이지로 찍은 한글 경로는 깨져 보일 수 있으나 보이는 글만 바뀐다).
+# 종료 코드가 0이 아니면 예전의 subprocess.run(check=True)처럼 CalledProcessError를 낸다(도구가 없으면
+# FileNotFoundError).
+def run_quantize(exe: str, src: Path, dst: Path, qtype: str) -> str | None:
+    """llama-quantize를 돌리고, 도구가 stderr에 찍은 판 줄("version: ...")의 내용을 돌려준다."""
+    cmd = [exe, str(src), str(dst), qtype]
+    version = None
+    with subprocess.Popen(cmd, stderr=subprocess.PIPE, encoding="utf-8", errors="replace") as proc:
+        for line in proc.stderr:
+            sys.stderr.write(line)
+            if version is None and line.startswith(BUILD_LINE_PREFIX):
+                version = line[len(BUILD_LINE_PREFIX) :].strip()
+        code = proc.wait()
+    if code:
+        raise subprocess.CalledProcessError(code, cmd)
+    return version
+
+
+# export.json의 llama_quantize 기록을 만든다.
+# - path: --llama-quantize로 받은 그대로
+# - sha256: 그 실행 파일 바이트의 sha256(16진 64자리). 그 경로에 파일이 없으면 subprocess처럼 PATH에서
+#   이름으로 찾고(shutil.which), 그래도 없으면 None
+# - version: 이번 실행의 양자화에서 받은 판 줄의 내용(run_quantize). 양자화를 하지 않았으면 None
+# - quantized: 이번 실행에서 이 도구로 만든 양자화 형태(--quant의 표기 그대로, 예: ["q8_0", "q4_K_M"])
+# quantized가 비어 있으면 양자화 파일은 예전 실행이 만든 것을 다시 쓴 것이다. 그때 sha256은 지금 설정된 도구를
+# 가리킬 뿐 그 파일을 만든 도구라는 보장이 없다.
+# sha256과 판 줄을 함께 남기는 이유: llama.cpp 공식 Windows 배포의 llama-quantize.exe는 양자화 코드가 든
+# llama-quantize-impl.dll을 부르는 작은 실행 파일이라(llama.cpp tools/quantize/CMakeLists.txt) 실행 파일의
+# sha256만으로는 양자화 코드의 판까지 가리키지 못한다. 판 줄은 실제로 양자화를 한 코드가 찍은 것이고, sha256은
+# 받은 배포(릴리스 zip)의 같은 파일과 바이트로 대 볼 수 있다.
+def quantizer_record(exe: str, version: str | None, quantized: list[str]) -> dict:
+    """llama-quantize 실행 파일의 경로·sha256과 이번 실행의 판 줄·양자화 형태를 묶는다."""
+    path = Path(exe)
+    if not path.is_file():
+        found = shutil.which(exe)
+        path = Path(found) if found else None
+    sha256 = None
+    if path is not None:
+        with path.open("rb") as f:
+            sha256 = hashlib.file_digest(f, "sha256").hexdigest()
+    return {"path": exe, "sha256": sha256, "version": version, "quantized": quantized}
+
+
 # 명령줄 진입점. --quant로 만들 양자화 목록을 받고(f16은 늘 만든다), --name 뒤에 ":<양자화>"를 붙여 Ollama
 # 모델로 등록한다(예: call-summary-4b-dq:q8_0).
 # --fp16-base는 예전 방식(QLoRA 어댑터를 원래 fp16 바탕에 합치기)을 비교용으로 다시 만들 때만 쓴다.
@@ -140,7 +198,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", required=True, help="합친 가중치와 GGUF 파일을 둘 작업 폴더")
     ap.add_argument("--quant", nargs="+", default=["q8_0", "q4_K_M"])
     ap.add_argument("--num-ctx", type=int, default=8192)
-    ap.add_argument("--llama-quantize", default=str(LLAMA_QUANTIZE), help="llama.cpp 양자화 도구")
+    ap.add_argument(
+        "--llama-quantize",
+        default=str(LLAMA_QUANTIZE),
+        help="llama.cpp 양자화 도구(llama-quantize) 실행 파일. 경로 또는 PATH의 이름. "
+        "sha256과 양자화 때 찍힌 판 줄이 export.json의 llama_quantize에 남는다",
+    )
     ap.add_argument(
         "--fp16-base",
         action="store_true",
@@ -213,13 +276,18 @@ def main(argv: list[str] | None = None) -> int:
         )
     stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # 합치기와 변환이 끝난 뒤에만 쓴다
     # 양자화마다: GGUF가 없으면 llama-quantize로 f16에서 만들고, Modelfile을 써서 ollama create로 등록한다.
-    # 모델 이름과 파일 크기를 기록한다(README 5단계 표의 파일 크기 4.3 GB, 2.5 GB 등).
+    # 모델 이름과 파일 크기를 기록한다(README 5단계 표의 파일 크기 4.3 GB, 2.5 GB 등). 이번 실행에서 양자화한
+    # 형태와 도구가 찍은 판 줄(처음 받은 것)은 llama_quantize 기록에 쓴다.
     created = {}
     ggufs = {}
+    quantized: list[str] = []
+    quantizer_version = None
     for q in ["f16", *args.quant]:
         gguf = f16 if q == "f16" else out / f"model-{q.lower()}.gguf"
         if not gguf.exists():
-            subprocess.run([args.llama_quantize, str(f16), str(gguf), q.upper()], check=True)
+            version = run_quantize(args.llama_quantize, f16, gguf, q.upper())
+            quantizer_version = quantizer_version or version
+            quantized.append(q)
         name = f"{args.name}:{q.lower()}"
         mf = out / f"Modelfile.{q}"
         mf.write_text(modelfile(gguf, args.num_ctx), encoding="utf-8")
@@ -232,8 +300,9 @@ def main(argv: list[str] | None = None) -> int:
         ["git", "-C", str(LLAMA_CPP), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     ).stdout.strip()
     # export.json: 바탕과 그 revision, 어댑터 경로와 해시, 4bit를 풀어 합쳤는지, 등록한 Ollama 모델 이름, GGUF
-    # 파일과 크기, llama.cpp 커밋. 서빙 측정의 출처 기록이다(revision 키가 없는 export.json은 이 값을 남기기
-    # 전에 만든 것이다).
+    # 파일과 크기, llama.cpp 커밋, llama-quantize의 실행 파일 sha256·판 줄·이번에 양자화한 형태
+    # (quantizer_record). 서빙 측정의 출처 기록이다(revision 키나 llama_quantize 키가 없는 export.json은 그
+    # 값을 남기기 전에 만든 것이다. 서빙 모델을 만든 도구 판은 README "실행"의 내보내기 도구 문단).
     info = {
         "base": args.base,
         "revision": revision,
@@ -243,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         "models": created,
         "gguf": ggufs,
         "llama_cpp": llama_rev,
+        "llama_quantize": quantizer_record(args.llama_quantize, quantizer_version, quantized),
     }
     (out / "export.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     print(json.dumps(info, indent=2))
