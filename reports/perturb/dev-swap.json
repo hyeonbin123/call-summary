@@ -1,0 +1,63 @@
+{
+ "variant": "swap",
+ "version": "pt1",
+ "seed": 0,
+ "control": {
+  "path": "reports/20261101-160741-call-summary-4b-dq_q8_0-pt-control",
+  "run_id": "20261101-160741-call-summary-4b-dq_q8_0-pt-control",
+  "data": "datasets/dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "started": "20261101-160741",
+  "official": true
+ },
+ "run": {
+  "path": "reports/20261101-162425-call-summary-4b-dq_q8_0-pt-swap",
+  "run_id": "20261101-162425-call-summary-4b-dq_q8_0-pt-swap",
+  "data": "datasets/perturb/dev-swap.jsonl",
+  "data_sha": "a0fc4c327b15",
+  "started": "20261101-162425",
+  "official": true
+ },
+ "model": {
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+  "ollama_version": "0.35.1"
+ },
+ "n_items": 240,
+ "changed_items": 131,
+ "exact": {
+  "n": 240,
+  "control": 0.9458333333333333,
+  "run": 0.9375,
+  "diff": [
+   -0.008333333333333304,
+   -0.02083333333333337,
+   0.0
+  ]
+ },
+ "exact_changed": {
+  "n": 131,
+  "control": 0.9236641221374046,
+  "run": 0.9083969465648855,
+  "diff": [
+   -0.01526717557251911,
+   -0.038167938931297773,
+   0.0
+  ]
+ },
+ "swap": {
+  "values": 131,
+  "eligible": 131,
+  "followed": 130,
+  "follow_rate": 0.9923664122137404,
+  "followed_all": 130,
+  "old_in_run": 0,
+  "distractors": 28,
+  "distractor_in_control": 0,
+  "distractor_in_run": 0
+ },
+ "verdict": {
+  "met": true,
+  "sentence": "기준 충족: 대조에서 맞힌 번호 값 131개 중 130개(99.2%, 기준 99% 이상)를 새 값으로 적었고, exact 짝지은 차이 -0.8%p [-2.1, +0.0] (하한 기준 -3%p 초과). 결론: 값을 전사에서 복사한다"
+ }
+}

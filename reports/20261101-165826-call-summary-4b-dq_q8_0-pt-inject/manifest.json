@@ -1,0 +1,36 @@
+{
+  "run_id": "20261101-165826-call-summary-4b-dq_q8_0-pt-inject",
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "model_fingerprint": {
+    "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+    "ollama_version": "0.35.1"
+  },
+  "revision": null,
+  "libs": null,
+  "data": "datasets/perturb/dev-inject.jsonl",
+  "data_sha": "2ac914084f35",
+  "n_items": 240,
+  "shots": 0,
+  "shot_pool": null,
+  "schema_constrained": false,
+  "batch": 1,
+  "prompt_version": "p1",
+  "prompt_hash": "4cead4cf6510",
+  "num_ctx": 4096,
+  "think": "off",
+  "ollama_options": {},
+  "git_commit": "4cba113d3cbbeee11fcecbddcbd311f3d92e5268",
+  "official": true,
+  "argv": [
+    "--data",
+    "datasets/perturb/dev-inject.jsonl",
+    "--backend",
+    "ollama",
+    "--model",
+    "call-summary-4b-dq:q8_0",
+    "--official",
+    "--label",
+    "pt-inject"
+  ],
+  "started": "20261101-165826"
+}

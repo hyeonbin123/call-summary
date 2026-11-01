@@ -1,0 +1,52 @@
+{
+ "variant": "neutral",
+ "version": "pt1",
+ "seed": 0,
+ "control": {
+  "path": "reports/20261101-160741-call-summary-4b-dq_q8_0-pt-control",
+  "run_id": "20261101-160741-call-summary-4b-dq_q8_0-pt-control",
+  "data": "datasets/dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "started": "20261101-160741",
+  "official": true
+ },
+ "run": {
+  "path": "reports/20261101-164118-call-summary-4b-dq_q8_0-pt-neutral",
+  "run_id": "20261101-164118-call-summary-4b-dq_q8_0-pt-neutral",
+  "data": "datasets/perturb/dev-neutral.jsonl",
+  "data_sha": "a1a270206d72",
+  "started": "20261101-164118",
+  "official": true
+ },
+ "model": {
+  "provider": "ollama:call-summary-4b-dq:q8_0",
+  "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+  "ollama_version": "0.35.1"
+ },
+ "n_items": 240,
+ "changed_items": 240,
+ "exact": {
+  "n": 240,
+  "control": 0.9458333333333333,
+  "run": 0.9375,
+  "diff": [
+   -0.008333333333333304,
+   -0.029166666666666674,
+   0.012499999999999956
+  ]
+ },
+ "exact_changed": {
+  "n": 240,
+  "control": 0.9458333333333333,
+  "run": 0.9375,
+  "diff": [
+   -0.008333333333333304,
+   -0.029166666666666674,
+   0.012499999999999956
+  ]
+ },
+ "verdict": {
+  "met": true,
+  "sentence": "기준 충족: exact 짝지은 차이 -0.8%p [-2.9, +1.2] (하한 기준 -3%p 초과). 결론: 값 없는 발화에 흔들리지 않는다"
+ }
+}

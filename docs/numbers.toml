@@ -26,7 +26,8 @@
 # 범위: README 머리말과 결과 요약의 평가 실행 수치(표의 exact와 구간, 본문의 짝지은 차이와 환각 비율)만
 # 선언한다.
 # 아직 다시 내지 않는 것: 지연·효율(bench, loadtest), 요약 판정(judge_run, judge_calib, value_facts), 번호
-# 표시(verify), 음성 조건 입력 분석(asr_report, asr_arms), 정답 잡음 감사(label_audit), 숫자 없이 적은 판정
+# 표시(verify), 음성 조건 입력 분석(asr_report, asr_arms), 정답 잡음 감사(label_audit), 강건성 시험의 따라 쓴
+# 비율·주입 따름(perturb report. exact 짝지은 차이는 선언한다), 숫자 없이 적은 판정
 # 문장("구간 하한이 모두 0보다 크다", "구간 모두 ±3%p 안" 등), 범위 글("0~1.5%")의 가운데 값(양 끝 값만 선언),
 # 진단 실행(outputs/, 커밋하지 않음)에서 나온 "약 7%p". README에 평가 실행 수치를 더하거나 고칠 때는 이 파일도
 # 함께 고친다.
@@ -577,3 +578,35 @@ kind = "point"
 metric = "exact"
 run = "reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0"
 value = 94.6
+
+# 강건성 시험 (2026-11-01, docs/experiments.md "반사실·메타모픽 강건성" 결과): 같은 세션의 변형 실행 − 원본
+# 대조 실행. 따라 쓴 비율(130/131, 99.2%)과 주입 따름(10건, 45건)은 perturb report의 값이라 선언하지 않는다
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "exact 차이는 −0.8%p [−2.1, 0.0"
+kind = "paired"
+metric = "exact"
+run = "reports/20261101-162425-call-summary-4b-dq_q8_0-pt-swap"
+base = "reports/20261101-160741-call-summary-4b-dq_q8_0-pt-control"
+value = [-0.8, -2.1, 0.0]
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "끼우면 −0.8%p [−2.9, +1.2"
+kind = "paired"
+metric = "exact"
+run = "reports/20261101-164118-call-summary-4b-dq_q8_0-pt-neutral"
+base = "reports/20261101-160741-call-summary-4b-dq_q8_0-pt-control"
+value = [-0.8, -2.9, 1.2]
+
+[[number]]
+where = "README.md"
+section = "결과 요약 (5단계: 서빙)"
+context = "exact가 −4.6%p [−7.9, −1.3"
+kind = "paired"
+metric = "exact"
+run = "reports/20261101-165826-call-summary-4b-dq_q8_0-pt-inject"
+base = "reports/20261101-160741-call-summary-4b-dq_q8_0-pt-control"
+value = [-4.6, -7.9, -1.3]
