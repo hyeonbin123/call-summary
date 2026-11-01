@@ -1519,7 +1519,8 @@ def test_warmup_is_off_by_default(monkeypatch, value):
 
 
 # 예열 요청의 keep_alive는 서비스 provider의 값, 곧 CALL_SUMMARY_KEEP_ALIVE다("-1"은 숫자 -1로 보내 계속
-# 상주). 모델 이름은 CALL_SUMMARY_MODEL에서 온다.
+# 상주). 모델 이름은 CALL_SUMMARY_MODEL에서 온다. 환경 변수로 만든 서비스 provider는 truncate·shift를 끄므로
+# (아래 test_service_requests_turn_off_truncate_and_shift) 적재 요청에도 그 두 값이 들어간다.
 def test_warmup_sends_the_configured_keep_alive(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
@@ -1529,7 +1530,23 @@ def test_warmup_sends_the_configured_keep_alive(monkeypatch):
     bodies = _fake_ollama_post(monkeypatch)
     with TestClient(create_app()):
         _poll(lambda: len(bodies) == 1)
-    assert bodies == [{"model": "m:q8_0", "keep_alive": -1}]
+    assert bodies == [{"model": "m:q8_0", "keep_alive": -1, "truncate": False, "shift": False}]
+
+
+# 예열 적재 요청에는 서비스 provider의 truncate·shift를 같은 값으로 넣고, 값이 없는 provider(None)면 넣지
+# 않는다. Ollama 0.35.1은 shift를 끄지 않은 요청이면 실행기(llama.cpp의 llama-server)를 `--context-shift`로,
+# shift: false 요청이면 그 인수 없이 띄운다. 그래서 적재 요청에 필드가 없으면 첫 모델 호출이 실행기를 다시
+# 띄워(load_duration 약 4.8초) 예열이 헛일이 된다(2026-11-01 확인, docs/experiments.md "서비스 컨텍스트 초과
+# 동작 확인" 결과).
+@pytest.mark.parametrize("fields", [{}, {"truncate": False, "shift": False}, {"shift": False}])
+def test_warmup_load_carries_the_provider_context_fields(monkeypatch, fields):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_WARMUP", "1")
+    _fake_ollama_get(monkeypatch, SERVED)
+    bodies = _fake_ollama_post(monkeypatch)
+    with TestClient(create_app(OllamaProvider(model="m:q8_0", **fields))):
+        _poll(lambda: len(bodies) == 1)
+    assert bodies == [{"model": "m:q8_0", "keep_alive": "30m", **fields}]
 
 
 # CALL_SUMMARY_KEEP_ALIVE가 서비스 provider의 keep_alive가 된다: 기본 "30m", 시간 문자열은 그대로, 정수 글은
@@ -1554,6 +1571,35 @@ def test_keep_alive_comes_from_the_environment(monkeypatch):
         assert r.status_code == 502, value
         assert [b["keep_alive"] for b in sent] == [expected, expected], value
         assert all(type(b["keep_alive"]) is type(expected) for b in sent), value
+
+
+# 환경 변수로 만든 서비스 provider는 Ollama 요청의 맨 위(options 밖)에 truncate: false·shift: false를 넣는다.
+# 넘친 프롬프트를 잘라 넣지 않고 오류(→ 413 context_exceeded)로 받고, 생성 중 컨텍스트가 차면 앞부분을
+# 밀어내며 계속 쓰지 않고 멈추게(→ 502 context_full) 하려는 것이다. 등록 관문(docs/experiments.md "서비스
+# 컨텍스트 초과 동작 확인", 2026-11-01 결과 adopt)이 넘치지 않는 dev 40건의 답이 두 필드로 바뀌지 않음을
+# 확인한 뒤 켰다. 재시도 provider(dataclasses.replace)도 같은 두 값을 물려받는다(목록 밖 라벨로 두 번 부르게
+# 함). 두 필드 말고 본문의 맨 위 키는 기본 OllamaProvider와 같다.
+def test_service_requests_turn_off_truncate_and_shift(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("CALL_SUMMARY_MODEL", "m:q8_0")
+    off_list = json.loads(_good())
+    off_list["category"] = "기타"
+    sent: list[dict] = []
+
+    def fake_post(url, **kw):
+        assert url.endswith("/api/chat"), url
+        sent.append(kw["json"])
+        payload = {"message": {"content": json.dumps(off_list, ensure_ascii=False)}}
+        return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    r = TestClient(create_app()).post("/summarize", json={"domain": "shop", "turns": TURNS})
+    assert r.status_code == 502 and len(sent) == 2
+    plain = {"model", "messages", "stream", "keep_alive", "options", "think"}
+    for body in sent:
+        assert (body["truncate"], body["shift"]) == (False, False)
+        assert "truncate" not in body["options"] and "shift" not in body["options"]
+        assert set(body) - {"truncate", "shift"} == plain
 
 
 # 잘못된 모델 설정은 부하 한도처럼 앱을 만들 때 변수 이름과 함께 ValueError로 멈춘다: keep_alive가 Ollama가

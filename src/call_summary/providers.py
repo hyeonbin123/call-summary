@@ -112,8 +112,14 @@ class OllamaProvider:
     # 본문이 바이트까지 같다(tests/test_ctx_probe.py가 키 목록을 고정해 확인). False를 보내면 truncate는 넘친
     # 프롬프트를 잘라 넣지 않고 오류를 돌려주게, shift는 생성 중에 컨텍스트가 차면 앞부분을 밀어내며 계속 쓰지
     # 않고 멈추게 하는 설정이다. Ollama 0.35.1에서 실제로 그렇게 되는지와 서비스 요청에 넣을지는
-    # docs/experiments.md "서비스 컨텍스트 초과 동작 확인"에서 정한다(scripts/ctx_probe.py가 두 값을 보내
-    # 본다). 서비스는 아직 보내지 않는다.
+    # docs/experiments.md "서비스 컨텍스트 초과 동작 확인"에서 정했다(scripts/ctx_probe.py가 두 값을 보내 봄).
+    # 2026-11-01 결과: 0.35.1은 넘친 프롬프트를 옵션과 상관없이 400 오류로 돌려줬고, shift: false면 생성이
+    # 컨텍스트가 찬 자리에서 done_reason "length"로 멈췄다(옵션 없음은 밀어내며 계속 씀). 넘치지 않는 dev
+    # 40건의 답은 두 필드가 있든 없든 글자까지 같아 관문이 adopt였고, 그래서 서비스(service.create_app)는 두
+    # 값을 모두 False로 보낸다. evaluate·bench 등 측정 도구는 기록된 실행과 같은 요청이 되도록 None 그대로다.
+    # 주의: 0.35.1은 shift를 끄지 않은 요청이면 실행기(llama.cpp의 llama-server)를 `--context-shift`로, shift:
+    # false 요청이면 그 인수 없이 띄우므로, 두 꼴의 요청이 같은 모델에 번갈아 오면 바뀔 때마다 실행기를 다시
+    # 띄운다(그 확인에서 바뀐 뒤 첫 요청의 load_duration 4.7~5.2초).
     truncate: bool | None = None
     shift: bool | None = None
 
@@ -263,11 +269,28 @@ def ollama_fingerprint(base_url: str, model: str, timeout_s: float = 10.0) -> di
 # 실패한 HTTP 상태와 연결 오류는 httpx 예외로 올라온다. timeout_s는 디스크에서 가중치를 읽는 시간까지 덮어야
 # 한다(기록: 콜드 적재 19~68초(q4_K_M 19.2초 ~ f16 67.6초). 서빙 q8_0은 적재 40.1초, 첫 요청 52.9초.
 # docs/experiments.md "효율 추가 측정 결과").
-def ollama_load(base_url: str, model: str, keep_alive: str | int, timeout_s: float = 120.0) -> None:
+# truncate·shift: 뒤에 올 모델 호출과 같은 값을 넘긴다(OllamaProvider의 두 필드). None이면 본문에 넣지 않아
+# 이 두 인수를 더하기 전과 본문이 같다. 적재 요청에도 넣는 이유: Ollama 0.35.1은 shift를 끄지 않은 요청이면
+# 실행기를 `--context-shift`로 띄우므로, shift: false로 부를 모델을 필드 없이 올리면 첫 호출이 실행기를 다시
+# 띄운다. 2026-11-01에 모델을 내린 상태에서 적재 하나와 짧은 호출 하나로 확인했다: 적재에 필드가 없고 호출에만
+# 있으면 호출의 load_duration 4.75초(실행기 다시 띄움), 적재에도 넣으면 0.003초(docs/experiments.md "서비스
+# 컨텍스트 초과 동작 확인" 결과).
+def ollama_load(
+    base_url: str,
+    model: str,
+    keep_alive: str | int,
+    timeout_s: float = 120.0,
+    truncate: bool | None = None,
+    shift: bool | None = None,
+) -> None:
     """모델을 메모리에 올린다(프롬프트 없는 /api/generate). 실패하면 httpx 예외."""
     import httpx
 
-    body = {"model": model, "keep_alive": keep_alive}
+    body: dict = {"model": model, "keep_alive": keep_alive}
+    if truncate is not None:
+        body["truncate"] = truncate
+    if shift is not None:
+        body["shift"] = shift
     httpx.post(f"{base_url}/api/generate", json=body, timeout=timeout_s).raise_for_status()
 
 

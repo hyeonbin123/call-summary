@@ -6,9 +6,10 @@
 
 입력 경계: 발화 글 안의 줄바꿈류(파이썬 str.splitlines가 줄 경계로 보는 문자 전부)와 탭은 전사를 조립하기
 전에 공백 하나로 바꾼다. 고객 발화에 줄바꿈과 "상담원: ..."을 넣어 상담원 줄처럼 꾸미지 못하게 하려는
-것이다. 그 밖의 제어문자가 든 발화는 422로 받지 않는다. 컨텍스트: 모델 서버가 컨텍스트 초과 오류를 주면
-413(context exceeded), 답의 프롬프트 + 생성 토큰이 컨텍스트(4,096)를 다 채웠으면 입력이 잘렸을 수 있으므로
-다시 묻지 않고 502(context exhausted)를 준다.
+것이다. 그 밖의 제어문자가 든 발화는 422로 받지 않는다. 컨텍스트: 모델 서버 요청에 truncate: false·shift:
+false를 넣어 넘친 프롬프트를 잘라 넣지 않고 생성 중에 컨텍스트 앞부분을 밀어내지 않게 한다. 모델 서버가
+컨텍스트 초과 오류를 주면 413(context exceeded), 답의 프롬프트 + 생성 토큰이 컨텍스트(4,096)를 다 채웠으면
+답이 끝까지 쓰이지 못했거나 잘린 입력에서 나왔을 수 있으므로 다시 묻지 않고 502(context exhausted)를 준다.
 
 부하 경계: 모델 호출 구간에 동시에 들어가는 요청은 CALL_SUMMARY_MAX_INFLIGHT(기본 4, 1~40)개까지다. 자리가
 없으면 CALL_SUMMARY_MAX_QUEUE(기본 16)개까지만 줄을 서서 CALL_SUMMARY_QUEUE_WAIT_S(기본 30초) 동안 기다리고,
@@ -237,14 +238,16 @@ def normalize_turn_text(text: str) -> str:
 
 # 모델 답 하나가 컨텍스트 조건에 걸렸는지 본다. 입력: Reply와 그 요청의 num_ctx. 출력: (length_stop,
 # context_full).
-# - length_stop: done_reason이 "length"(num_predict에서 멈춤)인지. 모델 서버가 멈춘 이유를 알려 주지 않으면
-#   None.
+# - length_stop: done_reason이 "length"인지(num_predict에서 멈춤. shift: false 요청이면 컨텍스트가 차서
+#   멈춘 것도 이 값이다). 모델 서버가 멈춘 이유를 알려 주지 않으면 None.
 # - context_full: 프롬프트 + 생성 토큰이 num_ctx 이상인지(evaluate.run_checks와 같은 조건). 둘 중 하나라도
 #   모르면 None. context_full이면 넘친 프롬프트가 잘려 들어갔거나(그러면 prompt_eval_count가 num_ctx 가까이
-#   나온다) 생성 중에 컨텍스트를 밀어냈을 수 있어 답을 믿지 않는다. 다만 모델 서버가 넘침을 잘라서 처리하는지
-#   오류로 돌려주는지에 따라 이 검사가 볼 수 있는 범위가 다르다: 오류로 오면 is_context_exceeded가 맡는다.
-#   Ollama 0.35.1이 어느 쪽인지는 docs/experiments.md "서비스 컨텍스트 초과 동작 확인"에서 실제 서버로
-#   확인한다(scripts/ctx_probe.py도 이 함수로 응답을 분류한다).
+#   나온다) 생성 중에 컨텍스트를 밀어냈거나 컨텍스트가 차서 답이 중간에 멈췄을 수 있어 답을 믿지 않는다.
+#   모델 서버가 넘침을 잘라서 처리하는지 오류로 돌려주는지에 따라 이 검사가 볼 수 있는 범위가 다르다: 오류로
+#   오면 is_context_exceeded가 맡는다. 2026-11-01 실제 서버로 확인한 Ollama 0.35.1(docs/experiments.md
+#   "서비스 컨텍스트 초과 동작 확인" 결과): 넘친 프롬프트는 옵션과 상관없이 400 오류였고, 생성 중 넘침은
+#   200으로 와서 이 검사가 잡았다(shift를 끄지 않으면 밀어내며 계속 써 합이 num_ctx를 넘고, shift: false면
+#   합이 num_ctx인 자리에서 "length"로 멈춤). scripts/ctx_probe.py도 이 함수로 응답을 분류한다.
 def context_flags(reply: Reply, num_ctx: int) -> tuple[bool | None, bool | None]:
     length_stop = None if reply.done_reason is None else reply.done_reason == "length"
     if reply.prompt_tokens is None or reply.completion_tokens is None:
@@ -255,8 +258,10 @@ def context_flags(reply: Reply, num_ctx: int) -> tuple[bool | None, bool | None]
 # 모델 서버의 예외가 컨텍스트 초과 오류인지 본다: httpx.HTTPStatusError이고 응답 본문에 "context"와
 # "exceed"(exceeds·exceeded 포함)가 함께 있으면(대소문자 무시) 그렇다고 본다. llama.cpp 서버의 오류 문구
 # 꼴("... exceeds the available context size ...")과 "... exceeds the context length" 같은 꼴을 함께 덮으려고
-# 낱말 둘로 짝을 맞췄다. 실제 Ollama 0.35.1의 응답을 보기 전에 넣은 방어적 짝 맞추기라, docs/experiments.md
-# "서비스 컨텍스트 초과 동작 확인"의 결과에 맞춰 고칠 수 있다. 그 밖의 예외(연결 실패, 시간 초과)와 다른 HTTP
+# 낱말 둘로 짝을 맞췄다. 실제 응답을 보기 전에 넣은 짝 맞추기였고, 2026-11-01 Ollama 0.35.1의 실제 응답(HTTP
+# 400, 본문 안의 llama.cpp 서버 오류 "request (4175 tokens) exceeds the available context size (4096
+# tokens), try increasing it", type exceed_context_size_error)이 여기에 걸려 413이 되는 것을 확인했다
+# (docs/experiments.md "서비스 컨텍스트 초과 동작 확인" 결과). 그 밖의 예외(연결 실패, 시간 초과)와 다른 HTTP
 # 오류는 False다(처리기가 503으로 답한다).
 def is_context_exceeded(exc: BaseException) -> bool:
     if not isinstance(exc, httpx.HTTPStatusError):
@@ -626,6 +631,13 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
         timeout_s=limits.model_timeout_s,
         # 요청 뒤 모델을 메모리에 남겨 둘 시간(ModelSettings.keep_alive의 주석. 기본 30m은 전과 같다).
         keep_alive=settings.keep_alive,
+        # 컨텍스트 넘침 동작(OllamaProvider의 truncate·shift 주석): 넘친 프롬프트를 잘라 넣지 않고 오류로(→
+        # 413), 생성 중 컨텍스트가 차면 밀어내며 계속 쓰지 않고 멈추게(→ 502 context_full) 한다. 등록 관문
+        # (docs/experiments.md "서비스 컨텍스트 초과 동작 확인", 2026-11-01 결과 adopt)이 넘침에서 동작이
+        # 바뀌고 넘치지 않는 dev 40건의 답은 글자까지 같음을 같은 세션에서 확인한 뒤 켰다. 기록된 서비스 경유
+        # 측정은 두 필드 없이 잰 것이다. 재시도 provider와 예열 적재 요청도 같은 두 값을 쓴다.
+        truncate=False,
+        shift=False,
     )
     # 재시도 provider도 앱을 만들 때 한 번만 만든다. 요청은 작업 스레드에서 동시에 돌므로, 요청마다 provider의
     # 설정을 바꾸면 동시에 도는 다른 요청이 바뀐 설정을 쓸 수 있다. 그래서 공유 provider는 절대 바꾸지 않는다.
@@ -668,10 +680,12 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
     # 예열: 프롬프트 없는 /api/generate로 모델을 한 번 올린다(providers.ollama_load). 데몬 스레드에서 돌아
     # 기동을 막지 않고, 실패해도 서비스는 그대로 뜬다(로그 줄 event warmup에 ok false와 예외 종류만 남기고
     # 오류 본문은 남기지 않는다). keep_alive는 provider의 값이라 요청 뒤와 같은 시간만큼 남고, 시간 한도는
-    # 모델 호출 한도(기본 120초)와 같다(디스크에서 가중치를 읽는 시간까지 덮어야 한다). 끝나면 warming을 내려
-    # /ready가 모델 서버를 확인하기 시작한다. anyio 작업 스레드 대신 따로 스레드를 쓴 것은 모델 호출의 스레드
-    # 자리를 쓰지 않고, 종료할 때 적재 요청이 끝나길 기다리지 않게 하려는 것이다(데몬 스레드는 프로세스와 함께
-    # 끝난다).
+    # 모델 호출 한도(기본 120초)와 같다(디스크에서 가중치를 읽는 시간까지 덮어야 한다). truncate·shift도
+    # provider의 값을 적재 요청에 넣는다: Ollama 0.35.1은 shift 설정에 따라 실행기를 다른 인수로 띄우므로,
+    # 필드 없이 올리면 첫 요청이 실행기를 다시 띄워 예열이 헛일이 된다(providers.ollama_load의 주석). 끝나면
+    # warming을 내려 /ready가 모델 서버를 확인하기 시작한다. anyio 작업 스레드 대신 따로 스레드를 쓴 것은 모델
+    # 호출의 스레드 자리를 쓰지 않고, 종료할 때 적재 요청이 끝나길 기다리지 않게 하려는 것이다(데몬 스레드는
+    # 프로세스와 함께 끝난다).
     def warm_up() -> None:
         assert ollama is not None
         t0 = time.perf_counter()
@@ -684,7 +698,14 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
             "error": None,
         }
         try:
-            ollama_load(ollama.base_url, ollama.model, ollama.keep_alive, timeout_s=limits.model_timeout_s)
+            ollama_load(
+                ollama.base_url,
+                ollama.model,
+                ollama.keep_alive,
+                timeout_s=limits.model_timeout_s,
+                truncate=ollama.truncate,
+                shift=ollama.shift,
+            )
             line["ok"] = True
         except Exception as exc:  # noqa: BLE001 - 예열 실패는 기동을 막지 않는다. 오류 본문은 남기지 않는다
             line["ok"] = False
@@ -954,7 +975,8 @@ def create_app(provider: Provider | None = None, expose_openapi: bool | None = N
                 completion_tokens.append(reply.completion_tokens)
                 # 컨텍스트 검사(context_flags의 주석). 기준 num_ctx는 provider의 값(OllamaProvider)이고, 없는
                 # provider(테스트·오프라인 모드)는 서비스의 NUM_CTX다. 답이 컨텍스트를 다 채웠으면 형식·라벨
-                # 검사를 통과하더라도 잘린 입력에서 나온 답일 수 있어 내보내지 않는다. 같은 입력을 다시 물어도
+                # 검사를 통과하더라도 끝까지 쓰이지 못했거나(서비스 provider는 shift를 꺼 컨텍스트가 찬
+                # 자리에서 멈춘다) 잘린 입력에서 나온 답일 수 있어 내보내지 않는다. 같은 입력을 다시 물어도
                 # 같은 길이라 재시도하지 않고 502로 끝낸다. num_predict에서 멈춘 답(length_stop)은 표시만
                 # 한다: 대개 JSON이 잘려 아래 형식 검사에서 걸린다.
                 length_stop, context_full = context_flags(reply, getattr(gen, "num_ctx", None) or NUM_CTX)
