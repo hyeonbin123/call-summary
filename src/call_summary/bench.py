@@ -4,7 +4,11 @@
         --out reports/s5c-bench-q8_0.json --reference reports/<같은 모델의 앞선 evaluate 실행>
 
 실행기는 서비스의 것과 같다(num_ctx 4096, num_gpu는 Ollama에 맡김, temperature 0, seed 0, 스키마 없음,
-프롬프트 p1, 0-shot). 요청마다 클라이언트 왕복 시간과 Ollama의 계수를 남긴다. 생성 tok/s는
+프롬프트 p1, 0-shot). 다만 서비스가 2026-11-01부터 더 보내는 truncate: false·shift: false는 넣지 않는다:
+기록된 효율 측정과 같은 요청을 두려는 것이다. Ollama 0.35.1은 shift 설정에 따라 실행기(llama-server)를 다른
+인수로 띄우므로 이 측정의 실행기는 지금 서비스의 것과 그 인수가 다르다(넘치지 않는 dev 답은 두 필드가 있든
+없든 글자까지 같았다. 두 꼴의 속도를 견준 적은 없다. docs/experiments.md "서비스 컨텍스트 초과 동작 확인"
+결과). 요청마다 클라이언트 왕복 시간과 Ollama의 계수를 남긴다. 생성 tok/s는
 eval_count / eval_duration이다. 먼저 모델을 내리고, nvidia-smi(memory.used, utilization.gpu)와 시스템
 CPU를 적재 전(기준값)과 실행 중 0.5초마다(최대값) 표본으로 잰다. 모델이 올라가면 /api/ps가 모델의 size와
 size_vram을, Ollama 서버 로그가 층 배치와 GPU 버퍼 크기를 알려 준다. --reference는 모든 답을 같은 모델의
@@ -353,8 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     log_offset = log_path.stat().st_size if log_path and log_path.exists() else 0
 
     # 서비스와 같은 실행기 설정: num_ctx 4,096, num_gpu는 Ollama가 정함, temperature 0, seed 0, 스키마 강제
-    # 없음(use_schema 기본값 False라 아래에서 넘기는 schema는 쓰이지 않는다).
-    provider = OllamaProvider(model=args.model, base_url=args.ollama, num_ctx=NUM_CTX)  # 서비스와 같다
+    # 없음(use_schema 기본값 False라 아래에서 넘기는 schema는 쓰이지 않는다). 서비스가 2026-11-01부터 더
+    # 보내는 truncate·shift는 기록된 측정과 같은 요청을 두려고 넣지 않는다(모듈 설명).
+    provider = OllamaProvider(model=args.model, base_url=args.ollama, num_ctx=NUM_CTX)
     schema = record_json_schema()
     rows: list[dict] = []
     ps: dict | None = None
