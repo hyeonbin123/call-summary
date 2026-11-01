@@ -1,0 +1,1518 @@
+{
+ "probe": "ctx_probe",
+ "rule": "docs/experiments.md 서비스 컨텍스트 초과 동작 확인 (2026-10-24 규칙)",
+ "model": "call-summary-4b-dq:q8_0",
+ "fingerprint": {
+  "ollama_digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+  "ollama_version": "0.35.1"
+ },
+ "git_commit": "2a821e1d3b30709db48a71367d8650197eaa7af5",
+ "git_dirty": false,
+ "prompt_version": "p1",
+ "prompt_hash": "4cead4cf6510",
+ "request": {
+  "num_ctx": 4096,
+  "num_predict": 1024,
+  "temperature": 0.0,
+  "seed": 0,
+  "think": false,
+  "schema": false,
+  "keep_alive": "30m"
+ },
+ "variants": {
+  "default": {},
+  "no_truncate_no_shift": {
+   "truncate": false,
+   "shift": false
+  }
+ },
+ "started": "2026-11-01T15:44:41+09:00",
+ "finished": "2026-11-01T15:51:32+09:00",
+ "run_s": 411.4,
+ "api_ps_before": {
+  "models": []
+ },
+ "api_ps_loaded": {
+  "models": [
+   {
+    "name": "call-summary-4b-dq:q8_0",
+    "model": "call-summary-4b-dq:q8_0",
+    "size": 4961274428,
+    "digest": "52a2d2f652612d64736f136a48de27df1dd9ce1ae3c5993a5f34cab49f81b3e3",
+    "details": {
+     "parent_model": "",
+     "format": "gguf",
+     "family": "qwen3",
+     "families": [
+      "qwen3"
+     ],
+     "parameter_size": "4.0B",
+     "quantization_level": "Q8_0"
+    },
+    "expires_at": "2026-11-01T16:15:16.9636182+09:00",
+    "size_vram": 4961274428,
+    "context_length": 4096
+   }
+  ]
+ },
+ "api_ps_after": {
+  "models": []
+ },
+ "warmup": {
+  "domain": "card",
+  "default": {
+   "status": 200,
+   "error": null,
+   "text": "{\"category\": \"청구 금액 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"지난달\"}], \"actions_taken\": [\"결제 내역 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 지난달의 결제 내역을 확인하고자 했습니다. 상담원은 고객의 요청을 확인하고 필요한 정보를 제공하였습니다.\"}",
+   "prompt_eval_count": 578,
+   "eval_count": 103,
+   "done_reason": "stop",
+   "load_duration_ns": 33314333700,
+   "wall_s": 35.795,
+   "length_stop": false,
+   "context_full": false,
+   "service": "ok",
+   "problems": []
+  },
+  "no_truncate_no_shift": {
+   "status": 200,
+   "error": null,
+   "text": "{\"category\": \"청구 금액 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"지난달\"}], \"actions_taken\": [\"결제 내역 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 지난달의 결제 내역을 확인하고자 했습니다. 상담원은 고객의 요청을 확인하고 필요한 정보를 제공하였습니다.\"}",
+   "prompt_eval_count": 578,
+   "eval_count": 103,
+   "done_reason": "stop",
+   "load_duration_ns": 5243589100,
+   "wall_s": 7.648,
+   "length_stop": false,
+   "context_full": false,
+   "service": "ok",
+   "problems": []
+  }
+ },
+ "dev": {
+  "data": "datasets/dev.jsonl",
+  "data_sha": "cb64eb0a5431",
+  "n": 40,
+  "per_domain": {
+   "parcel": 13,
+   "shop": 13,
+   "telecom": 14
+  },
+  "identical": 40,
+  "rows": [
+   {
+    "item_id": "dev-parcel-00000",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5892-6890-2287\"}, {\"type\": \"날짜\", \"value\": \"11월 29일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 5892-6890-2287의 배송 위치를 문의하였고, 상담원은 해당 번호로 배송 위치를 확인하여 11월 29일 도착 예정임을 알려주었습니다. 고객은 11월 29일 도착 예정이 지연된 것 같아 추가 정보를 요청하였으나, 상담원은 현재까지 확인된 정보만 제공하였습니다.\"}",
+     "prompt_eval_count": 886,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 4703100,
+     "wall_s": 4.284,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5892-6890-2287\"}, {\"type\": \"날짜\", \"value\": \"11월 29일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 5892-6890-2287의 배송 위치를 문의하였고, 상담원은 해당 번호로 배송 위치를 확인하여 11월 29일 도착 예정임을 알려주었습니다. 고객은 11월 29일 도착 예정이 지연된 것 같아 추가 정보를 요청하였으나, 상담원은 현재까지 확인된 정보만 제공하였습니다.\"}",
+     "prompt_eval_count": 886,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 3370200,
+     "wall_s": 4.445,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00002",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"파손 신고\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6291-7877-5168\"}, {\"type\": \"물품명\", \"value\": \"노트북\"}, {\"type\": \"금액\", \"value\": \"595,000원\"}], \"actions_taken\": [\"본인 확인\", \"파손 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\", \"서류 제출 대기\"]}, \"summary\": \"고객은 운송장번호 6291-7877-5168로 받은 노트북이 파손되었다고 신고하였다. 상담원은 노트북의 가격이 595,000원이며, 파손 상황을 확인하기 위해 사진과 영수증을 요청하였다. 고객은 E-mail 주소나 택배 고객센터의 메시지 서비스를 통해 정보를 보내겠다고 답하였다. 상담원은 파손 상황을 확인한 후 다시 연락하겠다고 약속하였다.\"}",
+     "prompt_eval_count": 931,
+     "eval_count": 258,
+     "done_reason": "stop",
+     "load_duration_ns": 3139400,
+     "wall_s": 5.215,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"파손 신고\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6291-7877-5168\"}, {\"type\": \"물품명\", \"value\": \"노트북\"}, {\"type\": \"금액\", \"value\": \"595,000원\"}], \"actions_taken\": [\"본인 확인\", \"파손 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\", \"서류 제출 대기\"]}, \"summary\": \"고객은 운송장번호 6291-7877-5168로 받은 노트북이 파손되었다고 신고하였다. 상담원은 노트북의 가격이 595,000원이며, 파손 상황을 확인하기 위해 사진과 영수증을 요청하였다. 고객은 E-mail 주소나 택배 고객센터의 메시지 서비스를 통해 정보를 보내겠다고 답하였다. 상담원은 파손 상황을 확인한 후 다시 연락하겠다고 약속하였다.\"}",
+     "prompt_eval_count": 931,
+     "eval_count": 258,
+     "done_reason": "stop",
+     "load_duration_ns": 3806200,
+     "wall_s": 5.109,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00003",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실 신고\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5869-2405-6078\"}, {\"type\": \"물품명\", \"value\": \"화분\"}], \"actions_taken\": [\"본인 확인\", \"분실 접수\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\"]}, \"summary\": \"고객 김민지 고객님은 운송장 번호 5869-2405-6078로 등록된 화분을 받지 못했다고 신고하셨다. 상담원은 해당 번호로 분실 신고 접수를 진행하고 사고 처리 부서로 이관 예정임을 안내하였다. 또한 고객님은 편의점에서 택배를 접수할 수 있는지 문의하였고, 상담원은 가능하다고 답변하였다.\"}",
+     "prompt_eval_count": 914,
+     "eval_count": 224,
+     "done_reason": "stop",
+     "load_duration_ns": 4132200,
+     "wall_s": 4.541,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실 신고\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5869-2405-6078\"}, {\"type\": \"물품명\", \"value\": \"화분\"}], \"actions_taken\": [\"본인 확인\", \"분실 접수\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\"]}, \"summary\": \"고객 김민지 고객님은 운송장 번호 5869-2405-6078로 등록된 화분을 받지 못했다고 신고하셨다. 상담원은 해당 번호로 분실 신고 접수를 진행하고 사고 처리 부서로 이관 예정임을 안내하였다. 또한 고객님은 편의점에서 택배를 접수할 수 있는지 문의하였고, 상담원은 가능하다고 답변하였다.\"}",
+     "prompt_eval_count": 914,
+     "eval_count": 224,
+     "done_reason": "stop",
+     "load_duration_ns": 3719100,
+     "wall_s": 4.394,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00005",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 일정 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6377-3207-4350\"}, {\"type\": \"날짜\", \"value\": \"10월 16일\"}], \"actions_taken\": [\"배송 일정 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 6377-3207-4350로 택배를 받으려고 했으며, 상담원은 고객의 요청에 따라 10월 16일에 택배가 도착되도록 배송일을 조정해주었습니다. 고객은 이를 확인하고 감사의 인사를 전했습니다.\"}",
+     "prompt_eval_count": 930,
+     "eval_count": 183,
+     "done_reason": "stop",
+     "load_duration_ns": 3751400,
+     "wall_s": 3.942,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 일정 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6377-3207-4350\"}, {\"type\": \"날짜\", \"value\": \"10월 16일\"}], \"actions_taken\": [\"배송 일정 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 6377-3207-4350로 택배를 받으려고 했으며, 상담원은 고객의 요청에 따라 10월 16일에 택배가 도착되도록 배송일을 조정해주었습니다. 고객은 이를 확인하고 감사의 인사를 전했습니다.\"}",
+     "prompt_eval_count": 930,
+     "eval_count": 183,
+     "done_reason": "stop",
+     "load_duration_ns": 3201700,
+     "wall_s": 4.1,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00006",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"택배 보내기 예약\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"물품명\", \"value\": \"김치 10kg\"}, {\"type\": \"날짜\", \"value\": \"11월 26일\"}, {\"type\": \"금액\", \"value\": \"2만 9,500원\"}], \"actions_taken\": [\"방문 접수 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 김치 10kg을 강남구 역삼동에서 제주도로 보내려고 방문 접수를 요청했습니다. 상담원은 11월 26일 방문 접수를 예약해주었으나, 고객은 요금이 2만 9,500원으로 비싸다고 불만을 제기했습니다. 상담원은 요금이 무게와 크기에 따라 정해졌음을 설명했고, 고객은 그날까지 기다릴 것을 확인했습니다.\"}",
+     "prompt_eval_count": 1178,
+     "eval_count": 231,
+     "done_reason": "stop",
+     "load_duration_ns": 3858500,
+     "wall_s": 4.734,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"택배 보내기 예약\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"물품명\", \"value\": \"김치 10kg\"}, {\"type\": \"날짜\", \"value\": \"11월 26일\"}, {\"type\": \"금액\", \"value\": \"2만 9,500원\"}], \"actions_taken\": [\"방문 접수 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 김치 10kg을 강남구 역삼동에서 제주도로 보내려고 방문 접수를 요청했습니다. 상담원은 11월 26일 방문 접수를 예약해주었으나, 고객은 요금이 2만 9,500원으로 비싸다고 불만을 제기했습니다. 상담원은 요금이 무게와 크기에 따라 정해졌음을 설명했고, 고객은 그날까지 기다릴 것을 확인했습니다.\"}",
+     "prompt_eval_count": 1178,
+     "eval_count": 231,
+     "done_reason": "stop",
+     "load_duration_ns": 4211800,
+     "wall_s": 4.954,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00007",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"오배송\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6759-9785-4536\"}, {\"type\": \"물품명\", \"value\": \"도자기 그릇 세트\"}], \"actions_taken\": [\"오배송 접수\", \"회수 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 운송장 번호 6759-9785-4536로 잘못 도착한 도자기 그릇 세트를 받았다고 문의했습니다. 상담원은 오배송이 접수되어 잘못된 도자기 그릇 세트를 회수하고 고객이 주문한 물건을 다시 보내드리기로 했습니다. 고객은 잘못된 도자기 세트를 보관하고 택배기사의 방문을 기다리게 되었습니다.\"}",
+     "prompt_eval_count": 899,
+     "eval_count": 222,
+     "done_reason": "stop",
+     "load_duration_ns": 3685300,
+     "wall_s": 4.696,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"오배송\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6759-9785-4536\"}, {\"type\": \"물품명\", \"value\": \"도자기 그릇 세트\"}], \"actions_taken\": [\"오배송 접수\", \"회수 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 운송장 번호 6759-9785-4536로 잘못 도착한 도자기 그릇 세트를 받았다고 문의했습니다. 상담원은 오배송이 접수되어 잘못된 도자기 그릇 세트를 회수하고 고객이 주문한 물건을 다시 보내드리기로 했습니다. 고객은 잘못된 도자기 세트를 보관하고 택배기사의 방문을 기다리게 되었습니다.\"}",
+     "prompt_eval_count": 899,
+     "eval_count": 222,
+     "done_reason": "stop",
+     "load_duration_ns": 4278300,
+     "wall_s": 4.723,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00008",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6387-6945-9291\"}, {\"type\": \"날짜\", \"value\": \"10월 25일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 6387-6945-9291의 배송 위치를 확인하고자 했다. 상담원은 해당 택배가 10월 25일에 배송될 예정임을 확인해 주었다. 고객은 그날까지 기다릴 것을 확인하고 감사의 인사를 전했다.\"}",
+     "prompt_eval_count": 820,
+     "eval_count": 178,
+     "done_reason": "stop",
+     "load_duration_ns": 3164300,
+     "wall_s": 3.505,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6387-6945-9291\"}, {\"type\": \"날짜\", \"value\": \"10월 25일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장번호 6387-6945-9291의 배송 위치를 확인하고자 했다. 상담원은 해당 택배가 10월 25일에 배송될 예정임을 확인해 주었다. 고객은 그날까지 기다릴 것을 확인하고 감사의 인사를 전했다.\"}",
+     "prompt_eval_count": 820,
+     "eval_count": 178,
+     "done_reason": "stop",
+     "load_duration_ns": 4242100,
+     "wall_s": 3.647,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00009",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 지연\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5101-2893-4846\"}, {\"type\": \"날짜\", \"value\": \"10월 20일\"}, {\"type\": \"시간\", \"value\": \"오후 1시\"}], \"actions_taken\": [\"배송 조회\", \"지점 확인 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 운송장 번호 5101-2893-4846의 택배가 10월 20일 도착 예정이었으나 아직 도착하지 않았다고 문의하였습니다. 상담원은 해당 택배의 현재 상태를 확인한 결과 지역 지점에 확인을 요청하였으며, 오후 1시경에 다시 연락하여 확인 결과를 알려주기로 하였습니다.\"}",
+     "prompt_eval_count": 1036,
+     "eval_count": 226,
+     "done_reason": "stop",
+     "load_duration_ns": 2600700,
+     "wall_s": 4.256,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 지연\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5101-2893-4846\"}, {\"type\": \"날짜\", \"value\": \"10월 20일\"}, {\"type\": \"시간\", \"value\": \"오후 1시\"}], \"actions_taken\": [\"배송 조회\", \"지점 확인 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 운송장 번호 5101-2893-4846의 택배가 10월 20일 도착 예정이었으나 아직 도착하지 않았다고 문의하였습니다. 상담원은 해당 택배의 현재 상태를 확인한 결과 지역 지점에 확인을 요청하였으며, 오후 1시경에 다시 연락하여 확인 결과를 알려주기로 하였습니다.\"}",
+     "prompt_eval_count": 1036,
+     "eval_count": 226,
+     "done_reason": "stop",
+     "load_duration_ns": 2605500,
+     "wall_s": 4.608,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00010",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"파손 신고\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5119-6673-5043\"}, {\"type\": \"물품명\", \"value\": \"전자레인지\"}, {\"type\": \"금액\", \"value\": \"314,000원\"}], \"actions_taken\": [\"본인 확인\", \"파손 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\", \"서류 제출 대기\"]}, \"summary\": \"고객 김철수는 운송장 번호 5119-6673-5043의 전자레인지가 파손되었다고 신고하였습니다. 상담원은 파손 접수를 진행하고, 고객에게 전자레인지 구매 영수증과 파손 사진을 보내달라고 요청하였습니다. 또한, 고객이 물품을 일요일에 배송받을 수 있는지 문의하였으나, 일요일 배송은 불가능하다고 안내하였습니다.\"}",
+     "prompt_eval_count": 926,
+     "eval_count": 246,
+     "done_reason": "stop",
+     "load_duration_ns": 3152100,
+     "wall_s": 4.567,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"파손 신고\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5119-6673-5043\"}, {\"type\": \"물품명\", \"value\": \"전자레인지\"}, {\"type\": \"금액\", \"value\": \"314,000원\"}], \"actions_taken\": [\"본인 확인\", \"파손 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\", \"서류 제출 대기\"]}, \"summary\": \"고객 김철수는 운송장 번호 5119-6673-5043의 전자레인지가 파손되었다고 신고하였습니다. 상담원은 파손 접수를 진행하고, 고객에게 전자레인지 구매 영수증과 파손 사진을 보내달라고 요청하였습니다. 또한, 고객이 물품을 일요일에 배송받을 수 있는지 문의하였으나, 일요일 배송은 불가능하다고 안내하였습니다.\"}",
+     "prompt_eval_count": 926,
+     "eval_count": 246,
+     "done_reason": "stop",
+     "load_duration_ns": 3854300,
+     "wall_s": 5.071,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00011",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실 신고\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5002-2108-3504\"}, {\"type\": \"물품명\", \"value\": \"화분\"}], \"actions_taken\": [\"본인 확인\", \"분실 접수\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\"]}, \"summary\": \"홍길동 고객님의 화분 배송 문제로 운송장 번호 5002-2108-3504를 확인한 결과, 화분이 배송 완료로 표시되어 있었으나 실제로 도착하지 않은 상황이 발생했습니다. 상담원은 분실 사고로 접수하고 해당 부서로 이관하여 빠른 처리를 약속했습니다. 고객님은 처리 결과를 기다리고 있었습니다.\"}",
+     "prompt_eval_count": 1039,
+     "eval_count": 218,
+     "done_reason": "stop",
+     "load_duration_ns": 3143200,
+     "wall_s": 4.209,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실 신고\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"5002-2108-3504\"}, {\"type\": \"물품명\", \"value\": \"화분\"}], \"actions_taken\": [\"본인 확인\", \"분실 접수\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"보상 검토\"]}, \"summary\": \"홍길동 고객님의 화분 배송 문제로 운송장 번호 5002-2108-3504를 확인한 결과, 화분이 배송 완료로 표시되어 있었으나 실제로 도착하지 않은 상황이 발생했습니다. 상담원은 분실 사고로 접수하고 해당 부서로 이관하여 빠른 처리를 약속했습니다. 고객님은 처리 결과를 기다리고 있었습니다.\"}",
+     "prompt_eval_count": 1039,
+     "eval_count": 218,
+     "done_reason": "stop",
+     "load_duration_ns": 3750900,
+     "wall_s": 4.646,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00012",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 수거 요청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6546-1403-2813\"}, {\"type\": \"날짜\", \"value\": \"10월 10일\"}], \"actions_taken\": [\"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 운송장번호 6546-1403-2813으로 잘못 배달된 제품을 반품하고자 수거를 예약하고자 했다. 상담원은 10월 10일 오전에 방문 예약을 완료했다. 고객은 예약이 잘 이루어졌음을 확인하고 감사의 인사를 전했다.\"}",
+     "prompt_eval_count": 868,
+     "eval_count": 190,
+     "done_reason": "stop",
+     "load_duration_ns": 4219300,
+     "wall_s": 3.903,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 수거 요청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6546-1403-2813\"}, {\"type\": \"날짜\", \"value\": \"10월 10일\"}], \"actions_taken\": [\"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 운송장번호 6546-1403-2813으로 잘못 배달된 제품을 반품하고자 수거를 예약하고자 했다. 상담원은 10월 10일 오전에 방문 예약을 완료했다. 고객은 예약이 잘 이루어졌음을 확인하고 감사의 인사를 전했다.\"}",
+     "prompt_eval_count": 868,
+     "eval_count": 190,
+     "done_reason": "stop",
+     "load_duration_ns": 3792800,
+     "wall_s": 3.959,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00013",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 일정 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6073-5264-4528\"}, {\"type\": \"날짜\", \"value\": \"11월 18일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장 번호 6073-5264-4528의 택배가 11월 18일 도착해야 한다고 요청하였으나, 이미 출발한 택배의 일정 변경이 불가능하다는 사실을 확인하였다. 상담원은 11월 18일 도착 예정이며, 지연 시 별도 연락을 드릴 것을 약속하였다. 고객은 18일까지 기다릴 것을 확인하였다.\"}",
+     "prompt_eval_count": 1003,
+     "eval_count": 216,
+     "done_reason": "stop",
+     "load_duration_ns": 3308000,
+     "wall_s": 4.569,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 일정 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"6073-5264-4528\"}, {\"type\": \"날짜\", \"value\": \"11월 18일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 운송장 번호 6073-5264-4528의 택배가 11월 18일 도착해야 한다고 요청하였으나, 이미 출발한 택배의 일정 변경이 불가능하다는 사실을 확인하였다. 상담원은 11월 18일 도착 예정이며, 지연 시 별도 연락을 드릴 것을 약속하였다. 고객은 18일까지 기다릴 것을 확인하였다.\"}",
+     "prompt_eval_count": 1003,
+     "eval_count": 216,
+     "done_reason": "stop",
+     "load_duration_ns": 3304600,
+     "wall_s": 4.523,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-parcel-00014",
+    "domain": "parcel",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"택배 보내기 예약\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"물품명\", \"value\": \"책 상자\"}, {\"type\": \"날짜\", \"value\": \"9월 20일\"}, {\"type\": \"금액\", \"value\": \"3,000원\"}], \"actions_taken\": [\"방문 접수 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 9월 20일에 책 상자를 보내기 위해 방문 접수를 원했으며, 상담원은 이를 예약해 주고 요금이 3,000원이라고 안내했습니다. 고객은 예약된 날짜와 요금을 확인하고 감사의 인사를 전했습니다.\"}",
+     "prompt_eval_count": 864,
+     "eval_count": 183,
+     "done_reason": "stop",
+     "load_duration_ns": 3655000,
+     "wall_s": 3.92,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"택배 보내기 예약\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"물품명\", \"value\": \"책 상자\"}, {\"type\": \"날짜\", \"value\": \"9월 20일\"}, {\"type\": \"금액\", \"value\": \"3,000원\"}], \"actions_taken\": [\"방문 접수 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객은 9월 20일에 책 상자를 보내기 위해 방문 접수를 원했으며, 상담원은 이를 예약해 주고 요금이 3,000원이라고 안내했습니다. 고객은 예약된 날짜와 요금을 확인하고 감사의 인사를 전했습니다.\"}",
+     "prompt_eval_count": 864,
+     "eval_count": 183,
+     "done_reason": "stop",
+     "load_duration_ns": 3735400,
+     "wall_s": 3.909,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00000",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D4477818\"}, {\"type\": \"상품명\", \"value\": \"전기 그릴 팬\"}, {\"type\": \"날짜\", \"value\": \"10월 14일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문번호 D4477818로 주문한 전기 그릴 팬의 배송 상황을 문의하였습니다. 상담원은 10월 14일 도착 예정임을 확인하고, 배송 지연에 대해 사과하였습니다. 고객은 추가 질문이 없음을 전달하였습니다.\"}",
+     "prompt_eval_count": 964,
+     "eval_count": 184,
+     "done_reason": "stop",
+     "load_duration_ns": 3659200,
+     "wall_s": 4.129,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D4477818\"}, {\"type\": \"상품명\", \"value\": \"전기 그릴 팬\"}, {\"type\": \"날짜\", \"value\": \"10월 14일\"}], \"actions_taken\": [\"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문번호 D4477818로 주문한 전기 그릴 팬의 배송 상황을 문의하였습니다. 상담원은 10월 14일 도착 예정임을 확인하고, 배송 지연에 대해 사과하였습니다. 고객은 추가 질문이 없음을 전달하였습니다.\"}",
+     "prompt_eval_count": 964,
+     "eval_count": 184,
+     "done_reason": "stop",
+     "load_duration_ns": 4715700,
+     "wall_s": 4.103,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00001",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D4377805\"}, {\"type\": \"상품명\", \"value\": \"남성 방수 등산화 270\"}], \"actions_taken\": [\"본인 확인\", \"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객 김철수 고객이 주문 번호 D4377805로 주문한 남성 방수 등산화 270의 출고 상황을 문의하였으나, 이미 출고가 완료되어 취소가 불가능하다는 사실을 확인하였다. 고객은 상품을 받아보신 후 반품이 가능하다는 안내를 받았다.\"}",
+     "prompt_eval_count": 1170,
+     "eval_count": 189,
+     "done_reason": "stop",
+     "load_duration_ns": 3636400,
+     "wall_s": 4.202,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D4377805\"}, {\"type\": \"상품명\", \"value\": \"남성 방수 등산화 270\"}], \"actions_taken\": [\"본인 확인\", \"배송 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객 김철수 고객이 주문 번호 D4377805로 주문한 남성 방수 등산화 270의 출고 상황을 문의하였으나, 이미 출고가 완료되어 취소가 불가능하다는 사실을 확인하였다. 고객은 상품을 받아보신 후 반품이 가능하다는 안내를 받았다.\"}",
+     "prompt_eval_count": 1170,
+     "eval_count": 189,
+     "done_reason": "stop",
+     "load_duration_ns": 4207500,
+     "wall_s": 4.168,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00002",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"미해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3744430\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}], \"actions_taken\": [\"본인 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문번호 D3744430로 주문한 원목 모니터 받침대를 반품하고자 했으나, 반품 기한이 지나 반품이 불가능하다는 안내를 받았다. 고객은 교환도 불가능하다는 점에 불만을 표시했으며, 상담원은 회사 정책에 따라 반품이 불가능하다는 점을 설명했다.\"}",
+     "prompt_eval_count": 1066,
+     "eval_count": 195,
+     "done_reason": "stop",
+     "load_duration_ns": 4485000,
+     "wall_s": 3.989,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"미해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3744430\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}], \"actions_taken\": [\"본인 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문번호 D3744430로 주문한 원목 모니터 받침대를 반품하고자 했으나, 반품 기한이 지나 반품이 불가능하다는 안내를 받았다. 고객은 교환도 불가능하다는 점에 불만을 표시했으며, 상담원은 회사 정책에 따라 반품이 불가능하다는 점을 설명했다.\"}",
+     "prompt_eval_count": 1066,
+     "eval_count": 195,
+     "done_reason": "stop",
+     "load_duration_ns": 3732800,
+     "wall_s": 3.974,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00003",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"교환 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D1948560\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}], \"actions_taken\": [\"본인 확인\", \"교환 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 주문번호 D1948560번 원목 모니터 받침대를 다른 옵션으로 교환하고자 했습니다. 상담원은 교환 접수를 완료하고, 고객이 편한 날짜에 수거 예약을 할 수 있다고 안내했습니다. 또한 고객이 앱에서 주문 내역을 확인하는 방법을 안내했습니다.\"}",
+     "prompt_eval_count": 991,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 3807400,
+     "wall_s": 4.137,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"교환 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D1948560\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}], \"actions_taken\": [\"본인 확인\", \"교환 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 주문번호 D1948560번 원목 모니터 받침대를 다른 옵션으로 교환하고자 했습니다. 상담원은 교환 접수를 완료하고, 고객이 편한 날짜에 수거 예약을 할 수 있다고 안내했습니다. 또한 고객이 앱에서 주문 내역을 확인하는 방법을 안내했습니다.\"}",
+     "prompt_eval_count": 991,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 4437000,
+     "wall_s": 4.167,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00004",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"환불 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D7826952\"}, {\"type\": \"금액\", \"value\": \"192,800원\"}, {\"type\": \"날짜\", \"value\": \"9월 25일\"}], \"actions_taken\": [\"본인 확인\", \"환불 상태 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문 번호 D7826952의 환불 처리에 대해 문의하였고, 상담원은 환불이 9월 25일까지 완료될 예정임을 안내하였습니다. 고객은 앱 알림 끄는 방법을 문의하였고, 상담원은 설정 메뉴에서 알림 설정을 조정할 수 있다고 안내하였습니다.\"}",
+     "prompt_eval_count": 1195,
+     "eval_count": 207,
+     "done_reason": "stop",
+     "load_duration_ns": 4637300,
+     "wall_s": 4.501,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"환불 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D7826952\"}, {\"type\": \"금액\", \"value\": \"192,800원\"}, {\"type\": \"날짜\", \"value\": \"9월 25일\"}], \"actions_taken\": [\"본인 확인\", \"환불 상태 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 주문 번호 D7826952의 환불 처리에 대해 문의하였고, 상담원은 환불이 9월 25일까지 완료될 예정임을 안내하였습니다. 고객은 앱 알림 끄는 방법을 문의하였고, 상담원은 설정 메뉴에서 알림 설정을 조정할 수 있다고 안내하였습니다.\"}",
+     "prompt_eval_count": 1195,
+     "eval_count": 207,
+     "done_reason": "stop",
+     "load_duration_ns": 3122200,
+     "wall_s": 4.587,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00005",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"상품 불량\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D5574114\"}, {\"type\": \"상품명\", \"value\": \"여성 린넨 셔츠 M\"}], \"actions_taken\": [\"본인 확인\", \"불량 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"정민수 고객이 주문 번호 D5574114의 여성 린넨 셔츠 M이 불량임을 신고하였습니다. 상담원은 고객의 불만을 전달하고 불량 상품을 수거한 후 새 상품을 보내드리기로 약속하였습니다. 고객은 오늘 불량 상품을 보내주기로 약속하였습니다.\"}",
+     "prompt_eval_count": 999,
+     "eval_count": 200,
+     "done_reason": "stop",
+     "load_duration_ns": 3715100,
+     "wall_s": 4.426,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"상품 불량\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D5574114\"}, {\"type\": \"상품명\", \"value\": \"여성 린넨 셔츠 M\"}], \"actions_taken\": [\"본인 확인\", \"불량 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"정민수 고객이 주문 번호 D5574114의 여성 린넨 셔츠 M이 불량임을 신고하였습니다. 상담원은 고객의 불만을 전달하고 불량 상품을 수거한 후 새 상품을 보내드리기로 약속하였습니다. 고객은 오늘 불량 상품을 보내주기로 약속하였습니다.\"}",
+     "prompt_eval_count": 999,
+     "eval_count": 200,
+     "done_reason": "stop",
+     "load_duration_ns": 3130100,
+     "wall_s": 4.184,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00006",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"결제 오류\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"10만 3,100원\"}, {\"type\": \"날짜\", \"value\": \"10월 3일\"}], \"actions_taken\": [\"본인 확인\", \"결제 내역 확인\", \"결제 취소\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"고객은 10월 3일에 잘못 결제된 금액 10만 3,100원을 확인하고자 했다. 상담원은 고객의 정보를 확인한 후 중복 결제된 부분 중 한 건을 취소해 주고, 확인 후 메일로 안내하기로 했다.\"}",
+     "prompt_eval_count": 951,
+     "eval_count": 185,
+     "done_reason": "stop",
+     "load_duration_ns": 4239800,
+     "wall_s": 4.17,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"결제 오류\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"10만 3,100원\"}, {\"type\": \"날짜\", \"value\": \"10월 3일\"}], \"actions_taken\": [\"본인 확인\", \"결제 내역 확인\", \"결제 취소\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"고객은 10월 3일에 잘못 결제된 금액 10만 3,100원을 확인하고자 했다. 상담원은 고객의 정보를 확인한 후 중복 결제된 부분 중 한 건을 취소해 주고, 확인 후 메일로 안내하기로 했다.\"}",
+     "prompt_eval_count": 951,
+     "eval_count": 185,
+     "done_reason": "stop",
+     "load_duration_ns": 3690000,
+     "wall_s": 3.973,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00008",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 문의\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3863365\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}, {\"type\": \"시간\", \"value\": \"오전 11시\"}], \"actions_taken\": [\"본인 확인\", \"배송 조회\", \"택배사 확인 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 주문번호 D3863365의 원목 모니터 받침대 배송 상황을 문의하였습니다. 상담원은 택배사 확인 결과 배송이 멈춰있는 상태임을 확인하였으며, 오전 11시에 다시 연락하여 확인 결과를 알려주기로 약속하였습니다.\"}",
+     "prompt_eval_count": 957,
+     "eval_count": 205,
+     "done_reason": "stop",
+     "load_duration_ns": 4432900,
+     "wall_s": 4.447,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"배송 문의\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3863365\"}, {\"type\": \"상품명\", \"value\": \"원목 모니터 받침대\"}, {\"type\": \"시간\", \"value\": \"오전 11시\"}], \"actions_taken\": [\"본인 확인\", \"배송 조회\", \"택배사 확인 요청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 주문번호 D3863365의 원목 모니터 받침대 배송 상황을 문의하였습니다. 상담원은 택배사 확인 결과 배송이 멈춰있는 상태임을 확인하였으며, 오전 11시에 다시 연락하여 확인 결과를 알려주기로 약속하였습니다.\"}",
+     "prompt_eval_count": 957,
+     "eval_count": 205,
+     "done_reason": "stop",
+     "load_duration_ns": 4196700,
+     "wall_s": 4.101,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00009",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"주문 취소\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D6351630\"}, {\"type\": \"상품명\", \"value\": \"스테인리스 보온 텀블러\"}, {\"type\": \"금액\", \"value\": \"6만 4,500원\"}], \"actions_taken\": [\"본인 확인\", \"주문 취소\", \"환불 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"김예지 고객님의 주문번호 D6351630의 스테인리스 보온 텀블러 주문 취소를 확인하고 처리하였습니다. 주문하신 제품은 아직 배송 전이라 취소가 가능했습니다. 환불 금액은 6만 4,500원으로, 주문하신 카드로 환불될 예정입니다.\"}",
+     "prompt_eval_count": 894,
+     "eval_count": 225,
+     "done_reason": "stop",
+     "load_duration_ns": 3117400,
+     "wall_s": 4.712,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"주문 취소\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D6351630\"}, {\"type\": \"상품명\", \"value\": \"스테인리스 보온 텀블러\"}, {\"type\": \"금액\", \"value\": \"6만 4,500원\"}], \"actions_taken\": [\"본인 확인\", \"주문 취소\", \"환불 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"김예지 고객님의 주문번호 D6351630의 스테인리스 보온 텀블러 주문 취소를 확인하고 처리하였습니다. 주문하신 제품은 아직 배송 전이라 취소가 가능했습니다. 환불 금액은 6만 4,500원으로, 주문하신 카드로 환불될 예정입니다.\"}",
+     "prompt_eval_count": 894,
+     "eval_count": 225,
+     "done_reason": "stop",
+     "load_duration_ns": 4196600,
+     "wall_s": 4.637,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00010",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D5731211\"}, {\"type\": \"상품명\", \"value\": \"게이밍 기계식 키보드\"}, {\"type\": \"날짜\", \"value\": \"9월 26일\"}], \"actions_taken\": [\"본인 확인\", \"반품 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객 김철수는 주문번호 D5731211의 게이밍 기계식 키보드를 반품하고자 했다. 상담원은 고객의 정보를 확인한 후 9월 26일에 수거 예약을 해주었다. 고객은 9월 26일 수거 예약을 수락하였다.\"}",
+     "prompt_eval_count": 992,
+     "eval_count": 211,
+     "done_reason": "stop",
+     "load_duration_ns": 3502700,
+     "wall_s": 4.503,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"반품 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D5731211\"}, {\"type\": \"상품명\", \"value\": \"게이밍 기계식 키보드\"}, {\"type\": \"날짜\", \"value\": \"9월 26일\"}], \"actions_taken\": [\"본인 확인\", \"반품 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"수거 예정\"]}, \"summary\": \"고객 김철수는 주문번호 D5731211의 게이밍 기계식 키보드를 반품하고자 했다. 상담원은 고객의 정보를 확인한 후 9월 26일에 수거 예약을 해주었다. 고객은 9월 26일 수거 예약을 수락하였다.\"}",
+     "prompt_eval_count": 992,
+     "eval_count": 211,
+     "done_reason": "stop",
+     "load_duration_ns": 4282200,
+     "wall_s": 4.429,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00011",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"교환 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3681081\"}, {\"type\": \"상품명\", \"value\": \"전기 그릴 팬\"}], \"actions_taken\": [\"교환 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 주문번호 D3681081로 주문한 전기 그릴 팬을 다른 옵션으로 교환하고자 했다. 상담원은 교환 가능 기간 내에 주문된 것을 확인하고 교환 처리를 진행했다. 기존 제품은 다음 주에 수거될 예정이며, 교환 상품은 그 다음 주에 도착할 예정이다.\"}",
+     "prompt_eval_count": 1116,
+     "eval_count": 194,
+     "done_reason": "stop",
+     "load_duration_ns": 4675300,
+     "wall_s": 4.272,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"교환 신청\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D3681081\"}, {\"type\": \"상품명\", \"value\": \"전기 그릴 팬\"}], \"actions_taken\": [\"교환 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객은 주문번호 D3681081로 주문한 전기 그릴 팬을 다른 옵션으로 교환하고자 했다. 상담원은 교환 가능 기간 내에 주문된 것을 확인하고 교환 처리를 진행했다. 기존 제품은 다음 주에 수거될 예정이며, 교환 상품은 그 다음 주에 도착할 예정이다.\"}",
+     "prompt_eval_count": 1116,
+     "eval_count": 194,
+     "done_reason": "stop",
+     "load_duration_ns": 3676400,
+     "wall_s": 4.209,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00012",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"환불 문의\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D6584256\"}, {\"type\": \"금액\", \"value\": \"18만 9,700원\"}], \"actions_taken\": [\"본인 확인\", \"환불 상태 조회\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객 김철수는 D6584256번 주문의 환불금 18만 9,700원이 아직 처리되지 않았다고 문의하였습니다. 상담원은 환불 처리와 관련된 부분을 결제 담당 부서로 이관하였으며, 곧 연락을 예정하였습니다.\"}",
+     "prompt_eval_count": 881,
+     "eval_count": 188,
+     "done_reason": "stop",
+     "load_duration_ns": 3140000,
+     "wall_s": 3.932,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"환불 문의\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D6584256\"}, {\"type\": \"금액\", \"value\": \"18만 9,700원\"}], \"actions_taken\": [\"본인 확인\", \"환불 상태 조회\", \"전문 부서 이관\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객 김철수는 D6584256번 주문의 환불금 18만 9,700원이 아직 처리되지 않았다고 문의하였습니다. 상담원은 환불 처리와 관련된 부분을 결제 담당 부서로 이관하였으며, 곧 연락을 예정하였습니다.\"}",
+     "prompt_eval_count": 881,
+     "eval_count": 188,
+     "done_reason": "stop",
+     "load_duration_ns": 3322400,
+     "wall_s": 3.595,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-shop-00013",
+    "domain": "shop",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"상품 불량\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D1060192\"}, {\"type\": \"상품명\", \"value\": \"스테인리스 보온 텀블러\"}], \"actions_taken\": [\"본인 확인\", \"불량 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객 김선호 고객님께서 주문번호 D1060192로 주문한 스테인리스 보온 텀블러가 금이 가 있어 불량품으로 접수되었습니다. 불량품 수거 후 새 텀블러를 3일 내로 발송 예정입니다. 고객님께 불편을 드려 죄송합니다.\"}",
+     "prompt_eval_count": 1075,
+     "eval_count": 202,
+     "done_reason": "stop",
+     "load_duration_ns": 3154100,
+     "wall_s": 4.355,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"상품 불량\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"주문번호\", \"value\": \"D1060192\"}, {\"type\": \"상품명\", \"value\": \"스테인리스 보온 텀블러\"}], \"actions_taken\": [\"본인 확인\", \"불량 접수\", \"수거 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"재배송 예정\"]}, \"summary\": \"고객 김선호 고객님께서 주문번호 D1060192로 주문한 스테인리스 보온 텀블러가 금이 가 있어 불량품으로 접수되었습니다. 불량품 수거 후 새 텀블러를 3일 내로 발송 예정입니다. 고객님께 불편을 드려 죄송합니다.\"}",
+     "prompt_eval_count": 1075,
+     "eval_count": 202,
+     "done_reason": "stop",
+     "load_duration_ns": 3148200,
+     "wall_s": 3.856,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00000",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"56,400원\"}], \"actions_taken\": [\"요금 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 이번 달 요금이 56,400원으로 평소보다 많이 청구되었다고 문의하였다. 상담원은 고객의 요금 내역을 확인한 결과 소액결제 서비스 사용이 있었음을 확인하였다. 고객은 소액결제 부분만 따로 확인해볼 수 있는지 요청하였고, 상담원은 이를 확인한 결과 정상적인 이용 내역임을 확인하였다. 고객은 이를 이해하였으며, 추가 질문은 없었다.\"}",
+     "prompt_eval_count": 941,
+     "eval_count": 180,
+     "done_reason": "stop",
+     "load_duration_ns": 3665100,
+     "wall_s": 4.07,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"56,400원\"}], \"actions_taken\": [\"요금 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 이번 달 요금이 56,400원으로 평소보다 많이 청구되었다고 문의하였다. 상담원은 고객의 요금 내역을 확인한 결과 소액결제 서비스 사용이 있었음을 확인하였다. 고객은 소액결제 부분만 따로 확인해볼 수 있는지 요청하였고, 상담원은 이를 확인한 결과 정상적인 이용 내역임을 확인하였다. 고객은 이를 이해하였으며, 추가 질문은 없었다.\"}",
+     "prompt_eval_count": 941,
+     "eval_count": 180,
+     "done_reason": "stop",
+     "load_duration_ns": 4325600,
+     "wall_s": 3.655,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00001",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금제 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"요금제\", \"value\": \"별빛 5G 슬림 55\"}, {\"type\": \"요금제\", \"value\": \"별빛 LTE 데이터 무제한 69\"}], \"actions_taken\": [\"본인 확인\", \"요금제 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"이민수 고객님은 현재 사용 중인 '별빛 5G 슬림 55' 요금제를 '별빛 LTE 데이터 무제한 69' 요금제로 변경을 요청하셨다. 상담원은 고객님의 요청을 확인하고 즉시 요금제 변경을 처리하였다. 변경된 요금제에 대한 추가 질문은 고객님께서 언제든지 고객센터로 연락하실 수 있다.\"}",
+     "prompt_eval_count": 1029,
+     "eval_count": 196,
+     "done_reason": "stop",
+     "load_duration_ns": 3843000,
+     "wall_s": 4.118,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금제 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"요금제\", \"value\": \"별빛 5G 슬림 55\"}, {\"type\": \"요금제\", \"value\": \"별빛 LTE 데이터 무제한 69\"}], \"actions_taken\": [\"본인 확인\", \"요금제 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"이민수 고객님은 현재 사용 중인 '별빛 5G 슬림 55' 요금제를 '별빛 LTE 데이터 무제한 69' 요금제로 변경을 요청하셨다. 상담원은 고객님의 요청을 확인하고 즉시 요금제 변경을 처리하였다. 변경된 요금제에 대한 추가 질문은 고객님께서 언제든지 고객센터로 연락하실 수 있다.\"}",
+     "prompt_eval_count": 1029,
+     "eval_count": 196,
+     "done_reason": "stop",
+     "load_duration_ns": 3125000,
+     "wall_s": 3.811,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00003",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"해지 문의\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"금액\", \"value\": \"6만 7,900원\"}], \"actions_taken\": [\"본인 확인\", \"위약금 조회\", \"전문 부서 이관\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"홍길동 고객님은 위약금을 낼 경우 해지 절차를 진행할 수 있는지 문의하셨다. 상담원은 위약금이 6만 7,900원이라고 확인해주었고, 고객님은 위약금을 낼 경우 해지 절차를 진행할 수 있다고 답변받았다. 고객님은 해지 전담 부서로 연결해달라고 요청하였다.\"}",
+     "prompt_eval_count": 874,
+     "eval_count": 177,
+     "done_reason": "stop",
+     "load_duration_ns": 3669500,
+     "wall_s": 3.847,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"해지 문의\", \"resolution\": \"이관\", \"entities\": [{\"type\": \"금액\", \"value\": \"6만 7,900원\"}], \"actions_taken\": [\"본인 확인\", \"위약금 조회\", \"전문 부서 이관\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"홍길동 고객님은 위약금을 낼 경우 해지 절차를 진행할 수 있는지 문의하셨다. 상담원은 위약금이 6만 7,900원이라고 확인해주었고, 고객님은 위약금을 낼 경우 해지 절차를 진행할 수 있다고 답변받았다. 고객님은 해지 전담 부서로 연결해달라고 요청하였다.\"}",
+     "prompt_eval_count": 874,
+     "eval_count": 177,
+     "done_reason": "stop",
+     "load_duration_ns": 4280400,
+     "wall_s": 3.367,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00004",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"통신 장애\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"10월 3일\"}, {\"type\": \"날짜\", \"value\": \"11월 3일\"}, {\"type\": \"시간\", \"value\": \"오전 10시 30분\"}], \"actions_taken\": [\"본인 확인\", \"장애 접수\", \"기사 방문 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"기사 방문 예정\"]}, \"summary\": \"고객은 10월 3일부터 집에서 전화와 데이터가 불안정하다고 요청했습니다. 상담원은 기술센터에서 해당 지역에 장애가 발생했다는 정보를 확인하고, 11월 3일 오전 10시 30분에 기사님을 방문 예약해 주었습니다. 기사님은 장애 원인을 확인하고 필요한 경우 교체품을 설치하거나 장비를 점검하는 서비스를 제공할 예정입니다.\"}",
+     "prompt_eval_count": 1129,
+     "eval_count": 235,
+     "done_reason": "stop",
+     "load_duration_ns": 3115900,
+     "wall_s": 4.725,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"통신 장애\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"10월 3일\"}, {\"type\": \"날짜\", \"value\": \"11월 3일\"}, {\"type\": \"시간\", \"value\": \"오전 10시 30분\"}], \"actions_taken\": [\"본인 확인\", \"장애 접수\", \"기사 방문 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"기사 방문 예정\"]}, \"summary\": \"고객은 10월 3일부터 집에서 전화와 데이터가 불안정하다고 요청했습니다. 상담원은 기술센터에서 해당 지역에 장애가 발생했다는 정보를 확인하고, 11월 3일 오전 10시 30분에 기사님을 방문 예약해 주었습니다. 기사님은 장애 원인을 확인하고 필요한 경우 교체품을 설치하거나 장비를 점검하는 서비스를 제공할 예정입니다.\"}",
+     "prompt_eval_count": 1129,
+     "eval_count": 235,
+     "done_reason": "stop",
+     "load_duration_ns": 3847300,
+     "wall_s": 4.238,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00005",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실·정지\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"사과폰 16\"}, {\"type\": \"날짜\", \"value\": \"9월 7일\"}], \"actions_taken\": [\"본인 확인\", \"분실 정지\", \"임대폰 신청\"], \"follow_up\": {\"required\": true, \"codes\": [\"임대폰 배송\"]}, \"summary\": \"고객은 사과폰 16을 잃어버렸으며, 상담원은 고객의 회선을 분실 정지 처리하고 임대폰을 9월 7일까지 제공하기로 결정했습니다. 고객은 임대폰을 찾을 예정이며, 상담원은 추가 도움이 필요할 경우 언제든지 연락할 수 있다고 안내했습니다.\"}",
+     "prompt_eval_count": 1124,
+     "eval_count": 191,
+     "done_reason": "stop",
+     "load_duration_ns": 3209000,
+     "wall_s": 4.136,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실·정지\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"사과폰 16\"}, {\"type\": \"날짜\", \"value\": \"9월 7일\"}], \"actions_taken\": [\"본인 확인\", \"분실 정지\", \"임대폰 신청\"], \"follow_up\": {\"required\": true, \"codes\": [\"임대폰 배송\"]}, \"summary\": \"고객은 사과폰 16을 잃어버렸으며, 상담원은 고객의 회선을 분실 정지 처리하고 임대폰을 9월 7일까지 제공하기로 결정했습니다. 고객은 임대폰을 찾을 예정이며, 상담원은 추가 도움이 필요할 경우 언제든지 연락할 수 있다고 안내했습니다.\"}",
+     "prompt_eval_count": 1124,
+     "eval_count": 191,
+     "done_reason": "stop",
+     "load_duration_ns": 3346700,
+     "wall_s": 4.124,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00007",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"기기 할부 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"은하 탭 9\"}, {\"type\": \"금액\", \"value\": \"16,600원\"}, {\"type\": \"날짜\", \"value\": \"9월 6일\"}], \"actions_taken\": [\"본인 확인\", \"할부 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 은하 탭 9의 남은 할부금을 문의하였고, 상담원은 남은 할부금이 16,600원이며 9월 6일 완납이 된다고 안내하였습니다. 또한 고객이 멤버십 포인트 사용처를 문의하였고, 상담원은 월 이용료 할인이나 상품 구매 시 사용할 수 있다고 답변하였습니다.\"}",
+     "prompt_eval_count": 812,
+     "eval_count": 211,
+     "done_reason": "stop",
+     "load_duration_ns": 4350000,
+     "wall_s": 4.38,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"기기 할부 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"은하 탭 9\"}, {\"type\": \"금액\", \"value\": \"16,600원\"}, {\"type\": \"날짜\", \"value\": \"9월 6일\"}], \"actions_taken\": [\"본인 확인\", \"할부 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 은하 탭 9의 남은 할부금을 문의하였고, 상담원은 남은 할부금이 16,600원이며 9월 6일 완납이 된다고 안내하였습니다. 또한 고객이 멤버십 포인트 사용처를 문의하였고, 상담원은 월 이용료 할인이나 상품 구매 시 사용할 수 있다고 답변하였습니다.\"}",
+     "prompt_eval_count": 812,
+     "eval_count": 211,
+     "done_reason": "stop",
+     "load_duration_ns": 3153100,
+     "wall_s": 4.273,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00008",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"4만 1천 원\"}, {\"type\": \"시간\", \"value\": \"오전 9시\"}], \"actions_taken\": [\"본인 확인\", \"요금 내역 조회\", \"요금 이의 신청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 이번 달 청구 요금이 4만 1천 원으로 평소보다 많아 이상하다고 요청했습니다. 상담원은 고객의 본인 확인을 거쳐 요금 내역을 확인한 결과 특별한 이슈가 없다고 안내했으나, 고객의 의심을 해소하기 위해 이의신청을 접수하고 오전 9시에 다시 연락하기로 했습니다.\"}",
+     "prompt_eval_count": 953,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 4258500,
+     "wall_s": 4.205,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"4만 1천 원\"}, {\"type\": \"시간\", \"value\": \"오전 9시\"}], \"actions_taken\": [\"본인 확인\", \"요금 내역 조회\", \"요금 이의 신청\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"고객은 이번 달 청구 요금이 4만 1천 원으로 평소보다 많아 이상하다고 요청했습니다. 상담원은 고객의 본인 확인을 거쳐 요금 내역을 확인한 결과 특별한 이슈가 없다고 안내했으나, 고객의 의심을 해소하기 위해 이의신청을 접수하고 오전 9시에 다시 연락하기로 했습니다.\"}",
+     "prompt_eval_count": 953,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 3124500,
+     "wall_s": 4.205,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00009",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금제 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"요금제\", \"value\": \"별빛 5G 슬림 55\"}, {\"type\": \"요금제\", \"value\": \"별빛 시니어 29\"}], \"actions_taken\": [\"요금제 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 현재 사용 중인 '별빛 5G 슬림 55' 요금제를 '별빛 시니어 29' 요금제로 변경을 요청하였습니다. 상담원은 고객의 요청에 따라 요금제를 변경하였으며, 변경된 요금제는 할인 혜택이 적용된 '시니어 전용 요금'으로 변경되었습니다. 고객은 변경이 잘 되었음을 확인하고 감사의 인사를 전하였습니다.\"}",
+     "prompt_eval_count": 892,
+     "eval_count": 200,
+     "done_reason": "stop",
+     "load_duration_ns": 3179500,
+     "wall_s": 4.3,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금제 변경\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"요금제\", \"value\": \"별빛 5G 슬림 55\"}, {\"type\": \"요금제\", \"value\": \"별빛 시니어 29\"}], \"actions_taken\": [\"요금제 변경\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 현재 사용 중인 '별빛 5G 슬림 55' 요금제를 '별빛 시니어 29' 요금제로 변경을 요청하였습니다. 상담원은 고객의 요청에 따라 요금제를 변경하였으며, 변경된 요금제는 할인 혜택이 적용된 '시니어 전용 요금'으로 변경되었습니다. 고객은 변경이 잘 되었음을 확인하고 감사의 인사를 전하였습니다.\"}",
+     "prompt_eval_count": 892,
+     "eval_count": 200,
+     "done_reason": "stop",
+     "load_duration_ns": 3217300,
+     "wall_s": 4.277,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00011",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"해지 문의\", \"resolution\": \"미해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"5만 400원\"}, {\"type\": \"시간\", \"value\": \"오후 3시\"}], \"actions_taken\": [\"본인 확인\", \"위약금 조회\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"홍길동 고객님은 이번 달 별빛텔레콤 해지 시 위약금에 대해 문의하셨다. 상담원은 위약금이 5만 400원이라고 안내하였고, 고객님은 추가로 생각해 보겠다고 하셨다. 고객님은 오후 3시에 다시 연락하겠다고 했다.\"}",
+     "prompt_eval_count": 920,
+     "eval_count": 179,
+     "done_reason": "stop",
+     "load_duration_ns": 3908900,
+     "wall_s": 3.583,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"해지 문의\", \"resolution\": \"미해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"5만 400원\"}, {\"type\": \"시간\", \"value\": \"오후 3시\"}], \"actions_taken\": [\"본인 확인\", \"위약금 조회\"], \"follow_up\": {\"required\": true, \"codes\": [\"콜백 예약\"]}, \"summary\": \"홍길동 고객님은 이번 달 별빛텔레콤 해지 시 위약금에 대해 문의하셨다. 상담원은 위약금이 5만 400원이라고 안내하였고, 고객님은 추가로 생각해 보겠다고 하셨다. 고객님은 오후 3시에 다시 연락하겠다고 했다.\"}",
+     "prompt_eval_count": 920,
+     "eval_count": 179,
+     "done_reason": "stop",
+     "load_duration_ns": 3835700,
+     "wall_s": 3.645,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00012",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"통신 장애\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"9월 22일\"}, {\"type\": \"날짜\", \"value\": \"10월 28일\"}, {\"type\": \"시간\", \"value\": \"오후 4시\"}], \"actions_taken\": [\"본인 확인\", \"장애 접수\", \"기사 방문 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"기사 방문 예정\"]}, \"summary\": \"고객은 9월 22일부터 집에서 전화와 데이터 연결이 불안정하다고 신고했습니다. 상담원은 기술 팀에 신고한 내역을 확인한 결과, 기사가 10월 28일 오후 4시에 방문 예정임을 안내했습니다. 고객은 기사 방문까지 기다릴 것을 확인했습니다.\"}",
+     "prompt_eval_count": 1078,
+     "eval_count": 207,
+     "done_reason": "stop",
+     "load_duration_ns": 3727800,
+     "wall_s": 4.362,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"통신 장애\", \"resolution\": \"부분 해결\", \"entities\": [{\"type\": \"날짜\", \"value\": \"9월 22일\"}, {\"type\": \"날짜\", \"value\": \"10월 28일\"}, {\"type\": \"시간\", \"value\": \"오후 4시\"}], \"actions_taken\": [\"본인 확인\", \"장애 접수\", \"기사 방문 예약\"], \"follow_up\": {\"required\": true, \"codes\": [\"기사 방문 예정\"]}, \"summary\": \"고객은 9월 22일부터 집에서 전화와 데이터 연결이 불안정하다고 신고했습니다. 상담원은 기술 팀에 신고한 내역을 확인한 결과, 기사가 10월 28일 오후 4시에 방문 예정임을 안내했습니다. 고객은 기사 방문까지 기다릴 것을 확인했습니다.\"}",
+     "prompt_eval_count": 1078,
+     "eval_count": 207,
+     "done_reason": "stop",
+     "load_duration_ns": 4681300,
+     "wall_s": 4.194,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00013",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실·정지\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"사과폰 16\"}], \"actions_taken\": [\"분실 정지\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 사과폰 16을 잃어버렸다고 요청함. 상담원은 회선을 분실 정지 처리하였으며, 휴대폰을 찾으면 다시 활성화해줄 것을 안내함. 고객은 분실 정지가 최선의 조치임을 확인함.\"}",
+     "prompt_eval_count": 1015,
+     "eval_count": 140,
+     "done_reason": "stop",
+     "load_duration_ns": 3713100,
+     "wall_s": 3.198,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"분실·정지\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"사과폰 16\"}], \"actions_taken\": [\"분실 정지\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 사과폰 16을 잃어버렸다고 요청함. 상담원은 회선을 분실 정지 처리하였으며, 휴대폰을 찾으면 다시 활성화해줄 것을 안내함. 고객은 분실 정지가 최선의 조치임을 확인함.\"}",
+     "prompt_eval_count": 1015,
+     "eval_count": 140,
+     "done_reason": "stop",
+     "load_duration_ns": 3707100,
+     "wall_s": 3.099,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00014",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"부가서비스 해지\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"부가서비스\", \"value\": \"영상 무제한 팩\"}, {\"type\": \"금액\", \"value\": \"6,200원\"}], \"actions_taken\": [\"본인 확인\", \"부가서비스 해지\", \"요금 환급 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"고객은 월 6,200원의 영상 무제한 팩 요금이 잘못 청구된 것에 대해 문의하였습니다. 상담원은 잘못된 가입이 확인되어 환급 처리를 진행하고, 고객이 가입한 적 없는 영상 무제한 팩을 해지하였습니다. 또한 와이파이 비밀번호 변경 방법을 안내하였습니다.\"}",
+     "prompt_eval_count": 913,
+     "eval_count": 198,
+     "done_reason": "stop",
+     "load_duration_ns": 4797600,
+     "wall_s": 4.021,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"부가서비스 해지\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"부가서비스\", \"value\": \"영상 무제한 팩\"}, {\"type\": \"금액\", \"value\": \"6,200원\"}], \"actions_taken\": [\"본인 확인\", \"부가서비스 해지\", \"요금 환급 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"고객은 월 6,200원의 영상 무제한 팩 요금이 잘못 청구된 것에 대해 문의하였습니다. 상담원은 잘못된 가입이 확인되어 환급 처리를 진행하고, 고객이 가입한 적 없는 영상 무제한 팩을 해지하였습니다. 또한 와이파이 비밀번호 변경 방법을 안내하였습니다.\"}",
+     "prompt_eval_count": 913,
+     "eval_count": 198,
+     "done_reason": "stop",
+     "load_duration_ns": 3200700,
+     "wall_s": 4.157,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00015",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"기기 할부 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"은하폰 S12\"}, {\"type\": \"금액\", \"value\": \"7만 8,500원\"}], \"actions_taken\": [\"본인 확인\", \"할부 내역 조회\", \"할부금 완납 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"홍길동 고객님의 은하폰 S12 남은 할부금은 7만 8,500원입니다. 고객님은 이 금액을 한 번에 납부하고자 하였으며, 상담원은 이를 확인 후 고객센터를 통해 완납 접수를 처리하였습니다. 완납 완료 시 문자로 안내될 예정입니다.\"}",
+     "prompt_eval_count": 932,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 3678700,
+     "wall_s": 4.11,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"기기 할부 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"기기명\", \"value\": \"은하폰 S12\"}, {\"type\": \"금액\", \"value\": \"7만 8,500원\"}], \"actions_taken\": [\"본인 확인\", \"할부 내역 조회\", \"할부금 완납 접수\"], \"follow_up\": {\"required\": true, \"codes\": [\"환불 처리 대기\"]}, \"summary\": \"홍길동 고객님의 은하폰 S12 남은 할부금은 7만 8,500원입니다. 고객님은 이 금액을 한 번에 납부하고자 하였으며, 상담원은 이를 확인 후 고객센터를 통해 완납 접수를 처리하였습니다. 완납 완료 시 문자로 안내될 예정입니다.\"}",
+     "prompt_eval_count": 932,
+     "eval_count": 201,
+     "done_reason": "stop",
+     "load_duration_ns": 4461800,
+     "wall_s": 4.073,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   },
+   {
+    "item_id": "dev-telecom-00016",
+    "domain": "telecom",
+    "default": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"3만 2,100원\"}], \"actions_taken\": [\"요금 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 이번 달 청구금이 3만 2,100원으로 평소보다 많이 나왔다고 문의하였습니다. 상담원은 소액결제 항목이 추가되어 청구된 금액이 포함된 것으로 확인하였습니다. 고객은 소액결제 항목이 추가된 이유를 이해하지 못하였으며, 상담원은 고객이 동의하지 않은 항목이 포함되어 있다는 점을 확인하였습니다. 또한 고객이 문의한 멤버십 포인트 사용처에 대해 상담원이 별빛텔레콤 앱, 웹사이트, 고객센터에서 사용 가능하다고 안내하였습니다.\"}",
+     "prompt_eval_count": 1002,
+     "eval_count": 219,
+     "done_reason": "stop",
+     "load_duration_ns": 3368400,
+     "wall_s": 4.702,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "no_truncate_no_shift": {
+     "status": 200,
+     "error": null,
+     "text": "{\"category\": \"요금 문의\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"금액\", \"value\": \"3만 2,100원\"}], \"actions_taken\": [\"요금 내역 조회\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 이번 달 청구금이 3만 2,100원으로 평소보다 많이 나왔다고 문의하였습니다. 상담원은 소액결제 항목이 추가되어 청구된 금액이 포함된 것으로 확인하였습니다. 고객은 소액결제 항목이 추가된 이유를 이해하지 못하였으며, 상담원은 고객이 동의하지 않은 항목이 포함되어 있다는 점을 확인하였습니다. 또한 고객이 문의한 멤버십 포인트 사용처에 대해 상담원이 별빛텔레콤 앱, 웹사이트, 고객센터에서 사용 가능하다고 안내하였습니다.\"}",
+     "prompt_eval_count": 1002,
+     "eval_count": 219,
+     "done_reason": "stop",
+     "load_duration_ns": 3682200,
+     "wall_s": 4.671,
+     "length_stop": false,
+     "context_full": false,
+     "service": "ok",
+     "problems": []
+    },
+    "identical": true
+   }
+  ]
+ },
+ "synthetic": [
+  {
+   "name": "prompt_over",
+   "domain": "parcel",
+   "chars": 3995,
+   "default": {
+    "status": 400,
+    "error": {
+     "type": "HTTPStatusError",
+     "body": "{\"error\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"request (4175 tokens) exceeds the available context size (4096 tokens), try increasing it\\\",\\\"type\\\":\\\"exceed_context_size_error\\\",\\\"n_prompt_tokens\\\":4175,\\\"n_ctx\\\":4096}}\"}"
+    },
+    "text": null,
+    "prompt_eval_count": null,
+    "eval_count": null,
+    "done_reason": null,
+    "load_duration_ns": null,
+    "wall_s": 5.381,
+    "length_stop": null,
+    "context_full": null,
+    "service": "context_exceeded",
+    "problems": []
+   },
+   "no_truncate_no_shift": {
+    "status": 400,
+    "error": {
+     "type": "HTTPStatusError",
+     "body": "{\"error\":\"{\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"request (4175 tokens) exceeds the available context size (4096 tokens), try increasing it\\\",\\\"type\\\":\\\"exceed_context_size_error\\\",\\\"n_prompt_tokens\\\":4175,\\\"n_ctx\\\":4096}}\"}"
+    },
+    "text": null,
+    "prompt_eval_count": null,
+    "eval_count": null,
+    "done_reason": null,
+    "load_duration_ns": null,
+    "wall_s": 5.044,
+    "length_stop": null,
+    "context_full": null,
+    "service": "context_exceeded",
+    "problems": []
+   }
+  },
+  {
+   "name": "answer_over",
+   "domain": "parcel",
+   "chars": 3983,
+   "default": {
+    "status": 200,
+    "error": null,
+    "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"010-4821-7765-0235-18890\"}], \"actions_taken\": [\"본인 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 010-4821-7765-0235-18890 운송장번호로 주문한 상품의 배송 정보를 확인하고자 했다. 상담원은 해당 운송장번호로 주문한 상품의 배송 현황을 확인해 주었으며, 고객은 추가 질문이 없어 상담을 종료했다.\"}",
+    "prompt_eval_count": 3998,
+    "eval_count": 177,
+    "done_reason": "stop",
+    "load_duration_ns": 4705148700,
+    "wall_s": 10.299,
+    "length_stop": false,
+    "context_full": true,
+    "service": "context_full",
+    "problems": []
+   },
+   "no_truncate_no_shift": {
+    "status": 200,
+    "error": null,
+    "text": "{\"category\": \"배송 조회\", \"resolution\": \"해결\", \"entities\": [{\"type\": \"운송장번호\", \"value\": \"010-4821-7765-0235-18890\"}], \"actions_taken\": [\"본인 확인\"], \"follow_up\": {\"required\": false, \"codes\": []}, \"summary\": \"고객은 010-4821-7",
+    "prompt_eval_count": 3998,
+    "eval_count": 98,
+    "done_reason": "length",
+    "load_duration_ns": 4720722200,
+    "wall_s": 8.735,
+    "length_stop": true,
+    "context_full": true,
+    "service": "context_full",
+    "problems": []
+   }
+  }
+ ],
+ "gate": {
+  "options_change_behaviour": true,
+  "changed_inputs": [
+   "answer_over"
+  ],
+  "dev_n": 40,
+  "dev_identical": 40,
+  "dev_errors": {
+   "default": 0,
+   "no_truncate_no_shift": 0
+  },
+  "decision": "adopt"
+ },
+ "reference": {
+  "run": "20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0",
+  "n": 40,
+  "identical_default": 35,
+  "identical_no_truncate_no_shift": 35
+ }
+}

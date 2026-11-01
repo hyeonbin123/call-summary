@@ -1535,6 +1535,30 @@ uv run --no-sync python scripts/ctx_probe.py --model call-summary-4b-dq:q8_0 --d
 - 결과는 이 절 아래에 "결과" 절로 덧붙인다. 기존 수치는 바뀌지 않는다
 - 예상 GPU 시간: 약 0.25시간 (모델 적재 약 40초, dev 82건 × 약 3초, 합성 4건 × 최대 약 20초(생성 최대 1,024토큰))
 
+### 결과 (2026-11-01)
+- 2026-11-01 15:44:41~15:51:32 (411.4초), 위 명령 그대로. 코드 `2a821e1` (규칙·도구 `d76bc1c`, 도구는 그 뒤 바뀌지 않았다), 깨끗한 트리. Ollama 0.35.1, 서빙 모델 digest `52a2d2f65261`, p1 `4cead4cf6510`. 시작 전·끝난 뒤 `/api/ps`는 비었고, 첫 요청 뒤 `size_vram` 4,961,274,428바이트(모두 GPU)·`context_length` 4,096. 기록은 `reports/ctx-probe-q8_0.json`
+- 함께 쓴 프로그램: 데스크톱 앱(배경화면 프로그램, 브라우저 등). 시작 때 GPU 메모리 1,991 MiB·사용률 30%. 동작·정확도 확인이라 쉬는 상태를 기다리지 않았다
+
+**확인 1: 동작 기록**
+
+| 입력 | 묶음 | HTTP | done_reason | 프롬프트 토큰 | 생성 토큰 | 서비스 첫 시도 |
+|---|---|---|---|---|---|---|
+| `prompt_over` (3,995자) | 옵션 없음 | 400 | - | - | - | 413 `context_exceeded` |
+| `prompt_over` (3,995자) | 옵션 있음 | 400 | - | - | - | 413 `context_exceeded` |
+| `answer_over` (3,983자) | 옵션 없음 | 200 | stop | 3,998 | 177 | 502 `context_full` (합 4,175) |
+| `answer_over` (3,983자) | 옵션 있음 | 200 | length | 3,998 | 98 | 502 `context_full` (합 4,096) |
+
+- `prompt_over`의 오류 본문은 두 묶음이 같다: 모델 서버 오류 글 안에 `request (4175 tokens) exceeds the available context size (4096 tokens), try increasing it` (type `exceed_context_size_error`, `n_prompt_tokens` 4175, `n_ctx` 4096). 0.35.1은 옵션이 없어도 넘친 프롬프트를 잘라 넣지 않고 오류를 줬다. 서버가 센 프롬프트 토큰(4,175, 3,998)은 위에 적은 CPU 토크나이저 값과 같다
+- (a) 200으로 온 넘침(`answer_over`)은 두 묶음 모두 서비스의 토큰 합 검사가 잡았다 (502). 옵션 없음은 생성 중에 컨텍스트를 밀어내며 계속 써서 합이 4,096을 넘었고, 옵션 있음은 컨텍스트가 찬 자리(생성 98토큰)에서 멈췄다 (`length_stop`도 참)
+- (b) 오류로 온 넘침(`prompt_over`)은 서비스의 오류 짝 맞추기("context"와 "exceed")가 413으로 나눴다 (503이 아니다). 그래서 짝 맞추기와 합 검사는 고치지 않는다
+- 서버 기록(Windows Ollama의 `server.log`)을 보면 0.35.1은 llama.cpp의 `llama-server`를 실행기로 띄우는데, 옵션 없음 요청에는 `--context-shift --keep 4`를 붙여 띄우고 `shift: false` 요청에는 붙이지 않는다. 그래서 묶음이 바뀔 때마다 실행기를 다시 띄웠다 (세션에서 6번: 처음 적재 1번과 묶음이 바뀐 5번). 바뀐 뒤 첫 요청의 `load_duration`은 4.7~5.2초(오류로 끝난 `prompt_over` 두 건은 값이 없고 걸린 시간 5.0~5.4초), 같은 묶음이 이어진 dev 요청은 0.005초 이하다. 처음 적재(준비 요청)는 33.3초였다
+
+**확인 2: 관문 → adopt (넣는다)**
+- (1) `answer_over`에서 옵션이 done_reason(stop → length)과 생성 토큰 수(177 → 98)를 바꿨다. `prompt_over`는 두 묶음이 같다 (400)
+- (2) dev 40건(택배 13·쇼핑몰 13·통신 14)의 답이 두 묶음에서 40/40 글자까지 같고, 오류는 두 묶음 모두 0이다 (모두 200, done_reason stop, 서비스 분류 ok. 프롬프트 최대 1,195토큰, 프롬프트 + 답 최대 1,409토큰)
+- 두 조건을 모두 만족하므로 서비스 요청에 `truncate: false`·`shift: false`를 넣는다 (따로 커밋)
+- 참고: 기록된 `reports/20260930-022406-call-summary-4b-dq_q8_0-s5b-dev-dq-q8_0`(Ollama 0.34.2)과 답이 글자까지 같은 건은 두 묶음 모두 35/40이다 (판정에 쓰지 않는다)
+
 ## dev 남은 오류의 정답 잡음 감사 (2026-10-29 규칙, 검토 전)
 
 1단계 사람 점검에서 train 30건 중 3건(약 10%)의 정답 라벨(처리 목록, 후속 조치)이 대화와 조금 어긋났다. 서빙 모델(q8_0)의 dev exact 94.6%(227/240)에 남은 오류 13건이 그런 정답 잡음 때문인지는 세지 않았다. 기록된 실행의 답만 읽어(새 추론 없음, GPU 없음) 검토 대상을 정하고, Claude가 대화와 명세를 읽어 나눈다. dev 정답과 기록 수치는 바꾸지 않는다. 검토 전에 이 절, 도구(`src/call_summary/label_audit.py`), 도구가 만든 대상 목록(`reports/label_audit/dev-20261029.json`)과 빈 검토 양식(`reports/label_audit/dev-20261029-review.jsonl`)을 커밋한다.
