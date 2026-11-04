@@ -1,7 +1,7 @@
 # [테스트 묶음] 5단계 내보내기 call_summary.export(어댑터 합치기 → GGUF f16 변환 → llama-quantize → ollama
 # create)의 판단 로직을 모델·도구 없이 검증한다: 같은 어댑터면 합친 가중치를 다시 쓰고, 다른 어댑터의 가중치는
-# 거절하며, 중간에 멈춘 빌드를 예전 것으로 착각하지 않고, 양자화는 llama-quantize로 하며, QLoRA 어댑터는 4bit
-# 바탕을 풀어 합친다.
+# 거절하며, 중간에 멈춘 빌드를 예전 것으로 착각하지 않고, 양자화는 llama-quantize로 하며, 양자화가 실패하면
+# 반쯤 쓴 GGUF를 다음 실행이 다시 쓸 이름에 남기지 않고, QLoRA 어댑터는 4bit 바탕을 풀어 합친다.
 # [왜 중요한가] 합친 가중치와 f16 GGUF를 다시 쓰는 것은 시간을 아끼지만, 다른 어댑터의 가중치를 재사용하면
 # 엉뚱한 모델을 서빙·측정하게 된다(커밋 ed76ea6: source.json 도장이 맞을 때만 재사용). QLoRA 어댑터를 fp16
 # 바탕에 합치면 약 7%p 떨어진 것도 실제로 겪었다(docs/experiments.md 5단계 발견 2).
@@ -30,7 +30,8 @@ def fake_tools(monkeypatch):
     """merge는 merged/config.json을, GGUF 변환기는 --outfile을, llama-quantize는 출력 GGUF를 쓰며, ollama와
     git은 늘 성공한다. 가짜 llama-quantize가 stderr에 낼 줄과 종료 코드는 돌려받은 객체의
     quantizer_stderr(기본: 줄 없음)와 quantizer_returncode(기본 0)로 정한다. 종료 코드가 0이 아니면 출력
-    GGUF를 만들지 않는다."""
+    GGUF를 만들지 않는다. 다만 quantizer_partial(기본 False)이 참이면 진짜 도구가 중간에 실패할 때처럼
+    출력 파일을 쓴 뒤에 실패한다."""
 
     class Merges(list):
         pass
@@ -39,6 +40,7 @@ def fake_tools(monkeypatch):
     calls = []
     merges.quantizer_stderr = []  # type: ignore[attr-defined]
     merges.quantizer_returncode = 0  # type: ignore[attr-defined]
+    merges.quantizer_partial = False  # type: ignore[attr-defined]
 
     def fake_merge(base, adapter, out, from_4bit=False, revision=None):
         merges.append(adapter)
@@ -49,11 +51,14 @@ def fake_tools(monkeypatch):
 
     # 명령 하나를 가짜로 돌린다: 명령을 기록하고, 변환기면 --outfile을, llama-quantize면 출력 GGUF(인수
     # 셋째)를 빈 파일로 만든다. 종료 코드를 돌려준다(llama-quantize만 quantizer_returncode, 나머지는 0).
+    # 실패하는 llama-quantize는 출력 파일을 만들지 않지만, quantizer_partial이면 먼저 만든 뒤 실패한다.
     def run_tool(cmd):
         calls.append([str(c) for c in cmd])
         if any(str(c).endswith("convert_hf_to_gguf.py") for c in cmd):
             open(cmd[cmd.index("--outfile") + 1], "wb").close()
         if str(cmd[0]).endswith("llama-quantize.exe"):
+            if merges.quantizer_partial:  # type: ignore[attr-defined]
+                open(cmd[2], "wb").close()
             if merges.quantizer_returncode:  # type: ignore[attr-defined]
                 return merges.quantizer_returncode  # type: ignore[attr-defined]
             open(cmd[2], "wb").close()
@@ -288,6 +293,28 @@ def test_a_failing_quantizer_stops_the_export_before_it_is_recorded(tmp_path, fa
     assert not (out / "export.json").exists()
 
 
+# 진짜 llama-quantize는 받은 출력 경로에 바로 쓰기 시작하므로 중간에 실패하면 반쯤 쓴 파일이 남는다. 그 파일이
+# 최종 이름(model-q8_0.gguf)에 남으면 다음 실행은 이미 만든 것으로 보고 양자화를 건너뛴 채 그 파일을 ollama
+# create로 등록한다. 실패한 실행 뒤 최종 이름에도 임시 이름(.part)에도 파일이 없고, 같은 --out으로 다시 돌리면
+# q8_0을 다시 양자화해 export.json의 quantized에 남는지 본다.
+def test_a_quantizer_failing_after_it_wrote_leaves_no_gguf_for_the_next_run(tmp_path, fake_tools):
+    exe = _quantizer(tmp_path)
+    fake_tools.quantizer_returncode = 1
+    fake_tools.quantizer_partial = True
+    a = _adapter(tmp_path, "a", b"A")
+    out = tmp_path / "export"
+    with pytest.raises(subprocess.CalledProcessError):
+        _export_with(a, out, exe)
+    assert not (out / "model-q8_0.gguf").exists()
+    assert list(out.glob("*.part")) == []
+    fake_tools.quantizer_returncode = 0
+    fake_tools.quantizer_partial = False
+    assert _export_with(a, out, exe) == 0
+    assert (out / "model-q8_0.gguf").exists()
+    record = json.loads((out / "export.json").read_text(encoding="utf-8"))["llama_quantize"]
+    assert record["quantized"] == ["q8_0", "q4_K_M"]
+
+
 # 기록 함수만 따로: --llama-quantize에 경로가 아니라 PATH에 있는 이름을 주면 subprocess처럼 PATH에서 찾아 그
 # 파일의 sha256을 남기고, 어디에도 없으면 sha256은 null이다(예: 도구가 없는 CI에서 양자화 파일을 다시 쓸 때).
 def test_the_quantizer_record_finds_a_name_on_path_and_is_null_when_missing(tmp_path, monkeypatch):
@@ -310,7 +337,8 @@ def test_the_quantizer_record_finds_a_name_on_path_and_is_null_when_missing(tmp_
 # 스크립트를 돌린다(명령 = [파이썬, 스크립트, 출력 파일, 형태]). 스크립트는 stderr에 진행 줄·판 줄·UTF-8이
 # 아닌 바이트(cp949의 '가')를 쓰고 출력 파일을 만든 뒤, 형태가 Q8_0이 아니면 종료 코드 3으로 끝난다. 판 줄의
 # 내용을 돌려받는지, stderr가 이 프로세스의 stderr로 흘러나오는지, 못 읽는 바이트에서 멈추지 않는지, 종료
-# 코드가 0이 아니면 CalledProcessError인지 본다.
+# 코드가 0이 아니면 CalledProcessError인지, 그때 스크립트가 만든 출력이 최종 이름에도 임시 이름(.part)에도
+# 남지 않는지 본다.
 def test_run_quantize_streams_a_real_child_stderr_and_returns_its_build_line(tmp_path, capsys):
     script = tmp_path / "quantize.py"
     script.write_text(
@@ -326,7 +354,35 @@ def test_run_quantize_streams_a_real_child_stderr_and_returns_its_build_line(tmp
     )
     dst = tmp_path / "out.gguf"
     assert export.run_quantize(sys.executable, script, dst, "Q8_0") == "9.9.9 (build 1, commit abc1234)"
-    assert dst.exists()
+    assert dst.exists() and not (tmp_path / "out.gguf.part").exists()
     assert "main: build info follows" in capsys.readouterr().err
     with pytest.raises(subprocess.CalledProcessError):
         export.run_quantize(sys.executable, script, tmp_path / "other.gguf", "Q4_K_M")
+    # 스크립트는 종료 코드 3으로 끝나기 전에 출력 파일을 만들었다. 그 반쪽 파일은 어느 이름으로도 남지 않는다
+    assert not (tmp_path / "other.gguf").exists()
+    assert not (tmp_path / "other.gguf.part").exists()
+
+
+# 지난 실행이 강제 종료 등으로 임시 파일(.part)을 남겼어도 그 파일이 최종 이름으로 옮겨지지 않는다: 시작할 때
+# 지우므로, 도구가 출력을 쓰지 않고 종료 코드 0으로 끝나는 경우에도 최종 파일이 생기지 않고 오류로 멈춘다.
+def test_run_quantize_never_moves_a_leftover_part_file_into_place(tmp_path):
+    script = tmp_path / "noop.py"
+    script.write_text("import sys; sys.exit(0)", encoding="utf-8")
+    dst = tmp_path / "model-q8_0.gguf"
+    (tmp_path / "model-q8_0.gguf.part").write_bytes(b"left by a killed run")
+    with pytest.raises(FileNotFoundError):
+        export.run_quantize(sys.executable, script, dst, "Q8_0")
+    assert not dst.exists()
+    assert not (tmp_path / "model-q8_0.gguf.part").exists()
+
+
+# 실패한 뒤 임시 파일을 지우지 못해도(예: Windows에서 Ctrl+C 직후 아직 끝나지 않은 도구가 파일을 잡고 있음)
+# 도구의 오류가 그대로 올라온다. 여기서는 스크립트가 임시 이름에 폴더를 만들고 실패해, 그 이름을 지우는 일이
+# OSError로 끝나게 한다. 최종 이름에는 아무것도 생기지 않는다.
+def test_a_failed_cleanup_does_not_hide_the_quantizer_error(tmp_path):
+    script = tmp_path / "quantize.py"
+    script.write_text("import os, sys; os.mkdir(sys.argv[1]); sys.exit(3)", encoding="utf-8")
+    dst = tmp_path / "model-q8_0.gguf"
+    with pytest.raises(subprocess.CalledProcessError):
+        export.run_quantize(sys.executable, script, dst, "Q8_0")
+    assert not dst.exists()

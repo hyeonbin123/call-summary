@@ -6,6 +6,8 @@ llama.cpp 자체 도구(work/llama-bin의 공식 배포 바이너리, 커밋하�
 llama.cpp 체크아웃은 work/llama.cpp에 있고(커밋하지 않음) 그 커밋은 export.json에 기록한다.
 llama-quantize는 실행 파일의 sha256과 양자화 때 찍는 판 줄을 export.json에 기록한다.
 --out의 합친 가중치와 F16 GGUF는 바탕과 어댑터 가중치가 같을 때만 다시 쓴다(out/source.json).
+양자화 GGUF는 임시 파일(<이름>.part)에 쓰고 도구가 성공했을 때만 최종 이름으로 옮기므로, 실패한 실행 뒤 같은
+--out으로 다시 돌리면 그 형태를 다시 양자화한다.
 export.json에는 evaluate의 manifest가 기록하는 어댑터 해시가 들어간다.
 """
 
@@ -24,6 +26,7 @@ export.json에는 evaluate의 manifest가 기록하는 어댑터 해시가 들�
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -142,18 +145,40 @@ def modelfile(gguf: Path, num_ctx: int) -> str:
 # 코드 페이지로 찍은 한글 경로는 깨져 보일 수 있으나 보이는 글만 바뀐다).
 # 종료 코드가 0이 아니면 예전의 subprocess.run(check=True)처럼 CalledProcessError를 낸다(도구가 없으면
 # FileNotFoundError).
+# 출력은 임시 파일에 쓴다: 도구에는 dst 대신 같은 폴더의 `<dst 이름>.part`를 출력 경로로 주고, 종료 코드 0으로
+# 끝났을 때만 os.replace로 dst 이름으로 옮긴다. llama-quantize는 받은 출력 경로에 바로 쓰기 시작한다(llama.cpp
+# 81bc6b8 소스: tools/quantize/quantize.cpp는 셋째 인수가 양자화 형태가 아니면 그 글을 그대로 출력 경로로
+# 쓰고, src/llama-quant.cpp는 그 파일을 열어 메타데이터 자리를 0으로 채운 뒤 텐서를 쓰고 맨 끝에 앞으로 돌아가
+# 메타데이터를 쓴다). 그래서 중간에 실패하거나 끊기면 반쯤 쓴 파일이 그 이름에 남는다. main은 양자화 파일이
+# 있으면 이미 만든 것으로 보고 양자화를 건너뛰므로, 최종 이름에 남은 반쪽 파일은 다음 실행에서 그대로 ollama
+# create로 넘어간다. 실패했을 때 dst만 지우는 방식보다 낫다: 이 프로세스가 강제 종료되거나 전원이 나가 지우지
+# 못해도 반쪽 파일은 임시 이름에만 남는다.
+# 시작할 때 지난 실행이 남긴 임시 파일을 지운다: 도구가 출력을 쓰지 않고 0으로 끝나도 옛 반쪽 파일이 최종
+# 이름으로 옮겨지지 않는다(그때는 os.replace가 FileNotFoundError를 낸다). 실패하거나 중단되면 임시 파일을
+# 지우고 원래 예외를 그대로 낸다. 지우기가 실패하면(예: Windows에서 Ctrl+C 직후 아직 끝나지 않은 도구가 파일을
+# 잡고 있음) 원래 예외를 가리지 않도록 그 OSError는 넘긴다. 남은 임시 파일은 최종 이름이 아니라 쓰이지 않고,
+# 같은 형태를 다시 양자화할 때 지워진다. CalledProcessError의 명령에는 실제로 실행한 임시 경로가 들어간다.
 def run_quantize(exe: str, src: Path, dst: Path, qtype: str) -> str | None:
-    """llama-quantize를 돌리고, 도구가 stderr에 찍은 판 줄("version: ...")의 내용을 돌려준다."""
-    cmd = [exe, str(src), str(dst), qtype]
+    """llama-quantize를 돌리고, 도구가 stderr에 찍은 판 줄("version: ...")의 내용을 돌려준다. 출력은
+    `<dst>.part`에 쓰고 도구가 성공했을 때만 dst로 옮긴다."""
+    tmp = dst.with_name(dst.name + ".part")
+    tmp.unlink(missing_ok=True)
+    cmd = [exe, str(src), str(tmp), qtype]
     version = None
-    with subprocess.Popen(cmd, stderr=subprocess.PIPE, encoding="utf-8", errors="replace") as proc:
-        for line in proc.stderr:
-            sys.stderr.write(line)
-            if version is None and line.startswith(BUILD_LINE_PREFIX):
-                version = line[len(BUILD_LINE_PREFIX) :].strip()
-        code = proc.wait()
-    if code:
-        raise subprocess.CalledProcessError(code, cmd)
+    try:
+        with subprocess.Popen(cmd, stderr=subprocess.PIPE, encoding="utf-8", errors="replace") as proc:
+            for line in proc.stderr:
+                sys.stderr.write(line)
+                if version is None and line.startswith(BUILD_LINE_PREFIX):
+                    version = line[len(BUILD_LINE_PREFIX) :].strip()
+            code = proc.wait()
+        if code:
+            raise subprocess.CalledProcessError(code, cmd)
+        os.replace(tmp, dst)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
+        raise
     return version
 
 
@@ -275,7 +300,8 @@ def main(argv: list[str] | None = None) -> int:
             env=env,
         )
     stamp.write_text(json.dumps(source, indent=2), encoding="utf-8")  # 합치기와 변환이 끝난 뒤에만 쓴다
-    # 양자화마다: GGUF가 없으면 llama-quantize로 f16에서 만들고, Modelfile을 써서 ollama create로 등록한다.
+    # 양자화마다: GGUF가 없으면 llama-quantize로 f16에서 만들고(run_quantize는 도구가 성공했을 때만 그 이름에
+    # 파일을 둔다), Modelfile을 써서 ollama create로 등록한다.
     # 모델 이름과 파일 크기를 기록한다(README 5단계 표의 파일 크기 4.3 GB, 2.5 GB 등). 이번 실행에서 양자화한
     # 형태와 도구가 찍은 판 줄(처음 받은 것)은 llama_quantize 기록에 쓴다.
     created = {}
