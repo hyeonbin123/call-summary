@@ -1,7 +1,9 @@
 # [테스트 묶음] 5단계 내보내기 call_summary.export(어댑터 합치기 → GGUF f16 변환 → llama-quantize → ollama
 # create)의 판단 로직을 모델·도구 없이 검증한다: 같은 어댑터면 합친 가중치를 다시 쓰고, 다른 어댑터의 가중치는
 # 거절하며, 중간에 멈춘 빌드를 예전 것으로 착각하지 않고, 양자화는 llama-quantize로 하며, 양자화가 실패하면
-# 반쯤 쓴 GGUF를 다음 실행이 다시 쓸 이름에 남기지 않고, QLoRA 어댑터는 4bit 바탕을 풀어 합친다.
+# 반쯤 쓴 GGUF를 다음 실행이 다시 쓸 이름에 남기지 않고(중단돼도 마찬가지, f16을 다시 만들 때는 남은 임시
+# 파일도 지움), 바탕을 그대로 내보낼 때는 캐시 스냅샷에 변환기 입력만 있으면 되며, QLoRA 어댑터는 4bit 바탕을
+# 풀어 합친다.
 # [왜 중요한가] 합친 가중치와 f16 GGUF를 다시 쓰는 것은 시간을 아끼지만, 다른 어댑터의 가중치를 재사용하면
 # 엉뚱한 모델을 서빙·측정하게 된다(커밋 ed76ea6: source.json 도장이 맞을 때만 재사용). QLoRA 어댑터를 fp16
 # 바탕에 합치면 약 7%p 떨어진 것도 실제로 겪었다(docs/experiments.md 5단계 발견 2).
@@ -10,6 +12,7 @@ import hashlib
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -205,7 +208,8 @@ def test_export_pins_the_base_revision_and_records_it(tmp_path, fake_tools):
 
 
 # 어댑터 없이 바탕을 그대로 내보낼 때는 HF 캐시의 스냅샷 폴더를 변환한다. snapshot_download에도 같은 고정
-# revision이 가고 local_files_only라 내려받지 않는다.
+# revision이 가고 local_files_only라 내려받지 않으며, 스냅샷에 있어야 하는 파일은 변환기 입력의 꼴
+# (BASE_SNAPSHOT_PATTERNS)로 좁힌다(바로 아래 테스트가 진짜 snapshot_download와 캐시 꼴로 확인한다).
 def test_export_of_the_bare_base_asks_the_cache_for_the_pinned_snapshot(tmp_path, fake_tools, monkeypatch):
     hub = pytest.importorskip("huggingface_hub")
     seen: dict = {}
@@ -221,9 +225,47 @@ def test_export_of_the_bare_base_asks_the_cache_for_the_pinned_snapshot(tmp_path
         "repo_id": "Qwen/Qwen3-4B",
         "revision": BASE_REVISIONS["Qwen/Qwen3-4B"],
         "local_files_only": True,
+        "allow_patterns": export.BASE_SNAPSHOT_PATTERNS,
     }
     info = json.loads((out / "export.json").read_text(encoding="utf-8"))
     assert info["adapter"] is None and info["revision"] == BASE_REVISIONS["Qwen/Qwen3-4B"]
+
+
+# 진짜 snapshot_download로 바탕 내보내기를 돌려 본다(huggingface_hub가 설치된 환경에서만 돈다. CI의 test
+# 작업은 train 그룹을 설치하지 않아 건너뛴다). HF 캐시의 꼴을 tmp에 흉내 낸다: 파일 목록
+# 캐시(trees/<커밋>.json)에는 저장소의 모든 파일 13개가 적혀 있고, 스냅샷 폴더에는 설정·가중치 샤드·토크나이저
+# 파일 10개만 있어 .gitattributes·LICENSE·README.md가 없다(이름은 Qwen3-4B 고정 커밋의 실제 목록과 같다).
+# huggingface_hub는 local_files_only일 때 목록 캐시가 있으면 거기 적힌 파일(allow_patterns로 거른 것)이
+# 스냅샷에 모두 있어야 그 폴더를 돌려주고, 하나라도 없으면 IncompleteSnapshotError를 낸다. 변환기 입력의 꼴만
+# 요구하므로 고정 커밋의 스냅샷 폴더가 그대로 변환기로 가는지, 가중치 샤드가 하나 빠지면 여전히
+# 멈추는지(완결성 검사는 남음) 본다. 목록 캐시의 꼴(format_version 1의 JSON)은 huggingface_hub 내부
+# 형식이다(uv.lock의 1.33.0에서 확인). 판을 올리면 이 테스트로 다시 확인한다.
+def test_the_bare_base_export_takes_a_cached_snapshot_without_its_docs(tmp_path, fake_tools, monkeypatch):
+    constants = pytest.importorskip("huggingface_hub.constants")
+    errors = pytest.importorskip("huggingface_hub.errors")
+    commit = BASE_REVISIONS["Qwen/Qwen3-4B"]
+    repo = tmp_path / "hub" / "models--Qwen--Qwen3-4B"
+    shards = [f"model-0000{i}-of-00003.safetensors" for i in (1, 2, 3)]
+    fetched = ["config.json", "generation_config.json", "merges.txt", *shards, "model.safetensors.index.json"]
+    fetched += ["tokenizer.json", "tokenizer_config.json", "vocab.json"]
+    listed = [".gitattributes", "LICENSE", "README.md", *fetched]
+    (repo / "trees").mkdir(parents=True)
+    files = {path: {"size": 0, "blob_id": "0" * 40} for path in listed}
+    tree = json.dumps({"format_version": 1, "files": files})
+    (repo / "trees" / f"{commit}.json").write_text(tree, encoding="utf-8")
+    snapshot = repo / "snapshots" / commit
+    snapshot.mkdir(parents=True)
+    for name in fetched:
+        (snapshot / name).write_bytes(b"")
+    monkeypatch.setattr(constants, "HF_HUB_CACHE", str(tmp_path / "hub"))
+
+    assert export.main(["--base", "Qwen/Qwen3-4B", "--name", "cs", "--out", str(tmp_path / "e1")]) == 0
+    convert = [c for c in fake_tools.calls if c[1].endswith("convert_hf_to_gguf.py")]
+    assert len(convert) == 1 and Path(convert[0][2]) == snapshot.resolve()
+    # 변환기 입력이 빠진 스냅샷은 예전처럼 멈춘다
+    (snapshot / shards[1]).unlink()
+    with pytest.raises(errors.IncompleteSnapshotError):
+        export.main(["--base", "Qwen/Qwen3-4B", "--name", "cs", "--out", str(tmp_path / "e2")])
 
 
 # 서빙 모델을 만든 2026-09-30 내보내기 로그에서 llama-quantize가 양자화마다 stderr에 찍은 판 줄과 같은 꼴.
@@ -315,6 +357,26 @@ def test_a_quantizer_failing_after_it_wrote_leaves_no_gguf_for_the_next_run(tmp_
     assert record["quantized"] == ["q8_0", "q4_K_M"]
 
 
+# f16을 새로 만들 때는 그 f16에 딸린 예전 양자화 파일과 함께, 지난 실행이 남긴 양자화 임시 파일(.part)도
+# 지운다. 임시 파일은 보통 같은 형태를 다시 양자화할 때 지워지지만, 그 형태를 --quant에서 빼고 f16을 다시
+# 만들면 수 GB가 그대로 남을 수 있었다. 여기서는 강제 종료된 실행이 q4_K_M의 임시 파일을 남긴 뒤, 거절
+# 메시지대로 merged/와 f16을 지우고 q8_0만 다시 만든다.
+def test_rebuilding_the_f16_also_removes_leftover_part_files(tmp_path, fake_tools):
+    a = _adapter(tmp_path, "a", b"A")
+    out = tmp_path / "export"
+    assert _export(a, out) == 0
+    (out / "model-q4_k_m.gguf.part").write_bytes(b"left by a killed run")
+    for f in (out / "merged").iterdir():
+        f.unlink()
+    (out / "merged").rmdir()
+    (out / "model-f16.gguf").unlink()
+    argv = ["--base", "Qwen/Qwen3-4B", "--adapter", a, "--name", "cs", "--out", str(out), "--quant", "q8_0"]
+    assert export.main(argv) == 0
+    assert not (out / "model-q4_k_m.gguf.part").exists()
+    assert not (out / "model-q4_k_m.gguf").exists()
+    assert (out / "model-q8_0.gguf").exists()
+
+
 # 기록 함수만 따로: --llama-quantize에 경로가 아니라 PATH에 있는 이름을 주면 subprocess처럼 PATH에서 찾아 그
 # 파일의 sha256을 남기고, 어디에도 없으면 sha256은 null이다(예: 도구가 없는 CI에서 양자화 파일을 다시 쓸 때).
 def test_the_quantizer_record_finds_a_name_on_path_and_is_null_when_missing(tmp_path, monkeypatch):
@@ -386,3 +448,35 @@ def test_a_failed_cleanup_does_not_hide_the_quantizer_error(tmp_path):
     with pytest.raises(subprocess.CalledProcessError):
         export.run_quantize(sys.executable, script, dst, "Q8_0")
     assert not dst.exists()
+
+
+# 양자화가 Ctrl+C 등으로 중단되면(KeyboardInterrupt는 Exception의 하위 클래스가 아니다) 그 중단이 그대로
+# 올라오고, 도구가 쓰던 임시 파일(.part)도 최종 이름의 파일도 남지 않는다. 가짜 Popen이 임시 이름에 출력
+# 파일을 만든 뒤, stderr를 읽는 도중에 KeyboardInterrupt가 난다(실제로 Ctrl+C가 이 프로세스에 닿는 자리).
+def test_an_interrupted_quantization_leaves_no_part_file(tmp_path, monkeypatch):
+    dst = tmp_path / "model-q8_0.gguf"
+
+    def interrupted_stderr():
+        yield "main: quantizing ...\n"
+        raise KeyboardInterrupt
+
+    class InterruptedPopen:
+        def __init__(self, cmd, **kw):
+            assert cmd[2] == str(tmp_path / "model-q8_0.gguf.part")
+            open(cmd[2], "wb").close()  # 도구가 출력을 쓰기 시작했다
+            self.stderr = interrupted_stderr()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def wait(self):
+            raise AssertionError("an interrupted run never reaches wait()")
+
+    monkeypatch.setattr(export.subprocess, "Popen", InterruptedPopen)
+    with pytest.raises(KeyboardInterrupt):
+        export.run_quantize("llama-quantize.exe", tmp_path / "model-f16.gguf", dst, "Q8_0")
+    assert not dst.exists()
+    assert not (tmp_path / "model-q8_0.gguf.part").exists()

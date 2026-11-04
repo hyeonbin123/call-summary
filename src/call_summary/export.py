@@ -52,6 +52,28 @@ LLAMA_QUANTIZE = Path("work/llama-bin/llama-quantize.exe")
 # 양자화마다 찍혔다). build 번호와 commit이 그 실행 파일이 나온 llama.cpp 릴리스를 가리킨다.
 BUILD_LINE_PREFIX = "version:"
 
+# 어댑터 없이 바탕을 그대로 내보낼 때 HF 캐시의 스냅샷에 모두 있어야 하는 파일의 꼴(snapshot_download의
+# allow_patterns): 변환기(convert_hf_to_gguf.py)가 읽는 설정·토크나이저 파일(*.json, merges.txt,
+# SentencePiece의 tokenizer.model, 채팅 템플릿 *.jinja)과 가중치(*.safetensors). llama.cpp 변환기가 --remote로
+# 바탕을 받을 때 고르는 꼴(81bc6b8 convert_hf_to_gguf.py: LICENSE·*.json·*.md·*.txt·tokenizer.model)에서
+# LICENSE와 *.md를 빼고 가중치와 채팅 템플릿을 더했다. LICENSE는 변환기가 읽지 않고, README.md는 모델 카드
+# 메타데이터(gguf-py metadata.py의 load_model_card)와 Qwen3 리랭커 판별(conversion/qwen.py)에만 읽으며 없으면
+# 건너뛴다(서빙 모델도 README.md가 없는 합친 폴더에서 변환했다).
+# 왜 거르나: huggingface_hub(uv.lock의 1.33.0)는 local_files_only로 부를 때 그 커밋의 파일 목록
+# 캐시(models--<조직>--<이름>/trees/<커밋>.json)가 있으면, 목록의 파일 가운데 꼴에 맞는 것이 스냅샷에 모두
+# 있어야 스냅샷 폴더를 돌려주고 하나라도 없으면 IncompleteSnapshotError를 낸다(_snapshot_download.py의
+# _raise_if_incomplete_snapshot). 목록은 온라인으로 받을 때 받을 파일을 골랐어도 저장소 전체로 적히므로,
+# 설정·가중치·토크나이저만 받아 둔 캐시에서는 꼴 없이 부르면 변환에 쓰지 않는 .gitattributes·LICENSE·README.md
+# 때문에 멈춘다(2026-11 개발 환경의 캐시에서 고정한 두 바탕 모두 그랬다). 꼴로 걸러도 변환기 입력의 완결성
+# 검사는 남는다: 가중치 샤드나 tokenizer.json이 빠지면 여전히 멈춘다. 빠진 문서 파일을 받아 캐시를 채우는
+# 것보다 낫다(내려받기 없이 돌고 저장소 밖의 캐시를 바꾸지 않는다). 문서 파일을 빼는 꼴(ignore_patterns)보다
+# 받아들일 꼴을 적는 쪽이, 저장소마다 다른 부가 파일(그림 등)과 상관없이 변환기 입력만 요구한다.
+# 주의: 꼴의 *는 폴더 경계도 넘으므로(huggingface_hub의 filter_repo_objects) 하위 폴더의 같은 꼴 파일(추가
+# 채팅 템플릿 등)도 요구한다. 목록 캐시가 없으면 아무것도 검사하지 않는다(꼴 없이 부를 때와 같다).
+# local_files_only에서는 스냅샷 폴더 경로를 그대로 돌려주므로, 이 꼴은 받을 파일이 아니라 있어야 할 파일만
+# 정한다(변환기는 그 폴더를 그대로 읽는다).
+BASE_SNAPSHOT_PATTERNS = ["*.json", "*.safetensors", "*.txt", "*.model", "*.jinja"]
+
 
 # 어댑터 옆의 train_config.json(train.py가 남김)에서 qlora 값을 읽어 4bit 바탕으로 학습한 어댑터인지 판단한다.
 # 이 값으로 합치는 방식을 자동으로 고르므로 사람이 옵션을 잊어도 잘못 합치지 않는다.
@@ -157,7 +179,8 @@ def modelfile(gguf: Path, num_ctx: int) -> str:
 # 이름으로 옮겨지지 않는다(그때는 os.replace가 FileNotFoundError를 낸다). 실패하거나 중단되면 임시 파일을
 # 지우고 원래 예외를 그대로 낸다. 지우기가 실패하면(예: Windows에서 Ctrl+C 직후 아직 끝나지 않은 도구가 파일을
 # 잡고 있음) 원래 예외를 가리지 않도록 그 OSError는 넘긴다. 남은 임시 파일은 최종 이름이 아니라 쓰이지 않고,
-# 같은 형태를 다시 양자화할 때 지워진다. CalledProcessError의 명령에는 실제로 실행한 임시 경로가 들어간다.
+# 같은 형태를 다시 양자화하거나 f16을 새로 만들 때(main) 지워진다. CalledProcessError의 명령에는 실제로 실행한
+# 임시 경로가 들어간다.
 def run_quantize(exe: str, src: Path, dst: Path, qtype: str) -> str | None:
     """llama-quantize를 돌리고, 도구가 stderr에 찍은 판 줄("version: ...")의 내용을 돌려준다. 출력은
     `<dst>.part`에 쓰고 도구가 성공했을 때만 dst로 옮긴다."""
@@ -267,7 +290,9 @@ def main(argv: list[str] | None = None) -> int:
         # 예전 출처의 가중치로 잘못 보지 않게 한다.
         stamp.unlink(missing_ok=True)
         # 양자화 파일은 자기를 만든 f16에 딸린 것이므로, f16을 새로 만들 때는 예전 양자화 파일도 지운다.
-        for old in out.glob("model-*.gguf"):  # 양자화 파일은 자기를 만든 F16에 딸린다
+        # 지난 실행이 남긴 양자화 임시 파일(<이름>.part, run_quantize)도 함께 지운다: 보통은 같은 형태를 다시
+        # 양자화할 때 지워지지만, 그 형태를 --quant에서 빼면 수 GB짜리 파일이 그대로 남는다.
+        for old in [*out.glob("model-*.gguf"), *out.glob("model-*.gguf.part")]:
             if old != f16:
                 old.unlink()
     if args.adapter:
@@ -277,10 +302,14 @@ def main(argv: list[str] | None = None) -> int:
         src = str(merged)
     else:
         # 어댑터가 없으면 바탕 모델 자체를 내보낸다(HF 캐시의 같은 revision 스냅샷 폴더를 그대로 변환한다.
-        # local_files_only라 내려받지 않는다).
+        # local_files_only라 내려받지 않는다). 스냅샷에 있어야 하는 파일은 변환기 입력의 꼴로 좁혀, 캐시의
+        # 파일 목록에만 있고 받지 않은 문서 파일(README.md 등) 때문에 멈추지 않게 한다(BASE_SNAPSHOT_PATTERNS
+        # 주석).
         from huggingface_hub import snapshot_download
 
-        src = snapshot_download(args.base, revision=revision, local_files_only=True)
+        src = snapshot_download(
+            args.base, revision=revision, local_files_only=True, allow_patterns=BASE_SNAPSHOT_PATTERNS
+        )
 
     # llama.cpp의 convert_hf_to_gguf.py로 f16 GGUF를 만든다. 스크립트가 같은 저장소의 gguf-py 패키지를 쓰므로
     # PYTHONPATH에 넣고, 이 프로젝트의 파이썬(sys.executable)으로 돌린다.
